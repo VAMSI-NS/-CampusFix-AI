@@ -578,12 +578,21 @@ export default function App() {
           </div>
 
           {/* Backend Status Pill */}
-          <div className={`status-pill ${status}`}>
-            <span className={`status-dot ${status}`} />
+          <div
+            className={`status-pill ${status === 'connected' ? 'connected' : window.location.hostname.endsWith('github.io') ? 'connected' : 'disconnected'}`}
+            title={
+              status === 'connected'
+                ? 'Connected to live FastAPI backend'
+                : window.location.hostname.endsWith('github.io')
+                ? 'Interactive Cloud Demo Mode (Client AI & Incident Simulation Active)'
+                : 'Backend server offline. Run "python run.py" in the backend directory to start.'
+            }
+          >
+            <span className={`status-dot ${status === 'connected' ? 'connected' : window.location.hostname.endsWith('github.io') ? 'connected' : 'disconnected'}`} />
             <span>
               {status === 'connected' && 'Online'}
               {status === 'connecting' && 'Connecting...'}
-              {status === 'disconnected' && 'Offline'}
+              {status === 'disconnected' && (window.location.hostname.endsWith('github.io') ? 'Cloud Demo' : 'Offline')}
             </span>
           </div>
         </div>
