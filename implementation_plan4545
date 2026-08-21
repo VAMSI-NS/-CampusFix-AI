@@ -1,0 +1,175 @@
+# CampusFix IT Platform — Evolution & Implementation Plan
+
+## Executive Summary
+
+This plan outlines the end-to-end evolution of the existing **CampusFix AI** project into the comprehensive **CampusFix IT Platform (University Helpdesk & Incident Resolver)**.
+
+The evolution maintains **100% backward compatibility** with the current FastAPI backend, OpenRouter integration, NVIDIA Nemotron 3 Ultra AI reasoning engine, `/api/chat` workflow, and ticket state persistence while expanding into an enterprise-grade university IT service management system.
+
+---
+
+## Architectural Principles & Integrity Guarantees
+
+1. **Preserve Existing Core**:
+   - Backend `/api/chat`, `/api/health`, `/api/tickets`, and `/api/status` endpoints remain active and fully functional.
+   - `OPENROUTER_API_KEY` remains strictly protected on the backend server (`backend/.env`). No secrets or keys will ever be exposed to the client.
+   - NVIDIA Nemotron 3 Ultra stays configured as the primary AI diagnostic reasoning engine.
+2. **Dynamic Reactive State**:
+   - Creating, resolving, or escalating tickets immediately updates the global state, Kanban board, Incident History, Admin Overview metrics, and Host Reports.
+   - Demo/sample data is clearly labeled and seamlessly merges with live user-generated tickets.
+3. **Enterprise UI/UX Design System**:
+   - Dark mode & Light mode theme switching powered by CSS variables and local storage persistence.
+   - Polished 18–24px rounded cards, glassmorphism overlays, subtle glow effects, smooth transitions, micro-animations, and responsive layouts across desktop, laptop, tablet, and mobile.
+
+---
+
+## User Review Required
+
+> [!IMPORTANT]
+> - All existing backend routes (`/api/chat`, `/api/health`, `/api/tickets`, `/api/status`) will remain intact with zero breaking changes.
+> - The Host role will be strictly **read-only**, isolated exclusively to Reports with all administrative and mutation actions disabled.
+> - The AI diagnostic specialist will remain fully powered by **NVIDIA Nemotron 3 Ultra** via OpenRouter.
+
+---
+
+## Proposed Changes & Component Architecture
+
+```mermaid
+graph TD
+    A[CampusFix IT Platform] --> B[Student / User Portal]
+    A --> C[Admin IT Operations]
+    A --> D[Host / Executive Portal]
+
+    B --> B1[Landing Page & Triage Hero]
+    B --> B2[Incident Resolver Workbench]
+    B --> B3[Student Incident History]
+    B --> B4[Tickets Kanban Board]
+    B --> B5[Campus Service Status]
+    B --> B6[Knowledge Base & AI Assist]
+    B --> B7[Diagnostics & Health]
+
+    C --> C1[Admin Overview & KPIs]
+    C --> C2[Ticket Management]
+    C --> C3[AI Analytics & Nemotron Metrics]
+    C --> C4[Knowledge Base Management]
+    C --> C5[Network & Infrastructure Probes]
+    C --> C6[Technician & User Roster]
+    C --> C7[Database & Storage Health]
+    C --> C8[Helpdesk Settings & Policies]
+
+    D --> D1[Host Reports Dashboard - READ ONLY]
+    D --> D2[Resolution & Volume Analytics]
+    D --> D3[Department & Category Breakdown]
+    D --> D4[Report Export CSV / JSON]
+```
+
+---
+
+### Backend Services & Models (`backend/app/`)
+
+#### 1. Models & Endpoints Expansion
+- **[MODIFY] [ticket.py](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/backend/app/models/ticket.py)**: Ensure ticket fields include `assigned_technician`, `ai_confidence`, `resolution_time_mins`, `device`, `location`, `priority`, and standardized status transitions (`OPEN`, `IN PROGRESS`, `RESOLVED`, `ESCALATED`).
+- **[NEW] [kb_service.py](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/backend/app/services/kb_service.py)**: Knowledge base service with CRUD operations and rich pre-seeded university IT articles across 9 categories (Wi-Fi, Password, Canvas/LMS, Printing, Software, VPN, Email, MFA/Duo, ResNet).
+- **[NEW] [analytics_service.py](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/backend/app/services/analytics_service.py)**: Real-time calculation service linking live ticket counts, average resolution times, category distribution, technician workloads, and SLA metrics.
+- **[NEW] [users_service.py](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/backend/app/services/users_service.py)**: User and technician roster service managing staff roles, specialties, active ticket loads, and availability.
+- **[NEW] [diagnostics_service.py](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/backend/app/services/diagnostics_service.py)**: Diagnostic telemetry service performing real-time health checks for RADIUS, DNS, SSO, OpenRouter AI, and database storage.
+- **[MODIFY] [main.py](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/backend/app/main.py)**: Mount new REST endpoints:
+  - `GET /api/kb`, `POST /api/kb`, `PUT /api/kb/{id}`, `DELETE /api/kb/{id}`
+  - `GET /api/analytics/overview`, `GET /api/analytics/graphs`
+  - `GET /api/reports` (filtered by date range, department, category)
+  - `GET /api/users`, `PATCH /api/users/{id}`
+  - `GET /api/diagnostics/probes`, `GET /api/admin/database`
+
+---
+
+### Frontend Components & Views (`frontend/src/`)
+
+#### 1. Design System & Theme Engine
+- **[MODIFY] [index.css](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/index.css)**: Implement comprehensive CSS variable tokens for Dark Mode (`[data-theme='dark']`) and Light Mode, glass effects, animations, badge styling, and typography.
+- **[MODIFY] [App.css](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/App.css)**: Add modular styles for Landing page, Kanban board, Knowledge Base, Admin Dashboard, Host Reports, and responsive grids.
+
+#### 2. Landing Page & Hero Triage
+- **[NEW] [LandingPage.tsx](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/components/LandingPage.tsx)**:
+  - Hero headline: *"Your Campus IT Support, Resolved Faster."*
+  - Interactive issue search input ("Describe your IT issue...") with quick start diagnosis button that jumps into the Incident Resolver with the issue pre-populated.
+  - Quick "Track Ticket" lookup modal (find incident by `INC-2026-XXXX`).
+  - Feature cards: AI Incident Diagnosis, Smart Ticket Resolution, Campus Service Monitoring, Knowledge Base, Technician Escalation, Real-time Reports.
+  - Demo metrics banner (95% Issues Resolved, Avg Response 2 min, 5000+ Students Supported).
+
+#### 3. Incident Resolver Workbench
+- **[MODIFY] [IncidentWorkspace.tsx](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/components/IncidentWorkspace.tsx)**:
+  - Support pre-populated queries from Landing Page.
+  - Enhanced dual-pane workbench: Left pane AI diagnostic specialist, right pane live incident dossier.
+  - Visual stage indicator: `Diagnosing → Troubleshooting → Verification → Resolved / Escalated`.
+  - Integration with Voice Input UI (browser speech recognition / mic simulation) and Screenshot/Image attachment upload UI.
+- **[MODIFY] [ChatInterface.tsx](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/components/ChatInterface.tsx)**:
+  - Realistic IT technician response styling.
+  - Dynamic contextual quick replies, copy button, conversation reset, audio transcription UI, screenshot preview.
+
+#### 4. Interactive Kanban Ticketing System
+- **[NEW] [TicketBoard.tsx](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/components/TicketBoard.tsx)**:
+  - 4 Kanban columns: `OPEN`, `IN PROGRESS`, `RESOLVED`, `ESCALATED`.
+  - Native Drag-and-Drop between status columns with optimistic UI updates and backend sync (`PATCH /api/tickets/{id}`).
+  - Filters for Priority (Critical, High, Medium, Low), Category (Wi-Fi, Canvas, Duo, etc.), and Technician.
+  - Ticket detail modal showing audit logs, conversation history, notes, and quick status actions.
+
+#### 5. Knowledge Base
+- **[NEW] [KnowledgeBase.tsx](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/components/KnowledgeBase.tsx)**:
+  - Categories: Wi-Fi, Password, Canvas / LMS, Printing, Software, VPN, Email, MFA / Duo, ResNet.
+  - Search bar with instant client/server filtering.
+  - Article detail reader with markdown rendering, helpful vote counter, and copyable commands.
+  - "AI Suggested Articles" drawer inside the Incident Resolver and KB view.
+  - Admin CRUD modal for adding, editing, and archiving articles.
+
+#### 6. Campus Service Status
+- **[MODIFY] [CampusStatusPanel.tsx](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/components/CampusStatusPanel.tsx)**:
+  - Live monitored services: Eduroam, Campus Wi-Fi, Canvas, SSO, Printing, Email, VPN, ResNet.
+  - Real-time status indicators (`Operational`, `Degraded`, `Partial Outage`, `Major Outage`).
+  - Active incidents list, 90-day uptime bars, and IT maintenance advisories.
+
+#### 7. Admin Operations Dashboard
+- **[NEW] [AdminDashboard.tsx](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/components/AdminDashboard.tsx)**:
+  - Admin sidebar / tabs:
+    - **Overview**: Live ticket queue, resolution rate, average resolution time, AI confidence, technician workload.
+    - **Tickets**: Admin ticket management with assignment controls.
+    - **AI Analytics**: Token metrics, AI vs Human resolution charts, escalation trends.
+    - **Knowledge Base**: KB article manager.
+    - **Network Status**: RADIUS server, Access Point cluster, and DNS telemetry.
+    - **Users**: Staff and student roster with active ticket counts.
+    - **Database**: Storage metrics, record counts, and database health.
+    - **Settings**: SLA thresholds, notification rules, helpdesk hours.
+  - Custom responsive SVG / interactive charts: Priority Donut Chart, Resolution Rate Line Chart, Department Bar Chart, Volume Trends.
+
+#### 8. Host / Management Reports (Strictly READ-ONLY)
+- **[NEW] [HostReports.tsx](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/components/HostReports.tsx)**:
+  - Strict read-only enforcement (Host cannot edit tickets, change users, modify KB, or alter settings).
+  - Executive KPIs: Total incidents, resolution rate, average resolution time, AI resolution %, campus availability.
+  - Filters: Date range (Last 7 Days, Last 30 Days, This Semester, YTD), Department, and Category.
+  - Charts: Monthly ticket volume, resolution efficiency, department incident breakdown.
+  - Export functionality: One-click export to CSV / JSON summary.
+
+#### 9. Main Application Shell & Role Switching
+- **[MODIFY] [App.tsx](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/App.tsx)**:
+  - Role switcher in top header (`Student / User`, `Admin / Technician`, `Host / Management`).
+  - Dark Mode / Light Mode toggle.
+  - Top navigation bar: Landing, Incident Resolver, Student Incident History, Tickets (Kanban), Campus Service Status, Knowledge Base, Diagnostics & Health.
+  - Host role automatically restricts navigation strictly to "Reports ONLY".
+
+---
+
+## Verification Plan
+
+### Automated Build & Syntax Checks
+1. **Frontend Compilation**: Run `npm run build` in `frontend/` to verify TypeScript types and bundle generation with 0 errors.
+2. **Backend Syntax & Health**: Run `.\venv\Scripts\python.exe` import tests on all new backend services and routes.
+3. **Endpoint Validation**: Test all new endpoints with automated requests (`/api/kb`, `/api/analytics/overview`, `/api/reports`, `/api/users`, `/api/diagnostics/probes`).
+
+### Interactive Verification
+1. **Landing Page**: Verify hero search leads directly into Incident Resolver with problem statement.
+2. **Incident Resolver**: Test AI diagnosis flow with Nemotron 3 Ultra, quick reply chips, screenshot upload UI, voice input UI, and log action button.
+3. **Tickets Kanban**: Test dragging a ticket from OPEN → IN PROGRESS → RESOLVED and verify that the backend updates ticket status.
+4. **Knowledge Base**: Test category filtering, article search, AI suggested articles, and Admin article creation.
+5. **Campus Service Status**: Verify live statuses and maintenance bulletins.
+6. **Admin Dashboard**: Verify that all 8 sub-sections render correctly and charts animate cleanly.
+7. **Host Reports**: Switch to Host role, verify that administrative controls are inaccessible and reports/exports work seamlessly.
+8. **Dark Mode & Responsiveness**: Test theme toggling and verify responsive layouts on desktop, tablet, and mobile screen sizes.

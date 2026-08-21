@@ -1,0 +1,83 @@
+# UI/UX Refinement & Modernization Plan — CampusFix IT Platform
+
+## Executive Summary
+
+This plan outlines a comprehensive **UI/UX refinement pass** to elevate CampusFix into a modern, enterprise-grade IT incident resolution platform.
+
+The refinement preserves **100% of all existing backend capabilities, OpenRouter / NVIDIA Nemotron 3 Ultra integration, `/api/chat`, and data models** while focusing strictly on:
+1. Simplifying IT examples to 1–2 clear universal scenarios (Wi-Fi drop & SSO/2FA login).
+2. Redesigning the AI Chatbot into a modern, conversational IT workbench.
+3. Fixing all icon/text alignment, padding, and button sizing issues.
+4. Restructuring the Technician and Host dashboards for intuitive information hierarchy.
+5. Providing a robust, zero-flash Light/Dark theme token system.
+
+---
+
+## User Review Required
+
+> [!IMPORTANT]
+> - All existing backend routes (`/api/chat`, `/api/health`, `/api/tickets`, `/api/status`, `/api/kb`, `/api/reports`) and data models will remain untouched.
+> - Examples on the landing page, chat welcome message, and prompts will be streamlined to 1–2 realistic, universally understood IT issues (e.g., Campus Wi-Fi & SSO login recovery).
+> - The Host role remains strictly **read-only**, focused exclusively on executive SLA and incident analytics.
+
+---
+
+## Proposed Changes & Component Refinements
+
+### 1. Design Token & Theme System (`frontend/src/index.css` & `frontend/src/App.css`)
+- **[MODIFY] [index.css](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/index.css)**:
+  - Refine CSS custom properties for Light Mode (`--bg-primary: #F8FAFC`, `--bg-card: #FFFFFF`, `--border-subtle: #E2E8F0`, `--text-primary: #0F172A`) and Dark Mode (`--bg-primary: #0B0F19`, `--bg-card: #111827`, `--border-subtle: #1E293B`, `--text-primary: #F8FAFC`).
+  - Eliminate all hardcoded `#F8FAFC`, `#0F294A`, `#FFFFFF`, or `#0F172A` values from component rules in `App.css` so that every card, dropdown, input, and modal inherits theme tokens seamlessly without visual flickering or unreadable text.
+- **[MODIFY] [App.css](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/App.css)**:
+  - Implement unified flexbox alignment rules for all buttons, inputs, icons, and badges (`display: inline-flex; align-items: center; gap: 0.5rem`).
+  - Add fast, subtle micro-animations (card hover lift, smooth message entrance, typing pulse, button active states).
+
+### 2. Premium Chat Interface Redesign (`frontend/src/components/ChatInterface.tsx`)
+- **[MODIFY] [ChatInterface.tsx](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/components/ChatInterface.tsx)**:
+  - **Simplified Examples**: Streamline initial quick prompts to 2 clear universal examples:
+    1. *Campus Wi-Fi / Eduroam Connection Drops*
+    2. *SSO / Duo 2FA Multi-Factor Authentication Lockout*
+  - **Modern Chat Bubble Layout**:
+    - User bubbles: Clean elevated primary soft-pill style aligned right.
+    - Assistant bubbles: Structured technician card style with clean Markdown typography, copy action, and action logging.
+  - **Integrated Media Input Bar**:
+    - Input bar housing Voice Input button (with recording state), Attachment button (with preview tag), auto-expanding textarea, and circular Send button.
+  - **Diagnostic Stepper**: Clean visual header strip indicating current state (`Diagnosing → Troubleshooting → Verification → Resolved/Escalated`).
+
+### 3. Landing Page & Hero Triage Refinement (`frontend/src/components/LandingPage.tsx`)
+- **[MODIFY] [LandingPage.tsx](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/components/LandingPage.tsx)**:
+  - Reduce visual noise: Keep 2 clear popular topic chips (*Wi-Fi Connection* and *SSO Login Recovery*).
+  - Modernize search form with crisp icon placement, subtle glow on focus, and clean primary action.
+  - Fix all card padding, icon alignments, and responsive layout scaling.
+
+### 4. Technician & Admin Dashboard Restructuring (`frontend/src/components/AdminDashboard.tsx`)
+- **[MODIFY] [AdminDashboard.tsx](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/components/AdminDashboard.tsx)**:
+  - Re-architect overview hierarchy into 3 clear levels:
+    - **Top Level**: 4 high-priority metric cards (`Open & Diagnosing`, `High/Critical Priority`, `Escalated to Tech Bar`, `Resolved Today`).
+    - **Middle Level**: Live Incident Queue with search, priority badges, status selector, and one-click "Resolve in Workbench" action.
+    - **Bottom/Side Level**: System Health Probes + Technician Workload + 7-Day Resolution Trend Chart.
+
+### 5. Host & Management Dashboard Simplification (`frontend/src/components/HostReports.tsx`)
+- **[MODIFY] [HostReports.tsx](file:///c:/Users/karthik/Desktop/CAMPUSFIX-AI/frontend/src/components/HostReports.tsx)**:
+  - Eliminate clutter and emphasize executive reporting:
+    - 4 Core KPIs: Total Volume, Resolution Rate %, Average Resolution Time, AI Assistance %.
+    - 2 Clear Analytics Tables/Charts: Incident Volume by Category & Department Turnaround SLA.
+    - One-click clean export (CSV and JSON).
+
+### 6. Alignment & Detail Audit (`IncidentWorkspace.tsx`, `TicketBoard.tsx`, `KnowledgeBase.tsx`, `CampusStatusPanel.tsx`, `App.tsx`)
+- Audit all icon + label pairings to ensure zero collision or misalignment.
+- Standardize button heights (`38px` default, `32px` small) and border radii (`var(--radius-lg)` = 18px, `var(--radius-md)` = 10px).
+
+---
+
+## Verification Plan
+
+### Automated Checks
+1. **Frontend Compilation**: Run `npm run build` in `frontend/` to ensure 0 TypeScript errors and 0 build warnings.
+2. **Backend API Test**: Run `python test_e2e.py` to confirm all endpoints remain 100% operational.
+
+### Interactive & Visual Checks
+1. **Theme Verification**: Toggle between Light Mode and Dark Mode; verify that all text, cards, inputs, dropdowns, and modals render crisply without color mismatches.
+2. **Chat Usability**: Test sending a message, clicking a quick prompt, recording voice input, attaching a file, and copying troubleshooting steps.
+3. **Alignment Audit**: Inspect buttons, search bars, status tags, and icons across all 6 main views (Landing, Resolver, History, Tickets Kanban, Status, Knowledge Base, Admin, Host).
+4. **Responsive Verification**: Verify layouts at 1440px (Desktop), 1024px (Tablet/Laptop), and 375px (Mobile).

@@ -1,0 +1,347 @@
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
+  model?: string;
+  attachmentName?: string;
+}
+
+export interface ChatApiRequest {
+  messages: Array<{
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+  }>;
+  stream?: boolean;
+}
+
+export interface ChatApiResponse {
+  reply: string;
+  model: string;
+  timestamp: string;
+  status: string;
+}
+
+export interface QuickPrompt {
+  id: string;
+  category: string;
+  icon: string;
+  label: string;
+  prompt: string;
+  description?: string;
+  ticketCategory?: TicketCategory;
+}
+
+export interface ContextualChip {
+  id: string;
+  label: string;
+  response: string;
+  iconType?: 'success' | 'failure' | 'device' | 'info' | 'action';
+}
+
+// --- Ticket & Resolver Types ---
+
+export type TicketPriority = 'Low' | 'Medium' | 'High' | 'Urgent' | 'Critical';
+
+export type TicketStatus =
+  | 'New'
+  | 'Diagnosing'
+  | 'Waiting for Student'
+  | 'Resolved'
+  | 'Escalated'
+  | 'Open'
+  | 'In Progress'
+  | 'Closed';
+
+export type TicketCategory =
+  | 'Eduroam Wi-Fi'
+  | 'Canvas / SSO'
+  | 'Duo MFA'
+  | 'PaperCut Printing'
+  | 'Dorm ResNet'
+  | 'NetID / Password'
+  | 'Lab / Computer Access'
+  | 'Software'
+  | 'VPN'
+  | 'Email'
+  | 'Other';
+
+export type DiagnosticStage =
+  | 'Triage'
+  | 'Environment & Device'
+  | 'Troubleshooting'
+  | 'Verification'
+  | 'Completed';
+
+export interface ActionLogItem {
+  id: string;
+  timestamp: string;
+  action: string;
+  result: string;
+  actor: 'ai_specialist' | 'student' | 'technician' | 'system';
+}
+
+export interface EscalationDetails {
+  tier: string;
+  department: string;
+  reason: string;
+  assigned_to?: string;
+  tech_bar_location: string;
+  student_id_required: boolean;
+  notes?: string;
+  escalated_at: string;
+}
+
+export interface TicketNote {
+  id: string;
+  author: string;
+  author_role: 'student' | 'technician' | 'system';
+  text: string;
+  created_at: string;
+}
+
+export interface Ticket {
+  id: string;
+  ticket_number: string;
+  title: string;
+  category: TicketCategory;
+  priority: TicketPriority;
+  status: TicketStatus;
+  location: string;
+  device?: string;
+  netid: string;
+  email: string;
+  description: string;
+  issue_summary: string;
+  assigned_technician?: string;
+  ai_confidence?: number;
+  diagnostic_stage: DiagnosticStage;
+  diagnostic_progress: number;
+  actions_taken: ActionLogItem[];
+  resolution_details?: string | null;
+  escalation_info?: EscalationDetails | null;
+  chat_transcript?: string | null;
+  notes: TicketNote[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TicketCreatePayload {
+  title: string;
+  category: TicketCategory;
+  priority: TicketPriority;
+  location?: string;
+  device?: string;
+  netid: string;
+  email: string;
+  description: string;
+  issue_summary?: string;
+  chat_transcript?: string;
+}
+
+export interface TicketUpdatePayload {
+  title?: string;
+  status?: TicketStatus;
+  priority?: TicketPriority;
+  category?: TicketCategory;
+  location?: string;
+  device?: string;
+  issue_summary?: string;
+  assigned_technician?: string;
+  ai_confidence?: number;
+  diagnostic_stage?: DiagnosticStage;
+  diagnostic_progress?: number;
+  technician_note?: string;
+  resolution_details?: string;
+  escalation_info?: EscalationDetails;
+}
+
+// --- Campus Infrastructure Status Types ---
+
+export type ServiceHealthState = 'operational' | 'degraded' | 'maintenance' | 'outage';
+
+export interface CampusServiceItem {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  status: ServiceHealthState;
+  uptime_percent: number;
+  latency_ms?: number;
+  last_updated: string;
+  is_live_monitored: boolean;
+  status_message: string;
+  details?: string;
+}
+
+export interface SystemAnnouncement {
+  id: string;
+  title: string;
+  severity: 'info' | 'warning' | 'critical';
+  message: string;
+  affected_services: string[];
+  posted_at: string;
+}
+
+export interface SystemStatusResponse {
+  overall_status: ServiceHealthState;
+  services: CampusServiceItem[];
+  announcements: SystemAnnouncement[];
+  timestamp: string;
+  active_incidents_count: number;
+}
+
+// --- Knowledge Base Types ---
+
+export interface KBArticle {
+  id: string;
+  slug: string;
+  title: string;
+  category: string;
+  tags: string[];
+  read_time_mins: number;
+  updated_at: string;
+  summary: string;
+  content_markdown: string;
+  helpful_count: number;
+  icon?: string;
+  is_published: boolean;
+}
+
+export interface KBSearchResponse {
+  articles: KBArticle[];
+  total_count: number;
+  categories: string[];
+}
+
+export interface KBArticleCreatePayload {
+  title: string;
+  category: string;
+  tags: string[];
+  summary: string;
+  content_markdown: string;
+  icon?: string;
+  is_published: boolean;
+}
+
+// --- Analytics & Reports Types ---
+
+export interface KPIStats {
+  open_tickets: number;
+  resolved_today: number;
+  avg_resolution_time_mins: number;
+  ai_resolution_rate_percent: number;
+  escalations_count: number;
+  ai_confidence_percent: number;
+  total_tickets_handled: number;
+  active_students_served: number;
+}
+
+export interface LineDataPoint {
+  label: string;
+  value: number;
+  volume: number;
+}
+
+export interface DonutDataPoint {
+  name: string;
+  count: number;
+  percentage: number;
+  color: string;
+}
+
+export interface DepartmentDataPoint {
+  department: string;
+  ticket_count: number;
+  resolved_count: number;
+  avg_turnaround_hours: number;
+}
+
+export interface TechnicianWorkloadItem {
+  id: string;
+  name: string;
+  avatar: string;
+  specialty: string;
+  active_tickets: number;
+  resolved_today: number;
+  efficiency_rating: number;
+}
+
+export interface AnalyticsGraphsResponse {
+  kpis: KPIStats;
+  resolution_rate_trend: LineDataPoint[];
+  priority_distribution: DonutDataPoint[];
+  department_breakdown: DepartmentDataPoint[];
+  technician_workloads: TechnicianWorkloadItem[];
+  ai_confidence_trend: LineDataPoint[];
+  recent_escalations_summary: Array<{
+    id: string;
+    ticket_number: string;
+    title: string;
+    category: string;
+    tier: string;
+    reason: string;
+    escalated_at: string;
+  }>;
+}
+
+export interface ReportSummaryResponse {
+  date_range: string;
+  generated_at: string;
+  kpis: KPIStats;
+  total_incidents: number;
+  resolved_by_ai: number;
+  resolved_by_staff: number;
+  escalated_to_tier2: number;
+  avg_response_time_secs: number;
+  avg_diagnostic_turns: number;
+  top_issue_categories: Array<{
+    category: string;
+    count: number;
+    resolved_pct: number;
+  }>;
+  department_summary: DepartmentDataPoint[];
+}
+
+// --- User Types ---
+
+export type UserRole = 'student' | 'technician' | 'admin' | 'host';
+
+export interface CampusUser {
+  id: string;
+  name: string;
+  email: string;
+  netid: string;
+  role: UserRole;
+  department: string;
+  status: 'active' | 'away' | 'offline';
+  active_assignments_count: number;
+  avatar_initials: string;
+  skills: string[];
+}
+
+// --- Diagnostics & Probes Types ---
+
+export type ProbeStatus = 'passed' | 'warning' | 'failed' | 'running';
+
+export interface DiagnosticProbeResult {
+  id: string;
+  name: string;
+  target: string;
+  probe_type: 'live_network' | 'live_ai' | 'simulated_campus_infra';
+  is_simulated: boolean;
+  status: ProbeStatus;
+  latency_ms?: number;
+  output_message: string;
+  details?: string;
+  timestamp: string;
+}
+
+export interface DiagnosticsReportResponse {
+  overall_health: 'healthy' | 'degraded' | 'critical';
+  probes_passed: number;
+  probes_total: number;
+  probes: DiagnosticProbeResult[];
+  run_timestamp: string;
+  summary: string;
+}
