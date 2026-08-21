@@ -1,5 +1,7 @@
+import json
 import random
-from typing import List, Optional
+import logging
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from app.models.knowledge_base import (
     KBArticle,
@@ -7,6 +9,9 @@ from app.models.knowledge_base import (
     KBArticleUpdate,
     KBSearchResponse,
 )
+from app.database import db
+
+logger = logging.getLogger("campusfix.kb")
 
 
 class KBService:
@@ -382,7 +387,101 @@ Enrolled students have access to over $4,000 worth of academic software licenses
             categories=["All"] + categories,
         )
 
+    def sync_to_db(self):
+        """Seeds initial memory articles into PostgreSQL if kb_articles table is empty."""
+        if not db.is_connected():
+            return
+        try:
+            with db.get_cursor(commit=True) as cur:
+                cur.execute("SELECT COUNT(*) AS count FROM kb_articles;")
+                count = cur.fetchone()["count"]
+                if count == 0:
+                    logger.info("Seeding initial KB articles into PostgreSQL kb_articles table...")
+                    for a in self._articles:
+                        self._save_to_db(a, cur=cur)
+                    logger.info(f"Seeded {len(self._articles)} KB articles into Neon PostgreSQL.")
+        except Exception as e:
+            logger.error(f"Error syncing KB articles to DB: {e}")
+
+    def _row_to_article(self, row: Dict[str, Any]) -> KBArticle:
+        tags_raw = row.get("tags")
+        if isinstance(tags_raw, str):
+            try:
+                tags_raw = json.loads(tags_raw)
+            except Exception:
+                tags_raw = []
+        elif not isinstance(tags_raw, list):
+            tags_raw = []
+
+        return KBArticle(
+            id=row["id"],
+            slug=row["slug"],
+            title=row["title"],
+            category=row["category"],
+            tags=tags_raw,
+            read_time_mins=int(row.get("read_time_mins") or 2),
+            updated_at=str(row.get("updated_at") or datetime.now(timezone.utc).isoformat()),
+            summary=row["summary"],
+            content_markdown=row["content_markdown"],
+            helpful_count=int(row.get("helpful_count") or 0),
+            icon=row.get("icon") or "file-text",
+            is_published=row.get("is_published", True),
+        )
+
+    def _save_to_db(self, article: KBArticle, cur=None):
+        sql = """
+        INSERT INTO kb_articles (
+            id, slug, title, category, tags, read_time_mins, summary,
+            content_markdown, helpful_count, icon, is_published, updated_at
+        ) VALUES (
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+        ) ON CONFLICT (id) DO UPDATE SET
+            slug = EXCLUDED.slug,
+            title = EXCLUDED.title,
+            category = EXCLUDED.category,
+            tags = EXCLUDED.tags,
+            read_time_mins = EXCLUDED.read_time_mins,
+            summary = EXCLUDED.summary,
+            content_markdown = EXCLUDED.content_markdown,
+            helpful_count = EXCLUDED.helpful_count,
+            icon = EXCLUDED.icon,
+            is_published = EXCLUDED.is_published,
+            updated_at = NOW();
+        """
+        params = (
+            article.id,
+            article.slug,
+            article.title,
+            article.category,
+            json.dumps(article.tags),
+            article.read_time_mins,
+            article.summary,
+            article.content_markdown,
+            article.helpful_count,
+            article.icon,
+            article.is_published,
+            article.updated_at or datetime.now(timezone.utc).isoformat(),
+        )
+        if cur is not None:
+            cur.execute(sql, params)
+        else:
+            with db.get_cursor(commit=True) as cursor:
+                cursor.execute(sql, params)
+
     def get_article(self, article_id: str) -> Optional[KBArticle]:
+        if db.is_connected():
+            try:
+                with db.get_cursor(commit=False) as cur:
+                    cur.execute(
+                        "SELECT * FROM kb_articles WHERE id = %s OR slug = %s LIMIT 1;",
+                        (article_id, article_id),
+                    )
+                    row = cur.fetchone()
+                    if row:
+                        return self._row_to_article(row)
+            except Exception as e:
+                logger.error(f"Error querying KB article from DB: {e}")
+
         for a in self._articles:
             if a.id == article_id or a.slug == article_id:
                 return a
@@ -408,6 +507,13 @@ Enrolled students have access to over $4,000 worth of academic software licenses
             is_published=data.is_published,
         )
         self._articles.insert(0, article)
+
+        if db.is_connected():
+            try:
+                self._save_to_db(article)
+            except Exception as e:
+                logger.error(f"Error saving KB article to DB: {e}")
+
         return article
 
     def update_article(self, article_id: str, data: KBArticleUpdate) -> Optional[KBArticle]:
@@ -433,12 +539,28 @@ Enrolled students have access to over $4,000 worth of academic software licenses
             article.is_published = data.is_published
 
         article.updated_at = now_iso
+
+        if db.is_connected():
+            try:
+                self._save_to_db(article)
+            except Exception as e:
+                logger.error(f"Error updating KB article in DB: {e}")
+
         return article
 
     def delete_article(self, article_id: str) -> bool:
         for idx, a in enumerate(self._articles):
             if a.id == article_id or a.slug == article_id:
+                target_id = a.id
                 self._articles.pop(idx)
+
+                if db.is_connected():
+                    try:
+                        with db.get_cursor(commit=True) as cur:
+                            cur.execute("DELETE FROM kb_articles WHERE id = %s;", (target_id,))
+                    except Exception as e:
+                        logger.error(f"Error deleting KB article from DB: {e}")
+
                 return True
         return False
 
@@ -446,6 +568,12 @@ Enrolled students have access to over $4,000 worth of academic software licenses
         article = self.get_article(article_id)
         if article:
             article.helpful_count += 1
+            if db.is_connected():
+                try:
+                    with db.get_cursor(commit=True) as cur:
+                        cur.execute("UPDATE kb_articles SET helpful_count = helpful_count + 1 WHERE id = %s;", (article.id,))
+                except Exception as e:
+                    logger.error(f"Error updating helpful count in DB: {e}")
             return article
         return None
 

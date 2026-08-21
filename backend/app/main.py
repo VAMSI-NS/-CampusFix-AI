@@ -56,6 +56,7 @@ from app.services.auth_deps import (
     require_host,
     require_technician_or_host,
 )
+from app.database import db
 
 # Load environment variables
 _backend_env = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
@@ -71,6 +72,16 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+@app.on_event("startup")
+def on_startup():
+    """Initializes Neon PostgreSQL connection and seeds baseline schemas."""
+    connected = db.initialize()
+    if connected:
+        users_service.sync_to_db()
+        ticket_service.sync_to_db()
+        kb_service.sync_to_db()
+
 
 # Configure CORS origins (allowing frontend dev server)
 origins = [
@@ -131,6 +142,7 @@ def health_check():
     Health check endpoint for frontend and monitoring.
     Confirms backend server is operational and responsive.
     """
+    db_status = db.health_check()
     return {
         "status": "ok",
         "message": "CampusFix IT Platform backend service is healthy and operational.",
@@ -139,6 +151,11 @@ def health_check():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "ai_ready": bool(os.getenv("OPENROUTER_API_KEY")),
         "model": os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-3-ultra-550b-a55b"),
+        "database": {
+            "connected": db_status.get("connected", False),
+            "engine": db_status.get("engine", "In-Memory Resilience Mode"),
+            "latency_ms": db_status.get("latency_ms"),
+        },
     }
 
 

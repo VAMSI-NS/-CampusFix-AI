@@ -1,5 +1,7 @@
 import os
+import json
 import random
+import logging
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime, timezone
 from app.models.users import (
@@ -13,6 +15,9 @@ from app.models.users import (
     normalize_specialization,
 )
 from app.services.auth_service import auth_service
+from app.database import db
+
+logger = logging.getLogger("campusfix.users")
 
 
 class UsersService:
@@ -209,6 +214,84 @@ class UsersService:
             )
             self._users_db[stu_user.id] = stu_user
 
+    def sync_to_db(self):
+        """Seeds initial memory users into PostgreSQL if users table is empty."""
+        if not db.is_connected():
+            return
+        try:
+            with db.get_cursor(commit=True) as cur:
+                cur.execute("SELECT COUNT(*) AS count FROM users;")
+                count = cur.fetchone()["count"]
+                if count == 0:
+                    logger.info("Seeding initial users into PostgreSQL users table...")
+                    for u in self._users_db.values():
+                        cur.execute(
+                            """
+                            INSERT INTO users (
+                                id, technician_id, name, username, email, netid, role,
+                                specialization, department, status, is_active, phone,
+                                active_assignments_count, avatar_initials, skills,
+                                password_hash, password_salt, created_at
+                            ) VALUES (
+                                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                            ) ON CONFLICT (id) DO NOTHING;
+                            """,
+                            (
+                                u.id,
+                                u.technician_id,
+                                u.name,
+                                u.username.lower(),
+                                u.email.lower(),
+                                u.netid.lower(),
+                                u.role,
+                                u.specialization,
+                                u.department,
+                                u.status,
+                                u.is_active,
+                                u.phone,
+                                u.active_assignments_count,
+                                u.avatar_initials,
+                                json.dumps(u.skills),
+                                u.password_hash,
+                                u.password_salt,
+                                u.created_at or datetime.now(timezone.utc).isoformat(),
+                            ),
+                        )
+                    logger.info(f"Seeded {len(self._users_db)} users into Neon PostgreSQL.")
+        except Exception as e:
+            logger.error(f"Error syncing users to DB: {e}")
+
+    def _row_to_user_in_db(self, row: Dict[str, Any]) -> UserInDB:
+        skills = row.get("skills")
+        if isinstance(skills, str):
+            try:
+                skills = json.loads(skills)
+            except Exception:
+                skills = []
+        elif not isinstance(skills, list):
+            skills = []
+
+        return UserInDB(
+            id=row["id"],
+            technician_id=row.get("technician_id"),
+            name=row["name"],
+            username=row["username"],
+            email=row["email"],
+            netid=row.get("netid", row["username"]),
+            role=row["role"],
+            specialization=row.get("specialization"),
+            department=row["department"],
+            status=row.get("status", "active"),
+            is_active=row.get("is_active", True),
+            phone=row.get("phone"),
+            active_assignments_count=row.get("active_assignments_count", 0),
+            avatar_initials=row.get("avatar_initials", "U"),
+            skills=skills,
+            created_at=str(row.get("created_at") or datetime.now(timezone.utc).isoformat()),
+            password_hash=row["password_hash"],
+            password_salt=row["password_salt"],
+        )
+
     def _to_campus_user(self, user_in_db: UserInDB) -> CampusUser:
         return CampusUser(
             id=user_in_db.id,
@@ -231,6 +314,31 @@ class UsersService:
 
     def find_user_by_username_or_id(self, identifier: str) -> Optional[UserInDB]:
         clean_id = identifier.strip().lower()
+
+        if db.is_connected():
+            try:
+                with db.get_cursor(commit=False) as cur:
+                    cur.execute(
+                        """
+                        SELECT * FROM users
+                        WHERE LOWER(id) = %s
+                           OR LOWER(username) = %s
+                           OR LOWER(netid) = %s
+                           OR LOWER(email) = %s
+                           OR LOWER(COALESCE(technician_id, '')) = %s
+                        LIMIT 1;
+                        """,
+                        (clean_id, clean_id, clean_id, clean_id, clean_id),
+                    )
+                    row = cur.fetchone()
+                    if row:
+                        user = self._row_to_user_in_db(row)
+                        self._users_db[user.id] = user
+                        return user
+            except Exception as e:
+                logger.error(f"Error querying user from DB: {e}")
+
+        # In-memory fallback
         for u in self._users_db.values():
             if (
                 u.id.lower() == clean_id
@@ -249,10 +357,6 @@ class UsersService:
         specialization: Optional[str] = None,
         role: Optional[str] = None,
     ) -> Tuple[Optional[CampusUser], Optional[str]]:
-        """
-        Authenticates a user against hashed credentials, validating active status,
-        role requirements, and technician specialization matches.
-        """
         user_in_db = self.find_user_by_username_or_id(username)
         if not user_in_db:
             return None, "Invalid credentials. Account not found."
@@ -285,6 +389,23 @@ class UsersService:
         return self._to_campus_user(user_in_db), None
 
     def list_users(self, role: Optional[str] = None) -> List[CampusUser]:
+        if db.is_connected():
+            try:
+                with db.get_cursor(commit=False) as cur:
+                    if role and role.lower() != "all":
+                        req_role = role.lower()
+                        if req_role == "admin":
+                            cur.execute("SELECT * FROM users WHERE role IN ('admin', 'host') ORDER BY created_at ASC;")
+                        else:
+                            cur.execute("SELECT * FROM users WHERE LOWER(role) = %s ORDER BY created_at ASC;", (req_role,))
+                    else:
+                        cur.execute("SELECT * FROM users ORDER BY created_at ASC;")
+                    rows = cur.fetchall()
+                    return [self._to_campus_user(self._row_to_user_in_db(r)) for r in rows]
+            except Exception as e:
+                logger.error(f"Error listing users from DB: {e}")
+
+        # In-memory fallback
         users = [self._to_campus_user(u) for u in self._users_db.values()]
         if role and role.lower() != "all":
             req_role = role.lower()
@@ -298,20 +419,18 @@ class UsersService:
         return self._to_campus_user(u) if u else None
 
     def list_technicians(self) -> List[CampusUser]:
-        return [self._to_campus_user(u) for u in self._users_db.values() if u.role in ["technician", "admin"]]
+        return self.list_users(role="technician")
 
     def get_technicians(self) -> List[CampusUser]:
-        """Alias for list_technicians for compatibility across analytics services."""
         return self.list_technicians()
 
     def get_technician(self, tech_id: str) -> Optional[CampusUser]:
         u = self.find_user_by_username_or_id(tech_id)
-        if u and u.role in ["technician", "admin"]:
+        if u and u.role in ["technician", "admin", "host"]:
             return self._to_campus_user(u)
         return None
 
     def create_technician(self, data: TechnicianCreateRequest) -> Tuple[Optional[CampusUser], Optional[str]]:
-        # Check if username or email already exists
         if self.find_user_by_username_or_id(data.username):
             return None, f"Username '{data.username}' is already taken."
         if self.find_user_by_username_or_id(data.email):
@@ -323,8 +442,9 @@ class UsersService:
         if data.technician_id:
             tech_id = data.technician_id
         else:
+            existing_users = self.list_users()
             existing_nums = []
-            for u in self._users_db.values():
+            for u in existing_users:
                 if u.technician_id and u.technician_id.startswith("TECH-"):
                     try:
                         num = int(u.technician_id.split("-")[1])
@@ -334,9 +454,7 @@ class UsersService:
             next_num = (max(existing_nums) + 1) if existing_nums else 1
             tech_id = f"TECH-{next_num:03d}"
 
-        # Initials
         initials = "".join([part[0].upper() for part in data.name.strip().split() if part])[:2] or "TC"
-
         pwd_hash, pwd_salt = auth_service.hash_password(data.password)
         new_id = f"user-tech-{random.randint(1000, 9999)}"
 
@@ -362,6 +480,45 @@ class UsersService:
         )
 
         self._users_db[new_id] = new_user
+
+        if db.is_connected():
+            try:
+                with db.get_cursor(commit=True) as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO users (
+                            id, technician_id, name, username, email, netid, role,
+                            specialization, department, status, is_active, phone,
+                            active_assignments_count, avatar_initials, skills,
+                            password_hash, password_salt, created_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        );
+                        """,
+                        (
+                            new_user.id,
+                            new_user.technician_id,
+                            new_user.name,
+                            new_user.username,
+                            new_user.email,
+                            new_user.netid,
+                            new_user.role,
+                            new_user.specialization,
+                            new_user.department,
+                            new_user.status,
+                            new_user.is_active,
+                            new_user.phone,
+                            new_user.active_assignments_count,
+                            new_user.avatar_initials,
+                            json.dumps(new_user.skills),
+                            new_user.password_hash,
+                            new_user.password_salt,
+                            new_user.created_at,
+                        ),
+                    )
+            except Exception as e:
+                logger.error(f"Error creating technician in DB: {e}")
+
         return self._to_campus_user(new_user), None
 
     def update_technician(
@@ -416,6 +573,50 @@ class UsersService:
             user_in_db.password_hash = p_hash
             user_in_db.password_salt = p_salt
 
+        self._users_db[user_in_db.id] = user_in_db
+
+        if db.is_connected():
+            try:
+                with db.get_cursor(commit=True) as cur:
+                    cur.execute(
+                        """
+                        UPDATE users SET
+                            name = %s,
+                            username = %s,
+                            email = %s,
+                            netid = %s,
+                            specialization = %s,
+                            department = %s,
+                            phone = %s,
+                            status = %s,
+                            is_active = %s,
+                            skills = %s,
+                            avatar_initials = %s,
+                            password_hash = %s,
+                            password_salt = %s,
+                            updated_at = NOW()
+                        WHERE id = %s;
+                        """,
+                        (
+                            user_in_db.name,
+                            user_in_db.username,
+                            user_in_db.email,
+                            user_in_db.netid,
+                            user_in_db.specialization,
+                            user_in_db.department,
+                            user_in_db.phone,
+                            user_in_db.status,
+                            user_in_db.is_active,
+                            json.dumps(user_in_db.skills),
+                            user_in_db.avatar_initials,
+                            user_in_db.password_hash,
+                            user_in_db.password_salt,
+                            user_in_db.id,
+                        ),
+                    )
+            except Exception as e:
+                logger.error(f"Error updating technician in DB: {e}")
+
         return self._to_campus_user(user_in_db), None
 
     def reset_technician_password(self, tech_id: str, new_password: str) -> Tuple[bool, Optional[str]]:
@@ -426,6 +627,18 @@ class UsersService:
         p_hash, p_salt = auth_service.hash_password(new_password)
         user_in_db.password_hash = p_hash
         user_in_db.password_salt = p_salt
+        self._users_db[user_in_db.id] = user_in_db
+
+        if db.is_connected():
+            try:
+                with db.get_cursor(commit=True) as cur:
+                    cur.execute(
+                        "UPDATE users SET password_hash = %s, password_salt = %s, updated_at = NOW() WHERE id = %s;",
+                        (p_hash, p_salt, user_in_db.id),
+                    )
+            except Exception as e:
+                logger.error(f"Error resetting password in DB: {e}")
+
         return True, None
 
     def change_user_password(
@@ -444,12 +657,33 @@ class UsersService:
         p_hash, p_salt = auth_service.hash_password(new_password)
         user_in_db.password_hash = p_hash
         user_in_db.password_salt = p_salt
+        self._users_db[user_in_db.id] = user_in_db
+
+        if db.is_connected():
+            try:
+                with db.get_cursor(commit=True) as cur:
+                    cur.execute(
+                        "UPDATE users SET password_hash = %s, password_salt = %s, updated_at = NOW() WHERE id = %s;",
+                        (p_hash, p_salt, user_in_db.id),
+                    )
+            except Exception as e:
+                logger.error(f"Error changing user password in DB: {e}")
+
         return True, None
 
     def update_user_status(self, user_id: str, status_val: str) -> Optional[CampusUser]:
         user_in_db = self.find_user_by_username_or_id(user_id)
         if user_in_db and status_val in ["active", "away", "offline"]:
             user_in_db.status = status_val  # type: ignore
+            self._users_db[user_in_db.id] = user_in_db
+
+            if db.is_connected():
+                try:
+                    with db.get_cursor(commit=True) as cur:
+                        cur.execute("UPDATE users SET status = %s, updated_at = NOW() WHERE id = %s;", (status_val, user_in_db.id))
+                except Exception as e:
+                    logger.error(f"Error updating user status in DB: {e}")
+
             return self._to_campus_user(user_in_db)
         return None
 

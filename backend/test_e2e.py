@@ -1,16 +1,33 @@
-import urllib.request
-import json
+import os
+import sys
+from pathlib import Path
 
+backend_dir = Path(__file__).resolve().parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
+from fastapi.testclient import TestClient
+from app.main import app
+
+client = TestClient(app)
 BASE = "http://127.0.0.1:8000"
 
 
 def request(method, path, data=None):
-    url = f"{BASE}{path}"
-    req = urllib.request.Request(url, method=method)
-    req.add_header("Content-Type", "application/json")
-    body = json.dumps(data).encode("utf-8") if data else None
-    with urllib.request.urlopen(req, data=body, timeout=10) as response:
-        return json.loads(response.read().decode("utf-8"))
+    headers = {"Content-Type": "application/json"}
+    if method == "GET":
+        res = client.get(path, headers=headers)
+    elif method == "POST":
+        res = client.post(path, json=data, headers=headers)
+    elif method == "PUT":
+        res = client.put(path, json=data, headers=headers)
+    elif method == "PATCH":
+        res = client.patch(path, json=data, headers=headers)
+    elif method == "DELETE":
+        res = client.delete(path, headers=headers)
+    else:
+        res = client.request(method, path, json=data, headers=headers)
+    return res.json()
 
 
 print("=== 1. Testing Health Endpoint ===")

@@ -1,27 +1,40 @@
-import urllib.request
-import urllib.error
-import json
+import os
 import sys
+from pathlib import Path
 
+backend_dir = Path(__file__).resolve().parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
+from fastapi.testclient import TestClient
+from app.main import app
+
+client = TestClient(app)
 BASE = "http://127.0.0.1:8000"
 
 
 def make_request(method, path, data=None, token=None):
-    url = f"{BASE}{path}"
-    req = urllib.request.Request(url, method=method)
-    req.add_header("Content-Type", "application/json")
+    headers = {"Content-Type": "application/json"}
     if token:
-        req.add_header("Authorization", f"Bearer {token}")
-    body = json.dumps(data).encode("utf-8") if data is not None else None
+        headers["Authorization"] = f"Bearer {token}"
+    
+    if method == "GET":
+        res = client.get(path, headers=headers)
+    elif method == "POST":
+        res = client.post(path, json=data, headers=headers)
+    elif method == "PUT":
+        res = client.put(path, json=data, headers=headers)
+    elif method == "PATCH":
+        res = client.patch(path, json=data, headers=headers)
+    elif method == "DELETE":
+        res = client.delete(path, headers=headers)
+    else:
+        res = client.request(method, path, json=data, headers=headers)
+    
     try:
-        with urllib.request.urlopen(req, data=body, timeout=10) as response:
-            return response.status, json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode("utf-8")
-        try:
-            return e.code, json.loads(err_body)
-        except Exception:
-            return e.code, {"detail": err_body}
+        return res.status_code, res.json()
+    except Exception:
+        return res.status_code, {"detail": res.text}
 
 
 print("================================================================")

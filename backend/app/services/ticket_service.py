@@ -1,5 +1,8 @@
+import os
+import json
 import random
-from typing import List, Optional
+import logging
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from app.models.ticket import (
     TicketCreate,
@@ -13,7 +16,9 @@ from app.models.ticket import (
     TicketPriority,
     DiagnosticStage,
 )
+from app.database import db
 
+logger = logging.getLogger("campusfix.tickets")
 
 CATEGORY_TO_SPECIALIZATION = {
     "Eduroam Wi-Fi": ["Network", "Network Technician"],
@@ -35,7 +40,6 @@ class TicketService:
         now_iso = datetime.now(timezone.utc).isoformat()
         # Seed realistic initial tickets for immediate university IT demonstration
         self._tickets: List[TicketResponse] = [
-
             TicketResponse(
                 id="ticket-101",
                 ticket_number="INC-2026-8941",
@@ -68,15 +72,15 @@ class TicketService:
                 ],
                 resolution_details=None,
                 escalation_info=None,
-                chat_transcript="Student: 'Can't join eduroam'\nAI Specialist: 'Asked for device OS and suggested CA cert domain university.edu.'",
+                chat_transcript=None,
                 notes=[
                     TicketNote(
                         id="note-1",
-                        author="AI Auto-Triage",
+                        author="CampusFix AI Diagnostic Engine",
                         author_role="system",
-                        text="Identified Android 14 strict CA certificate requirement. Routed to standard PEAP troubleshooting workflow.",
+                        text="Identified Android 14 strict CA domain validation requirement. Student provided direct setup guide.",
                         created_at=now_iso,
-                    ),
+                    )
                 ],
                 created_at=now_iso,
                 updated_at=now_iso,
@@ -91,7 +95,7 @@ class TicketService:
                 location="Main Library, 2nd Floor West Wing",
                 netid="k.patel",
                 email="k.patel@university.edu",
-                description="Sent 14-page PDF via WebPrint. Station terminal displayed 'Processing' for 20 minutes without physical output.",
+                description="Sent 14-page PDF via WebPrint. Station terminal displayed 'Processing...' for 10 minutes without physical printout.",
                 issue_summary="Print spooler buffer queue stall resolved; release station driver restarted and student quota refunded.",
                 diagnostic_stage="Completed",
                 diagnostic_progress=100,
@@ -106,20 +110,20 @@ class TicketService:
                     ActionLogItem(
                         id="act-4",
                         timestamp=now_iso,
-                        action="PaperCut account balance credit check",
-                        result="14-page deduction refunded to student account (+$1.40).",
+                        action="Refund request processed for unprinted balance ($1.40)",
+                        result="PaperCut balance credited back to student account.",
                         actor="system",
                     ),
                 ],
-                resolution_details="Cleared PaperCut queue spooler buffer and released physical output. $1.40 print quota automatically credited back to student PaperCut balance.",
+                resolution_details="Cleared PaperCut queue spooler buffer and released physical output. $1.40 print quota credited back to account.",
                 escalation_info=None,
                 chat_transcript=None,
                 notes=[
                     TicketNote(
-                        id="note-3",
-                        author="Helpdesk Staff (Dave)",
+                        id="note-2",
+                        author="Dave Miller (Hardware Tech)",
                         author_role="technician",
-                        text="Printer feeder cleaned and queue cleared. Document successfully picked up by student.",
+                        text="Reset local printer spooler service and verified clean print cycle.",
                         created_at=now_iso,
                     )
                 ],
@@ -129,27 +133,20 @@ class TicketService:
             TicketResponse(
                 id="ticket-103",
                 ticket_number="INC-2026-8920",
-                title="Duo 2FA Push Push Notification Timeout after iOS 18 Upgrade",
+                title="Duo 2FA Push Notification Timeout after iOS Device Upgrade",
                 category="Duo MFA",
                 priority="High",
                 status="Escalated",
                 location="Residential Hall B, Rm 112",
                 netid="j.williams",
                 email="j.williams@university.edu",
-                description="Upgraded to iPhone 16. Duo push requests never appear on lock screen. Unable to complete MFA for Canvas midterm submission.",
-                issue_summary="Hardware token migration required following iOS device upgrade; student requires in-person ID verification for bypass code.",
+                description="Upgraded from iPhone 13 to iPhone 15. Duo push requests never appear on lock screen; manual passcode generator fails.",
+                issue_summary="Hardware token migration required following iOS device restore; automated enrollment link sent.",
                 diagnostic_stage="Completed",
                 diagnostic_progress=100,
                 actions_taken=[
                     ActionLogItem(
                         id="act-5",
-                        timestamp=now_iso,
-                        action="Attempted Duo self-service device reactivation guide via SMS",
-                        result="Student does not have previous device available to authorize transfer.",
-                        actor="ai_specialist",
-                    ),
-                    ActionLogItem(
-                        id="act-6",
                         timestamp=now_iso,
                         action="High Priority Flag: Midterm submission deadline in 2 hours",
                         result="Automatic escalation to Tech Bar Priority Walkup Queue.",
@@ -160,20 +157,20 @@ class TicketService:
                 escalation_info=EscalationDetails(
                     tier="Tier-2 Identity & Access Management",
                     department="Campus IT Tech Bar Walkup",
-                    reason="Student lacks access to registered secondary Duo device. In-person government/student photo ID required to issue permanent Duo reactivation link.",
+                    reason="Student lacks access to registered secondary Duo device and has an urgent midterm submission deadline.",
                     assigned_to="Sarah Jenkins (Tech Bar Lead)",
                     tech_bar_location="Main Library, 1st Floor Tech Bar (Mon–Fri 8am–7pm)",
                     student_id_required=True,
                     notes="Student has urgent midterm deadline. Expedited walkup queue pass granted.",
                     escalated_at=now_iso,
                 ),
-                chat_transcript="Student: 'Locked out of Canvas before exam due to Duo.'",
+                chat_transcript=None,
                 notes=[
                     TicketNote(
-                        id="note-4",
-                        author="AI Auto-Triage",
+                        id="note-3",
+                        author="Security Operations Center",
                         author_role="system",
-                        text="High priority: Student mentions time-sensitive assignment deadline. Escalation dossier created.",
+                        text="Escalated due to multi-factor device mismatch. Student instructed to bring government or campus photo ID to Tech Bar.",
                         created_at=now_iso,
                     )
                 ],
@@ -194,15 +191,7 @@ class TicketService:
                 issue_summary="New intake: Dorm room wall ethernet jack link state unconfirmed.",
                 diagnostic_stage="Triage",
                 diagnostic_progress=15,
-                actions_taken=[
-                    ActionLogItem(
-                        id="act-7",
-                        timestamp=now_iso,
-                        action="Ticket intake recorded from Student Portal",
-                        result="Assigned category 'Dorm ResNet' and status 'New'.",
-                        actor="system",
-                    )
-                ],
+                actions_taken=[],
                 resolution_details=None,
                 escalation_info=None,
                 chat_transcript=None,
@@ -224,53 +213,8 @@ class TicketService:
                 issue_summary="SAML token handshake loop caused by cached browser SSO cookie session.",
                 diagnostic_stage="Environment & Device",
                 diagnostic_progress=40,
-                actions_taken=[
-                    ActionLogItem(
-                        id="act-8",
-                        timestamp=now_iso,
-                        action="Verified Central Shibboleth / SAML IdP status",
-                        result="Identity Provider operational (0 authentication errors reported).",
-                        actor="system",
-                    ),
-                    ActionLogItem(
-                        id="act-9",
-                        timestamp=now_iso,
-                        action="Recommended Incognito / Private window login test",
-                        result="Awaiting student test result to confirm whether local browser cache is the root cause.",
-                        actor="ai_specialist",
-                    ),
-                ],
+                actions_taken=[],
                 resolution_details=None,
-                escalation_info=None,
-                chat_transcript="Student: 'Canvas keeps looping back to login.'\nAI Specialist: 'Try logging in via Incognito window.'",
-                notes=[],
-                created_at=now_iso,
-                updated_at=now_iso,
-            ),
-            TicketResponse(
-                id="ticket-106",
-                ticket_number="INC-2026-8840",
-                title="Engineering CAD Computer Lab Workstation Login Lockout",
-                category="Lab / Computer Access",
-                priority="Medium",
-                status="Resolved",
-                location="Engineering Hall, Lab 110",
-                netid="r.kim",
-                email="r.kim@university.edu",
-                description="Unable to sign into Lab 110 CAD Workstation #14 with NetID. Stated 'The trust relationship between this workstation and the primary domain failed.'",
-                issue_summary="Domain trust relationship re-established by lab technician via domain rejoin.",
-                diagnostic_stage="Completed",
-                diagnostic_progress=100,
-                actions_taken=[
-                    ActionLogItem(
-                        id="act-10",
-                        timestamp=now_iso,
-                        action="Lab technician checked machine Active Directory computer account",
-                        result="Machine trust key expired; workstation rejoined to campus AD domain.",
-                        actor="technician",
-                    )
-                ],
-                resolution_details="Lab Workstation #14 securely rejoined to Active Directory domain. Student verified successful login with SolidWorks profile loaded.",
                 escalation_info=None,
                 chat_transcript=None,
                 notes=[],
@@ -279,64 +223,274 @@ class TicketService:
             ),
         ]
 
+    def sync_to_db(self):
+        """Seeds initial memory tickets into PostgreSQL if tickets table is empty."""
+        if not db.is_connected():
+            return
+        try:
+            with db.get_cursor(commit=True) as cur:
+                cur.execute("SELECT COUNT(*) AS count FROM tickets;")
+                count = cur.fetchone()["count"]
+                if count == 0:
+                    logger.info("Seeding initial tickets into PostgreSQL tickets table...")
+                    for t in self._tickets:
+                        self._save_ticket_to_db(t, cur=cur)
+                    logger.info(f"Seeded {len(self._tickets)} tickets into Neon PostgreSQL.")
+        except Exception as e:
+            logger.error(f"Error syncing tickets to DB: {e}")
+
+    def _row_to_ticket(self, row: Dict[str, Any]) -> TicketResponse:
+        actions_raw = row.get("actions_taken")
+        if isinstance(actions_raw, str):
+            try:
+                actions_raw = json.loads(actions_raw)
+            except Exception:
+                actions_raw = []
+        elif not isinstance(actions_raw, list):
+            actions_raw = []
+
+        actions_taken = [
+            ActionLogItem(
+                id=a.get("id", f"act-{random.randint(100, 999)}"),
+                timestamp=str(a.get("timestamp", datetime.now(timezone.utc).isoformat())),
+                action=a.get("action", ""),
+                result=a.get("result", ""),
+                actor=a.get("actor", "system"),
+            )
+            for a in actions_raw
+            if isinstance(a, dict)
+        ]
+
+        notes_raw = row.get("notes")
+        if isinstance(notes_raw, str):
+            try:
+                notes_raw = json.loads(notes_raw)
+            except Exception:
+                notes_raw = []
+        elif not isinstance(notes_raw, list):
+            notes_raw = []
+
+        notes = [
+            TicketNote(
+                id=n.get("id", f"note-{random.randint(100, 999)}"),
+                author=n.get("author", "IT Staff"),
+                author_role=n.get("author_role", "technician"),
+                text=n.get("text", ""),
+                created_at=str(n.get("created_at", datetime.now(timezone.utc).isoformat())),
+            )
+            for n in notes_raw
+            if isinstance(n, dict)
+        ]
+
+        escalation_raw = row.get("escalation_info")
+        escalation_info = None
+        if escalation_raw:
+            if isinstance(escalation_raw, str):
+                try:
+                    escalation_raw = json.loads(escalation_raw)
+                except Exception:
+                    escalation_raw = None
+            if isinstance(escalation_raw, dict):
+                escalation_info = EscalationDetails(**escalation_raw)
+
+        return TicketResponse(
+            id=row["id"],
+            ticket_number=row["ticket_number"],
+            title=row["title"],
+            category=row["category"],
+            priority=row["priority"],
+            status=row["status"],
+            location=row["location"],
+            device=row.get("device"),
+            netid=row["netid"],
+            email=row["email"],
+            description=row["description"],
+            issue_summary=row.get("issue_summary"),
+            assigned_technician=row.get("assigned_technician"),
+            ai_confidence=float(row.get("ai_confidence") or 0.85),
+            diagnostic_stage=row["diagnostic_stage"],
+            diagnostic_progress=int(row.get("diagnostic_progress") or 0),
+            actions_taken=actions_taken,
+            resolution_details=row.get("resolution_details"),
+            escalation_info=escalation_info,
+            chat_transcript=row.get("chat_transcript"),
+            notes=notes,
+            created_at=str(row.get("created_at") or datetime.now(timezone.utc).isoformat()),
+            updated_at=str(row.get("updated_at") or datetime.now(timezone.utc).isoformat()),
+        )
+
+    def _save_ticket_to_db(self, ticket: TicketResponse, cur=None):
+        sql = """
+        INSERT INTO tickets (
+            id, ticket_number, title, category, priority, status, location, device,
+            netid, email, description, issue_summary, assigned_technician,
+            ai_confidence, diagnostic_stage, diagnostic_progress, actions_taken,
+            resolution_details, escalation_info, chat_transcript, notes,
+            created_at, updated_at
+        ) VALUES (
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+        ) ON CONFLICT (id) DO UPDATE SET
+            title = EXCLUDED.title,
+            category = EXCLUDED.category,
+            priority = EXCLUDED.priority,
+            status = EXCLUDED.status,
+            location = EXCLUDED.location,
+            device = EXCLUDED.device,
+            issue_summary = EXCLUDED.issue_summary,
+            assigned_technician = EXCLUDED.assigned_technician,
+            ai_confidence = EXCLUDED.ai_confidence,
+            diagnostic_stage = EXCLUDED.diagnostic_stage,
+            diagnostic_progress = EXCLUDED.diagnostic_progress,
+            actions_taken = EXCLUDED.actions_taken,
+            resolution_details = EXCLUDED.resolution_details,
+            escalation_info = EXCLUDED.escalation_info,
+            chat_transcript = EXCLUDED.chat_transcript,
+            notes = EXCLUDED.notes,
+            updated_at = NOW();
+        """
+        actions_json = json.dumps([a.model_dump() for a in ticket.actions_taken])
+        notes_json = json.dumps([n.model_dump() for n in ticket.notes])
+        esc_json = json.dumps(ticket.escalation_info.model_dump()) if ticket.escalation_info else None
+
+        params = (
+            ticket.id,
+            ticket.ticket_number,
+            ticket.title,
+            ticket.category,
+            ticket.priority,
+            ticket.status,
+            ticket.location,
+            ticket.device,
+            ticket.netid,
+            ticket.email,
+            ticket.description,
+            ticket.issue_summary,
+            ticket.assigned_technician,
+            ticket.ai_confidence,
+            ticket.diagnostic_stage,
+            ticket.diagnostic_progress,
+            actions_json,
+            ticket.resolution_details,
+            esc_json,
+            ticket.chat_transcript,
+            notes_json,
+            ticket.created_at or datetime.now(timezone.utc).isoformat(),
+            ticket.updated_at or datetime.now(timezone.utc).isoformat(),
+        )
+
+        if cur is not None:
+            cur.execute(sql, params)
+        else:
+            with db.get_cursor(commit=True) as cursor:
+                cursor.execute(sql, params)
+
     def list_tickets(
         self,
-        status: Optional[str] = None,
         category: Optional[str] = None,
+        status: Optional[str] = None,
+        priority: Optional[str] = None,
+        specialization: Optional[str] = None,
+        netid: Optional[str] = None,
         search: Optional[str] = None,
         assigned_technician: Optional[str] = None,
-        specialization: Optional[str] = None,
     ) -> List[TicketResponse]:
+        if db.is_connected():
+            try:
+                with db.get_cursor(commit=False) as cur:
+                    query = "SELECT * FROM tickets WHERE 1=1"
+                    params: List[Any] = []
+
+                    if category:
+                        query += " AND category = %s"
+                        params.append(category)
+                    if status:
+                        query += " AND status = %s"
+                        params.append(status)
+                    if priority:
+                        query += " AND priority = %s"
+                        params.append(priority)
+                    if netid:
+                        query += " AND LOWER(netid) = %s"
+                        params.append(netid.lower())
+                    if assigned_technician:
+                        query += " AND LOWER(assigned_technician) = %s"
+                        params.append(assigned_technician.lower())
+                    if search:
+                        search_term = f"%{search.lower()}%"
+                        query += " AND (LOWER(title) LIKE %s OR LOWER(description) LIKE %s OR LOWER(ticket_number) LIKE %s OR LOWER(netid) LIKE %s)"
+                        params.extend([search_term, search_term, search_term, search_term])
+
+                    query += " ORDER BY created_at DESC;"
+                    cur.execute(query, tuple(params))
+                    rows = cur.fetchall()
+                    tickets = [self._row_to_ticket(r) for r in rows]
+
+                    if specialization:
+                        norm_spec = specialization.lower().replace("technician", "").strip()
+                        filtered = []
+                        for t in tickets:
+                            cats = CATEGORY_TO_SPECIALIZATION.get(t.category, ["Support", "Other"])
+                            if any(norm_spec in c.lower() for c in cats):
+                                filtered.append(t)
+                        return filtered
+
+                    return tickets
+            except Exception as e:
+                logger.error(f"Error querying tickets from DB: {e}")
+
+        # In-memory fallback
         results = self._tickets
-        if status and status.lower() != "all":
-            results = [t for t in results if t.status.lower() == status.lower()]
-        if category and category.lower() != "all":
-            results = [t for t in results if t.category.lower() == category.lower()]
-        if assigned_technician and assigned_technician.lower() != "all":
-            tech_q = assigned_technician.lower()
-            results = [t for t in results if tech_q in (t.assigned_technician or "").lower()]
-        if specialization and specialization.lower() != "all":
-            spec_q = specialization.strip().lower()
-            filtered_by_spec = []
-            for t in results:
-                allowed_specs = [s.lower() for s in CATEGORY_TO_SPECIALIZATION.get(t.category, ["support", "other"])]
-                # Check if specialization matches category or escalation target or assigned technician
-                if any(spec_q in s or s in spec_q for s in allowed_specs):
-                    filtered_by_spec.append(t)
-                elif t.escalation_info and t.escalation_info.target_specialization and spec_q in t.escalation_info.target_specialization.lower():
-                    filtered_by_spec.append(t)
-                elif t.assigned_technician and spec_q in t.assigned_technician.lower():
-                    filtered_by_spec.append(t)
-            results = filtered_by_spec
+        if category:
+            results = [t for t in results if t.category == category]
+        if status:
+            results = [t for t in results if t.status == status]
+        if priority:
+            results = [t for t in results if t.priority == priority]
+        if netid:
+            results = [t for t in results if t.netid.lower() == netid.lower()]
+        if assigned_technician:
+            results = [t for t in results if t.assigned_technician and t.assigned_technician.lower() == assigned_technician.lower()]
         if search:
             q = search.lower()
             results = [
-                t
-                for t in results
+                t for t in results
                 if q in t.title.lower()
-                or q in t.ticket_number.lower()
                 or q in t.description.lower()
+                or q in t.ticket_number.lower()
                 or q in t.netid.lower()
-                or q in t.location.lower()
-                or q in t.category.lower()
             ]
-        # Return sorted with newest first
-        return sorted(results, key=lambda x: x.created_at, reverse=True)
+        if specialization:
+            norm_spec = specialization.lower().replace("technician", "").strip()
+            filtered = []
+            for t in results:
+                cats = CATEGORY_TO_SPECIALIZATION.get(t.category, ["Support", "Other"])
+                if any(norm_spec in c.lower() for c in cats):
+                    filtered.append(t)
+            return filtered
+        return results
 
     def create_ticket(self, data: TicketCreate) -> TicketResponse:
         now_iso = datetime.now(timezone.utc).isoformat()
-        random_suffix = random.randint(1000, 9999)
-        ticket_number = f"INC-2026-{random_suffix}"
-        ticket_id = f"ticket-{int(datetime.now(timezone.utc).timestamp())}"
+        ticket_id = f"ticket-{random.randint(1000, 9999)}"
+        ticket_number = f"INC-2026-{random.randint(1000, 9999)}"
 
-        initial_notes = []
         initial_actions = [
             ActionLogItem(
                 id=f"act-{random.randint(1000, 9999)}",
                 timestamp=now_iso,
-                action="Incident ticket registered in CampusFix IT Resolver",
-                result="Status initialized as 'New'. Auto-triage active.",
-                actor="system",
+                action="Incident ticket registered via CampusFix AI Portal",
+                result=f"Category: {data.category} | Initial Priority: {data.priority}",
+                actor="student",
+            )
+        ]
+
+        initial_notes = [
+            TicketNote(
+                id=f"note-{random.randint(100, 999)}",
+                author="CampusFix AI Intake System",
+                author_role="system",
+                text=f"New incident submitted for {data.location or 'Campus'}. Initial classification: {data.category}.",
+                created_at=now_iso,
             )
         ]
 
@@ -384,9 +538,35 @@ class TicketService:
         )
 
         self._tickets.insert(0, new_ticket)
+
+        if db.is_connected():
+            try:
+                self._save_ticket_to_db(new_ticket)
+            except Exception as e:
+                logger.error(f"Error saving new ticket to DB: {e}")
+
         return new_ticket
 
     def get_ticket(self, ticket_id: str) -> Optional[TicketResponse]:
+        if db.is_connected():
+            try:
+                with db.get_cursor(commit=False) as cur:
+                    cur.execute(
+                        "SELECT * FROM tickets WHERE id = %s OR ticket_number = %s LIMIT 1;",
+                        (ticket_id, ticket_id),
+                    )
+                    row = cur.fetchone()
+                    if row:
+                        t = self._row_to_ticket(row)
+                        # sync in-memory
+                        for idx, existing in enumerate(self._tickets):
+                            if existing.id == t.id:
+                                self._tickets[idx] = t
+                                break
+                        return t
+            except Exception as e:
+                logger.error(f"Error getting ticket from DB: {e}")
+
         for t in self._tickets:
             if t.id == ticket_id or t.ticket_number == ticket_id:
                 return t
@@ -418,7 +598,6 @@ class TicketService:
 
         if data.status:
             ticket.status = data.status
-            # Automatically adjust diagnostic stage & progress based on status
             if data.status == "Closed":
                 ticket.diagnostic_stage = "Completed"
                 ticket.diagnostic_progress = 100
@@ -558,6 +737,13 @@ class TicketService:
             )
 
         ticket.updated_at = now_iso
+
+        if db.is_connected():
+            try:
+                self._save_ticket_to_db(ticket)
+            except Exception as e:
+                logger.error(f"Error updating ticket in DB: {e}")
+
         return ticket
 
     def add_action_log(
@@ -581,6 +767,13 @@ class TicketService:
         )
         ticket.actions_taken.append(item)
         ticket.updated_at = now_iso
+
+        if db.is_connected():
+            try:
+                self._save_ticket_to_db(ticket)
+            except Exception as e:
+                logger.error(f"Error saving action log to DB: {e}")
+
         return ticket
 
     def resolve_ticket(self, ticket_id: str, resolution_details: str) -> Optional[TicketResponse]:
@@ -604,6 +797,13 @@ class TicketService:
                 actor="technician",
             )
         )
+
+        if db.is_connected():
+            try:
+                self._save_ticket_to_db(ticket)
+            except Exception as e:
+                logger.error(f"Error saving resolved ticket to DB: {e}")
+
         return ticket
 
     def close_ticket(self, ticket_id: str, notes: Optional[str] = None) -> Optional[TicketResponse]:
@@ -637,6 +837,13 @@ class TicketService:
                 actor="technician",
             )
         )
+
+        if db.is_connected():
+            try:
+                self._save_ticket_to_db(ticket)
+            except Exception as e:
+                logger.error(f"Error closing ticket in DB: {e}")
+
         return ticket
 
     def escalate_ticket(self, ticket_id: str, escalation_info: EscalationDetails) -> Optional[TicketResponse]:
@@ -660,6 +867,13 @@ class TicketService:
                 actor="technician",
             )
         )
+
+        if db.is_connected():
+            try:
+                self._save_ticket_to_db(ticket)
+            except Exception as e:
+                logger.error(f"Error escalating ticket in DB: {e}")
+
         return ticket
 
 
