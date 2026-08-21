@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   SystemStatusResponse,
 } from '../types/chat';
+import { INITIAL_MOCK_STATUS } from '../data/mockData';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -19,7 +20,7 @@ import {
 } from 'lucide-react';
 
 export default function CampusStatusPanel() {
-  const [statusData, setStatusData] = useState<SystemStatusResponse | null>(null);
+  const [statusData, setStatusData] = useState<SystemStatusResponse>(() => INITIAL_MOCK_STATUS);
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
@@ -29,11 +30,13 @@ export default function CampusStatusPanel() {
       const res = await fetch('/api/status');
       if (res.ok) {
         const data: SystemStatusResponse = await res.json();
-        setStatusData(data);
-        setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        if (data && data.services) {
+          setStatusData(data);
+          setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        }
       }
     } catch (err) {
-      console.error('Failed to fetch campus status:', err);
+      console.error('Failed to fetch campus status (using default status):', err);
     } finally {
       setIsLoading(false);
     }

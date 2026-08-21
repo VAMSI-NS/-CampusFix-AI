@@ -23,6 +23,7 @@ import {
   LifeBuoy,
 } from 'lucide-react';
 import { KBArticle, KBSearchResponse, UserRole } from '../types/chat';
+import { INITIAL_MOCK_KB_ARTICLES } from '../data/mockData';
 
 interface KnowledgeBaseProps {
   userRole: UserRole;
@@ -45,7 +46,7 @@ export default function KnowledgeBase({
   userRole,
   onOpenInResolverWithTopic,
 }: KnowledgeBaseProps) {
-  const [articles, setArticles] = useState<KBArticle[]>([]);
+  const [articles, setArticles] = useState<KBArticle[]>(() => INITIAL_MOCK_KB_ARTICLES);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedArticle, setSelectedArticle] = useState<KBArticle | null>(null);
@@ -65,10 +66,12 @@ export default function KnowledgeBase({
       const res = await fetch('/api/kb');
       if (res.ok) {
         const data: KBSearchResponse = await res.json();
-        setArticles(data.articles);
+        if (data && Array.isArray(data.articles) && data.articles.length > 0) {
+          setArticles(data.articles);
+        }
       }
     } catch (err) {
-      console.error('Failed to load KB articles:', err);
+      console.error('Failed to load KB articles (using default articles):', err);
     }
   }, []);
 

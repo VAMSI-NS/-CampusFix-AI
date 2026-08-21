@@ -30,6 +30,7 @@ import AdminDashboard from './components/AdminDashboard';
 import HostReports from './components/HostReports';
 import AuthModal from './components/AuthModal';
 import { Ticket, TicketStatus, UserRole, CampusUser } from './types/chat';
+import { INITIAL_MOCK_TICKETS } from './data/mockData';
 import './App.css';
 
 interface HealthData {
@@ -55,8 +56,14 @@ type TabType =
   | 'reports';
 
 function getRouteFromPath(pathname: string, hash: string): { tab: TabType | '404'; role?: UserRole } {
-  const cleanPathname = (pathname.split('?')[0] || '').toLowerCase().trim();
+  let cleanPathname = (pathname.split('?')[0] || '').toLowerCase().trim();
   const cleanHash = (hash.split('?')[0] || '').toLowerCase().trim();
+
+  // Strip GitHub Pages repository subpath (e.g. /-CampusFix-AI or /CampusFix-AI)
+  cleanPathname = cleanPathname.replace(/^\/(-?campusfix(-ai)?)/i, '');
+  if (!cleanPathname.startsWith('/')) {
+    cleanPathname = '/' + cleanPathname;
+  }
 
   const raw = (cleanHash.startsWith('#/') ? cleanHash.slice(1) : cleanHash.startsWith('#') ? cleanHash.slice(1) : cleanPathname)
     .replace(/\/+$/, '') || '/';
@@ -245,7 +252,7 @@ export default function App() {
     return (localStorage.getItem('campusfix_theme') as 'light' | 'dark') || 'dark';
   });
 
-  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>(() => INITIAL_MOCK_TICKETS);
   const [health, setHealth] = useState<HealthData | null>(null);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [latency, setLatency] = useState<number | null>(null);
@@ -333,7 +340,10 @@ export default function App() {
     setActiveTab(tab);
     setIs404(false);
     const targetPath = getPathForTab(tab);
-    if (window.location.pathname !== targetPath) {
+    const isGitHubPages = window.location.hostname.endsWith('github.io');
+    if (isGitHubPages) {
+      window.location.hash = '#' + targetPath;
+    } else if (window.location.pathname !== targetPath) {
       window.history.pushState(null, '', targetPath);
     }
   }, [userRole]);
@@ -344,10 +354,12 @@ export default function App() {
       const res = await fetch('/api/tickets');
       if (res.ok) {
         const data: Ticket[] = await res.json();
-        setTickets(data);
+        if (Array.isArray(data) && data.length > 0) {
+          setTickets(data);
+        }
       }
     } catch (err) {
-      console.error('Failed to load tickets in App:', err);
+      console.error('Failed to load tickets in App (using default fallback tickets):', err);
     }
   }, []);
 

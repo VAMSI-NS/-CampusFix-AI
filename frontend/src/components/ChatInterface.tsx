@@ -495,13 +495,41 @@ export default function ChatInterface({
         if (onStageChange) onStageChange('Verification');
       }
     } catch (err) {
-      console.error('Failed to get AI response:', err);
-      const errText = err instanceof Error ? err.message : 'Unable to connect to AI diagnostic service';
-      setErrorMessage(
-        `AI Diagnostic Service is temporarily offline (${errText}). You can still submit an IT Support Ticket below.`
-      );
-      // Ensure ticket creation is readily available even during AI downtime
-      setShowTicketOffer(true);
+      console.warn('API backend not reachable, using offline diagnostic engine:', err);
+      // Generate intelligent offline simulation so live GitHub Pages demos work seamlessly
+      let simulatedReply = '';
+      const lower = messageText.toLowerCase();
+      if (isUnresolvedTrigger) {
+        simulatedReply = `### ⚠️ Troubleshooting Unsuccessful\n\nI understand the initial diagnostic steps did not resolve your issue.\n\nI am ready to escalate this case. Would you like me to open an official **Campus IT Support Ticket** to connect you with a specialist?`;
+      } else if (lower.includes('wifi') || lower.includes('wi-fi') || lower.includes('eduroam')) {
+        simulatedReply = `### 📶 Eduroam Wi-Fi Diagnostic Steps\n\n1. **Forget Network:** In your device Wi-Fi settings, tap **eduroam** and select **Forget**.\n2. **Reconnect with Settings:**\n   - **EAP Method:** \`PEAP\`\n   - **Phase 2 Authentication:** \`MSCHAPV2\`\n   - **CA Certificate:** \`Use system certificates\`\n   - **Domain:** \`university.edu\`\n3. **Credentials:** Use your full NetID email (\`username@university.edu\`) and password.\n\n*Did this re-establish your connection?*`;
+      } else if (lower.includes('duo') || lower.includes('2fa') || lower.includes('mfa')) {
+        simulatedReply = `### 🔐 Duo 2FA Verification Help\n\n1. Open the **Duo Mobile** app directly and pull down to refresh any pending push requests.\n2. Check that **Focus / Do Not Disturb** mode isn't blocking notifications.\n3. If you changed phones, visit the **Main Library 1st Floor Tech Bar** with your student photo ID for an instant bypass passcode.\n\n*Let me know if you would like to open an escalation ticket.*`;
+      } else if (lower.includes('canvas') || lower.includes('sso') || lower.includes('login')) {
+        simulatedReply = `### 🎓 Canvas LMS Access Troubleshooting\n\n1. Open an **Incognito / Private window** and try logging in at \`https://canvas.university.edu\`.\n2. Clear browser cookies and cache for the campus domain.\n3. Check the **Service Status** tab to confirm Single Sign-On (SSO) is operational.\n\n*Did the private window allow you to sign in?*`;
+      } else if (lower.includes('print') || lower.includes('papercut')) {
+        simulatedReply = `### 🖨️ Campus Printing (PaperCut) Guide\n\n1. Verify your document is saved as a **PDF** before uploading to \`print.university.edu\`.\n2. Confirm your student print balance is active.\n3. Swipe your campus card at any release station within 2 hours of sending the job.\n\n*If the printer terminal is stalled, I can open a maintenance ticket for you.*`;
+      } else {
+        simulatedReply = `### 🛠️ CampusFix IT Diagnostic Assistant\n\nI have registered your report: **"${messageText.slice(0, 75)}"**.\n\n1. Confirm your device is authenticated with your campus NetID.\n2. Ensure your operating system and network settings meet university security policies.\n3. If connected off-campus, verify whether GlobalProtect VPN is required.\n\n*If the problem persists, click "Create Support Ticket" below.*`;
+      }
+
+      if (isUnresolvedTrigger && !simulatedReply.toLowerCase().includes('ticket')) {
+        simulatedReply += `\n\n---\n**Troubleshooting Unsuccessful:** Would you like me to create an official **Campus IT Support Ticket** to escalate this to human technicians?`;
+      }
+
+      const fallbackAssistantMsg: Message = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: simulatedReply,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        model: 'CampusFix AI Diagnostic Engine (Client Simulator)',
+      };
+
+      setMessages((prev) => [...prev, fallbackAssistantMsg]);
+
+      if (isUnresolvedTrigger) {
+        setShowTicketOffer(true);
+      }
     } finally {
       setIsLoading(false);
     }
