@@ -13,6 +13,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { CampusUser, LoginResponse, TechnicianSpecialization, UserRole } from '../types/chat';
+import { authenticateClientMockUser } from '../data/mockData';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -90,20 +91,40 @@ export default function AuthModal({
         payload.specialization = specialization;
       }
 
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      let successData: LoginResponse | null = null;
 
-      const data: LoginResponse | { detail?: string } = await res.json();
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
 
-      if (!res.ok) {
-        const detail = 'detail' in data ? data.detail : 'Authentication failed. Please verify credentials.';
-        throw new Error(detail || 'Authentication failed.');
+        if (res.ok) {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const data = await res.json();
+            if (data && data.token && data.user) {
+              successData = data as LoginResponse;
+            }
+          }
+        }
+      } catch (networkErr) {
+        console.warn('Backend login endpoint unavailable, trying client fallback:', networkErr);
       }
 
-      const successData = data as LoginResponse;
+      // If backend was not reached or returned non-JSON (e.g. on static GitHub Pages), authenticate with client mock accounts
+      if (!successData) {
+        const cleanU = username.trim().toLowerCase();
+        const cleanP = password.trim();
+        const matched = authenticateClientMockUser(cleanU, cleanP, selectedRole, specialization);
+        if (matched) {
+          successData = matched;
+        } else {
+          throw new Error('Invalid credentials. Please verify your username and password.');
+        }
+      }
+
       // Persist auth tokens
       localStorage.setItem('campusfix_token', successData.token);
       localStorage.setItem('campusfix_user', JSON.stringify(successData.user));

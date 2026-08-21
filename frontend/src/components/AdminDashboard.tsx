@@ -8,6 +8,11 @@ import {
   TechnicianSpecialization,
 } from '../types/chat';
 import {
+  INITIAL_MOCK_ANALYTICS_GRAPHS,
+  INITIAL_MOCK_USERS,
+  INITIAL_MOCK_PROBES,
+} from '../data/mockData';
+import {
   LayoutDashboard,
   Ticket as TicketIcon,
   Cpu,
@@ -123,9 +128,16 @@ export default function AdminDashboard({
   const isTechnician = currentUser?.role === 'technician';
   const techSpecialization = currentUser?.specialization || '';
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
-  const [graphs, setGraphs] = useState<AnalyticsGraphsResponse | null>(null);
-  const [technicians, setTechnicians] = useState<CampusUser[]>([]);
-  const [probes, setProbes] = useState<DiagnosticsReportResponse | null>(null);
+  const [graphs, setGraphs] = useState<AnalyticsGraphsResponse | null>(() => INITIAL_MOCK_ANALYTICS_GRAPHS);
+  const [technicians, setTechnicians] = useState<CampusUser[]>(() => INITIAL_MOCK_USERS.filter((u) => u.role === 'technician' || u.role === 'host'));
+  const [probes, setProbes] = useState<DiagnosticsReportResponse | null>(() => ({
+    overall_health: 'healthy',
+    probes_passed: INITIAL_MOCK_PROBES.length,
+    probes_total: INITIAL_MOCK_PROBES.length,
+    probes: INITIAL_MOCK_PROBES,
+    run_timestamp: new Date().toISOString(),
+    summary: 'All telemetry nodes reporting nominal connectivity.',
+  }));
   const [databaseInfo, setDatabaseInfo] = useState<{
     database_status: string;
     schema_version: string;

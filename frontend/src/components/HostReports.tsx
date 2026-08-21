@@ -12,6 +12,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { ReportSummaryResponse, Ticket } from '../types/chat';
+import { INITIAL_MOCK_EXECUTIVE_REPORT } from '../data/mockData';
 
 interface HostReportsProps {
   tickets: Ticket[];
@@ -21,7 +22,7 @@ const DATE_RANGES = ['Last 7 Days', 'Last 30 Days', 'This Semester', 'Year to Da
 
 const DEPARTMENTS = [
   'All',
-  'Network & Wireless',
+  'Network & Wi-Fi',
   'Identity & Access (IAM)',
   'Academic Tech & Canvas',
   'Printing & Hardware',
@@ -29,7 +30,7 @@ const DEPARTMENTS = [
 ];
 
 export default function HostReports({ tickets }: HostReportsProps) {
-  const [report, setReport] = useState<ReportSummaryResponse | null>(null);
+  const [report, setReport] = useState<ReportSummaryResponse | null>(() => INITIAL_MOCK_EXECUTIVE_REPORT);
   const [selectedRange, setSelectedRange] = useState('Last 30 Days');
   const [selectedDept, setSelectedDept] = useState('All');
   const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +48,7 @@ export default function HostReports({ tickets }: HostReportsProps) {
         setReport(data);
       }
     } catch (err) {
-      console.error('Failed to load reports:', err);
+      console.error('Failed to load reports (using default executive report):', err);
     } finally {
       setIsLoading(false);
     }
