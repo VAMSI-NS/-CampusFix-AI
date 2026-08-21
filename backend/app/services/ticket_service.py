@@ -15,11 +15,27 @@ from app.models.ticket import (
 )
 
 
+CATEGORY_TO_SPECIALIZATION = {
+    "Eduroam Wi-Fi": ["Network", "Network Technician"],
+    "Dorm ResNet": ["Network", "Network Technician"],
+    "VPN": ["Network", "Network Technician"],
+    "Canvas / SSO": ["Software", "Software Technician", "IAM / Access", "IAM/Access Technician"],
+    "Software": ["Software", "Software Technician"],
+    "Lab / Computer Access": ["Hardware", "Hardware Technician", "Software", "Software Technician"],
+    "PaperCut Printing": ["Hardware", "Hardware Technician"],
+    "Duo MFA": ["IAM / Access", "IAM/Access Technician"],
+    "NetID / Password": ["IAM / Access", "IAM/Access Technician"],
+    "Email": ["IAM / Access", "IAM/Access Technician", "Software", "Software Technician"],
+    "Other": ["Support", "Support Technician", "Other"],
+}
+
+
 class TicketService:
     def __init__(self):
         now_iso = datetime.now(timezone.utc).isoformat()
         # Seed realistic initial tickets for immediate university IT demonstration
         self._tickets: List[TicketResponse] = [
+
             TicketResponse(
                 id="ticket-101",
                 ticket_number="INC-2026-8941",
@@ -268,12 +284,30 @@ class TicketService:
         status: Optional[str] = None,
         category: Optional[str] = None,
         search: Optional[str] = None,
+        assigned_technician: Optional[str] = None,
+        specialization: Optional[str] = None,
     ) -> List[TicketResponse]:
         results = self._tickets
         if status and status.lower() != "all":
             results = [t for t in results if t.status.lower() == status.lower()]
         if category and category.lower() != "all":
             results = [t for t in results if t.category.lower() == category.lower()]
+        if assigned_technician and assigned_technician.lower() != "all":
+            tech_q = assigned_technician.lower()
+            results = [t for t in results if tech_q in (t.assigned_technician or "").lower()]
+        if specialization and specialization.lower() != "all":
+            spec_q = specialization.strip().lower()
+            filtered_by_spec = []
+            for t in results:
+                allowed_specs = [s.lower() for s in CATEGORY_TO_SPECIALIZATION.get(t.category, ["support", "other"])]
+                # Check if specialization matches category or escalation target or assigned technician
+                if any(spec_q in s or s in spec_q for s in allowed_specs):
+                    filtered_by_spec.append(t)
+                elif t.escalation_info and t.escalation_info.target_specialization and spec_q in t.escalation_info.target_specialization.lower():
+                    filtered_by_spec.append(t)
+                elif t.assigned_technician and spec_q in t.assigned_technician.lower():
+                    filtered_by_spec.append(t)
+            results = filtered_by_spec
         if search:
             q = search.lower()
             results = [
@@ -364,32 +398,137 @@ class TicketService:
             return None
 
         now_iso = datetime.now(timezone.utc).isoformat()
+        prev_status = ticket.status
 
         if data.title:
             ticket.title = data.title.strip()
+
+        if data.assigned_technician is not None and data.assigned_technician != ticket.assigned_technician:
+            old_tech = ticket.assigned_technician
+            ticket.assigned_technician = data.assigned_technician.strip()
+            ticket.actions_taken.append(
+                ActionLogItem(
+                    id=f"act-{random.randint(1000, 9999)}",
+                    timestamp=now_iso,
+                    action=f"Ticket assigned to technician '{ticket.assigned_technician}'",
+                    result=f"Reassigned from '{old_tech}' to '{ticket.assigned_technician}'.",
+                    actor="technician",
+                )
+            )
+
         if data.status:
             ticket.status = data.status
             # Automatically adjust diagnostic stage & progress based on status
-            if data.status == "Resolved":
+            if data.status == "Closed":
                 ticket.diagnostic_stage = "Completed"
                 ticket.diagnostic_progress = 100
+                if prev_status != "Closed":
+                    ticket.actions_taken.append(
+                        ActionLogItem(
+                            id=f"act-{random.randint(1000, 9999)}",
+                            timestamp=now_iso,
+                            action="Incident ticket closed and archived",
+                            result="Verification complete. Ticket lifecycle finalized.",
+                            actor="technician",
+                        )
+                    )
+            elif data.status == "Resolved":
+                ticket.diagnostic_stage = "Completed"
+                ticket.diagnostic_progress = 100
+                if prev_status != "Resolved":
+                    ticket.actions_taken.append(
+                        ActionLogItem(
+                            id=f"act-{random.randint(1000, 9999)}",
+                            timestamp=now_iso,
+                            action="Incident status updated to Resolved",
+                            result="Technician verified fix and recorded resolution.",
+                            actor="technician",
+                        )
+                    )
             elif data.status == "Escalated":
                 ticket.diagnostic_stage = "Completed"
                 ticket.diagnostic_progress = 100
-            elif data.status == "Diagnosing" and ticket.diagnostic_progress < 40:
+            elif data.status == "Assigned":
+                ticket.diagnostic_stage = "Triage"
+                ticket.diagnostic_progress = max(ticket.diagnostic_progress, 25)
+                if prev_status != "Assigned":
+                    ticket.actions_taken.append(
+                        ActionLogItem(
+                            id=f"act-{random.randint(1000, 9999)}",
+                            timestamp=now_iso,
+                            action=f"Ticket status set to Assigned ({ticket.assigned_technician})",
+                            result="Technician assigned to case queue.",
+                            actor="technician",
+                        )
+                    )
+            elif data.status == "Acknowledged":
+                ticket.diagnostic_stage = "Environment & Device"
+                ticket.diagnostic_progress = max(ticket.diagnostic_progress, 35)
+                if prev_status != "Acknowledged":
+                    ticket.actions_taken.append(
+                        ActionLogItem(
+                            id=f"act-{random.randint(1000, 9999)}",
+                            timestamp=now_iso,
+                            action="Ticket acknowledged by technician",
+                            result="Reviewing initial telemetry and client symptoms.",
+                            actor="technician",
+                        )
+                    )
+            elif data.status in ["Diagnosing"]:
                 ticket.diagnostic_stage = "Troubleshooting"
-                ticket.diagnostic_progress = 50
-            elif data.status == "Waiting for Student":
+                ticket.diagnostic_progress = max(ticket.diagnostic_progress, 50)
+                if prev_status != "Diagnosing":
+                    ticket.actions_taken.append(
+                        ActionLogItem(
+                            id=f"act-{random.randint(1000, 9999)}",
+                            timestamp=now_iso,
+                            action="Technician started active diagnostic work",
+                            result="Running network probes, checking logs, and diagnosing root cause.",
+                            actor="technician",
+                        )
+                    )
+            elif data.status in ["In Progress", "Fix in Progress"]:
+                ticket.diagnostic_stage = "Troubleshooting"
+                ticket.diagnostic_progress = max(ticket.diagnostic_progress, 65)
+                if prev_status not in ["In Progress", "Fix in Progress"]:
+                    ticket.actions_taken.append(
+                        ActionLogItem(
+                            id=f"act-{random.randint(1000, 9999)}",
+                            timestamp=now_iso,
+                            action="Remediation / Fix in progress",
+                            result="Applying technical workaround or configuration fix.",
+                            actor="technician",
+                        )
+                    )
+            elif data.status in ["Waiting for Student", "On Hold"]:
                 ticket.diagnostic_stage = "Verification"
-                ticket.diagnostic_progress = 75
+                ticket.diagnostic_progress = max(ticket.diagnostic_progress, 75)
+                if prev_status not in ["Waiting for Student", "On Hold"]:
+                    ticket.actions_taken.append(
+                        ActionLogItem(
+                            id=f"act-{random.randint(1000, 9999)}",
+                            timestamp=now_iso,
+                            action=f"Ticket placed on {data.status}",
+                            result="Awaiting response from student or external dependency.",
+                            actor="technician",
+                        )
+                    )
+            elif data.status in ["New", "Open"] and ticket.diagnostic_progress > 30:
+                ticket.diagnostic_stage = "Triage"
+                ticket.diagnostic_progress = 20
+
         if data.priority:
             ticket.priority = data.priority
         if data.category:
             ticket.category = data.category
         if data.location:
             ticket.location = data.location
+        if data.device:
+            ticket.device = data.device
         if data.issue_summary:
             ticket.issue_summary = data.issue_summary
+        if data.ai_confidence is not None:
+            ticket.ai_confidence = data.ai_confidence
         if data.diagnostic_stage:
             ticket.diagnostic_stage = data.diagnostic_stage
         if data.diagnostic_progress is not None:
@@ -402,12 +541,21 @@ class TicketService:
         if data.technician_note:
             note = TicketNote(
                 id=f"note-{random.randint(1000, 9999)}",
-                author="IT Support Specialist",
+                author=ticket.assigned_technician or "IT Support Specialist",
                 author_role="technician",
                 text=data.technician_note.strip(),
                 created_at=now_iso,
             )
             ticket.notes.append(note)
+            ticket.actions_taken.append(
+                ActionLogItem(
+                    id=f"act-{random.randint(1000, 9999)}",
+                    timestamp=now_iso,
+                    action="Work Note added by technician",
+                    result=data.technician_note.strip()[:100] + ("..." if len(data.technician_note.strip()) > 100 else ""),
+                    actor="technician",
+                )
+            )
 
         ticket.updated_at = now_iso
         return ticket
@@ -453,6 +601,39 @@ class TicketService:
                 timestamp=now_iso,
                 action="Incident marked as Resolved by Helpdesk",
                 result=f"Resolution recorded: {resolution_details.strip()[:100]}...",
+                actor="technician",
+            )
+        )
+        return ticket
+
+    def close_ticket(self, ticket_id: str, notes: Optional[str] = None) -> Optional[TicketResponse]:
+        ticket = self.get_ticket(ticket_id)
+        if not ticket:
+            return None
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        ticket.status = "Closed"
+        ticket.diagnostic_stage = "Completed"
+        ticket.diagnostic_progress = 100
+        ticket.updated_at = now_iso
+
+        if notes:
+            ticket.notes.append(
+                TicketNote(
+                    id=f"note-{random.randint(1000, 9999)}",
+                    author=ticket.assigned_technician or "IT Support Specialist",
+                    author_role="technician",
+                    text=f"Closing Note: {notes.strip()}",
+                    created_at=now_iso,
+                )
+            )
+
+        ticket.actions_taken.append(
+            ActionLogItem(
+                id=f"act-{random.randint(1000, 9999)}",
+                timestamp=now_iso,
+                action="Incident officially closed and archived",
+                result=f"Closed with verification. {notes.strip()[:80] if notes else 'All requirements satisfied.'}",
                 actor="technician",
             )
         )

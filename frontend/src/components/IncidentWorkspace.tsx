@@ -246,11 +246,23 @@ export default function IncidentWorkspace({
 
   const handleEscalateTicket = async () => {
     if (!activeTicket || !escalationReason.trim()) return;
+    const token = localStorage.getItem('campusfix_token');
+    const storedUserStr = localStorage.getItem('campusfix_user');
+    let originalTech = activeTicket.assigned_technician || 'CampusFix Support';
+    try {
+      if (storedUserStr) {
+        const u = JSON.parse(storedUserStr);
+        if (u.name) originalTech = `${u.name}${u.technician_id ? ` (${u.technician_id})` : ''}`;
+      }
+    } catch {}
+
     const escalationPayload: EscalationDetails = {
       tier: 'Tier-2 Specialist Escalation',
       department: escalationDepartment,
       reason: escalationReason.trim(),
-      assigned_to: 'Tier-2 Priority Queue',
+      original_technician: originalTech,
+      target_specialization: escalationDepartment,
+      assigned_to: `${escalationDepartment} Queue`,
       tech_bar_location: 'Main Library, 1st Floor Tech Bar (Mon–Fri 8:00 AM – 7:00 PM)',
       student_id_required: true,
       notes: escalationNotes.trim() || undefined,
@@ -258,9 +270,12 @@ export default function IncidentWorkspace({
     };
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(`/api/tickets/${activeTicket.id}/escalate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(escalationPayload),
       });
       if (res.ok) {
@@ -443,6 +458,17 @@ export default function IncidentWorkspace({
                       if (onTicketsUpdated) onTicketsUpdated(updatedList);
                     });
                 }
+              }}
+              onTicketCreated={(newTicket) => {
+                const updatedList = [newTicket, ...tickets.filter((t) => t.id !== newTicket.id)];
+                setLocalTickets(updatedList);
+                setActiveTicket(newTicket);
+                if (onTicketsUpdated) onTicketsUpdated(updatedList);
+                if (onTicketChanged) onTicketChanged(newTicket);
+              }}
+              onViewTicket={(ticketId) => {
+                const match = tickets.find((t) => t.id === ticketId || t.ticket_number === ticketId);
+                if (match) setActiveTicket(match);
               }}
             />
           </div>
@@ -838,17 +864,18 @@ export default function IncidentWorkspace({
               </p>
 
               <div className="form-group">
-                <label className="form-label">Escalation Department / Target</label>
+                <label className="form-label">Escalation Target / Specialization</label>
                 <select
                   className="form-select"
                   value={escalationDepartment}
                   onChange={(e) => setEscalationDepartment(e.target.value)}
                 >
-                  <option value="Campus IT Tech Bar Walkup">Campus IT Tech Bar Walkup (Library 1st Floor)</option>
-                  <option value="Network & Wireless Engineering">Network & Wireless Engineering</option>
-                  <option value="Identity & Access Management">Identity & Access Management (Duo / LDAP)</option>
-                  <option value="Printing & Hardware Support">Printing & Hardware Support</option>
-                  <option value="Academic Technology & Canvas">Academic Technology & Canvas LMS</option>
+                  <option value="Network">Network & Wireless Engineering</option>
+                  <option value="IAM / Access">Identity & Access Management (IAM / Duo / MFA)</option>
+                  <option value="Hardware">Campus Hardware & Printing Support</option>
+                  <option value="Software">Academic Software & LMS Engineering</option>
+                  <option value="Support">Student IT Help Bar Walkup</option>
+                  <option value="Host / Admin">Senior Administrator / Host Escalation</option>
                 </select>
               </div>
 

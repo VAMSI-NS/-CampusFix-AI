@@ -3,7 +3,20 @@ from typing import Optional, List, Literal
 from datetime import datetime, timezone
 
 TicketPriority = Literal["Critical", "High", "Medium", "Low", "Urgent"]
-TicketStatus = Literal["New", "Diagnosing", "Waiting for Student", "Resolved", "Escalated", "Open", "In Progress", "Closed"]
+TicketStatus = Literal[
+    "New",
+    "Open",
+    "Escalated",
+    "Assigned",
+    "Acknowledged",
+    "Diagnosing",
+    "In Progress",
+    "Fix in Progress",
+    "Waiting for Student",
+    "On Hold",
+    "Resolved",
+    "Closed",
+]
 TicketCategory = Literal[
     "Eduroam Wi-Fi",
     "Canvas / SSO",
@@ -12,6 +25,9 @@ TicketCategory = Literal[
     "Dorm ResNet",
     "NetID / Password",
     "Lab / Computer Access",
+    "Software",
+    "VPN",
+    "Email",
     "Other",
 ]
 DiagnosticStage = Literal["Triage", "Environment & Device", "Troubleshooting", "Verification", "Completed"]
@@ -20,7 +36,7 @@ DiagnosticStage = Literal["Triage", "Environment & Device", "Troubleshooting", "
 class TicketNote(BaseModel):
     id: str
     author: str
-    author_role: Literal["student", "technician", "system"]
+    author_role: Literal["student", "technician", "system", "host", "admin"]
     text: str
     created_at: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
@@ -34,19 +50,22 @@ class ActionLogItem(BaseModel):
     )
     action: str
     result: str
-    actor: Literal["ai_specialist", "student", "technician", "system"] = "system"
+    actor: Literal["ai_specialist", "student", "technician", "system", "host", "admin"] = "system"
 
 
 class ActionLogCreate(BaseModel):
     action: str
     result: str
-    actor: Optional[Literal["ai_specialist", "student", "technician", "system"]] = "technician"
+    actor: Optional[Literal["ai_specialist", "student", "technician", "system", "host", "admin"]] = "technician"
 
 
 class EscalationDetails(BaseModel):
     tier: str = "Tier-2 Technical Escalation"
     department: str = "Campus IT Systems Engineering"
     reason: str
+    original_technician: Optional[str] = None
+    target_specialization: Optional[str] = None
+    target_role: Optional[str] = None
     assigned_to: Optional[str] = "Tier-2 On-Call Specialist"
     tech_bar_location: str = "Main Library, 1st Floor Tech Bar (Mon–Fri 8:00 AM – 7:00 PM)"
     student_id_required: bool = True

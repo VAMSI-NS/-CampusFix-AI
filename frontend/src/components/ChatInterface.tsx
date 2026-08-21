@@ -252,12 +252,28 @@ export default function ChatInterface({
     // Derive initial form fields from user messages
     const userMsgs = messages.filter((m) => m.role === 'user');
     const firstUserQuery = userMsgs[0]?.content || 'Campus IT Technical Support Incident';
-    const detectedCat = detectCategoryFromText(firstUserQuery);
+    const allUserText = userMsgs.map((m) => m.content).join(' ');
+    const detectedCat = detectCategoryFromText(allUserText || firstUserQuery);
+
+    // Extract location if mentioned
+    let detectedLocation = 'Main Campus Library';
+    const lowerText = allUserText.toLowerCase();
+    if (lowerText.includes('library')) {
+      detectedLocation = 'Main Library';
+    } else if (lowerText.includes('engineering')) {
+      detectedLocation = 'Engineering Hall';
+    } else if (lowerText.includes('dorm') || lowerText.includes('hall') || lowerText.includes('resnet')) {
+      detectedLocation = 'Residence Halls';
+    } else if (lowerText.includes('science')) {
+      detectedLocation = 'Science Center';
+    } else if (lowerText.includes('lab')) {
+      detectedLocation = 'Campus Computer Lab';
+    }
 
     setFormIssueTitle(firstUserQuery.replace(/\[Attached File:.*?\]/g, '').trim().slice(0, 70));
     setFormCategory(detectedCat);
     setFormPriority('High');
-    setFormLocation('Main Campus / Library');
+    setFormLocation(detectedLocation);
 
     const descSummary = userMsgs.map((m) => `- ${m.content}`).join('\n');
     setFormDescription(`Problem Statement:\n${descSummary}\n\nTroubleshooting Attempted: Automated diagnostic steps applied via CampusFix AI specialist, but issue persists.`);
@@ -280,10 +296,10 @@ export default function ChatInterface({
       title: formIssueTitle.trim(),
       category: formCategory,
       priority: formPriority,
-      location: formLocation.trim() || 'Campus Help Desk Walkup',
-      device: 'Student Laptop / Mobile',
-      netid: 'student_user',
-      email: 'student@campus.edu',
+      location: formLocation.trim() || 'Main Campus Library',
+      device: 'Student Device',
+      netid: 'student.user',
+      email: 'student@university.edu',
       description: formDescription.trim() || formIssueTitle.trim(),
       issue_summary: formIssueTitle.trim(),
       chat_transcript: transcript,
@@ -358,19 +374,70 @@ export default function ChatInterface({
 
     // Check if user is indicating troubleshooting failed or requesting a ticket
     const lowerInput = messageText.toLowerCase();
+    const isExplicitTicketRequest =
+      lowerInput.includes('create ticket') ||
+      lowerInput.includes('create a ticket') ||
+      lowerInput.includes('open ticket') ||
+      lowerInput.includes('open a ticket') ||
+      lowerInput.includes('submit ticket') ||
+      lowerInput.includes('submit a ticket') ||
+      lowerInput.includes('support ticket') ||
+      lowerInput.includes('escalate to human') ||
+      lowerInput.includes('escalate ticket');
+
     const isUnresolvedTrigger =
+      isExplicitTicketRequest ||
       lowerInput.includes('still not fixed') ||
       lowerInput.includes('not fixed') ||
+      lowerInput.includes('still not working') ||
+      lowerInput.includes('not working') ||
+      lowerInput.includes('tried all the suggested steps') ||
       lowerInput.includes('tried the suggested steps') ||
+      lowerInput.includes('tried suggested steps') ||
+      lowerInput.includes('tried all steps') ||
+      lowerInput.includes('tried steps') ||
       lowerInput.includes('did not work') ||
       lowerInput.includes("didn't work") ||
       lowerInput.includes("doesn't work") ||
       lowerInput.includes('same error') ||
+      lowerInput.includes('same issue') ||
       lowerInput.includes('still broken') ||
       lowerInput.includes('still persisting') ||
-      lowerInput.includes('create ticket') ||
-      lowerInput.includes('support ticket') ||
-      lowerInput.includes('escalate');
+      lowerInput.includes('persisting') ||
+      lowerInput.includes('persists') ||
+      lowerInput.includes('unresolved') ||
+      lowerInput.includes('not resolved') ||
+      lowerInput.includes('problem is not fixed');
+
+    // Check if user is affirmatively answering ticket creation offer
+    const isAffirmativeTicketConfirm =
+      (showTicketOffer || isExplicitTicketRequest) &&
+      (lowerInput === 'yes' ||
+        lowerInput === 'yes.' ||
+        lowerInput === 'yes please' ||
+        lowerInput === 'yes please.' ||
+        lowerInput === 'sure' ||
+        lowerInput === 'sure.' ||
+        lowerInput === 'ok' ||
+        lowerInput === 'okay' ||
+        lowerInput === 'proceed' ||
+        lowerInput === 'go ahead' ||
+        lowerInput.startsWith('yes,') ||
+        lowerInput.startsWith('yes ') ||
+        lowerInput.startsWith('sure ') ||
+        lowerInput.startsWith('please ') ||
+        lowerInput.includes('please create') ||
+        lowerInput.includes('create ticket') ||
+        lowerInput.includes('create a ticket') ||
+        lowerInput.includes('open ticket') ||
+        lowerInput.includes('open a ticket') ||
+        lowerInput.includes('confirm') ||
+        lowerInput.includes('yes, create'));
+
+    if (isAffirmativeTicketConfirm) {
+      handleOpenTicketForm();
+      return;
+    }
 
     // Advance diagnostic stepper
     if (messages.length === 1 && onStageChange) {
@@ -420,7 +487,7 @@ export default function ChatInterface({
       setMessages((prev) => [...prev, assistantMessage]);
 
       // If unresolved trigger detected, show ticket offer card
-      if (isUnresolvedTrigger) {
+      if (isUnresolvedTrigger || replyContent.toLowerCase().includes('create an official **campus it support ticket') || replyContent.toLowerCase().includes('open an official **campus it support ticket')) {
         setShowTicketOffer(true);
       }
 
@@ -429,9 +496,12 @@ export default function ChatInterface({
       }
     } catch (err) {
       console.error('Failed to get AI response:', err);
+      const errText = err instanceof Error ? err.message : 'Unable to connect to AI diagnostic service';
       setErrorMessage(
-        err instanceof Error ? err.message : 'Failed to connect to the AI diagnostic service.'
+        `AI Diagnostic Service is temporarily offline (${errText}). You can still submit an IT Support Ticket below.`
       );
+      // Ensure ticket creation is readily available even during AI downtime
+      setShowTicketOffer(true);
     } finally {
       setIsLoading(false);
     }

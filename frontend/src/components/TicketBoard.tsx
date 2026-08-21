@@ -1,21 +1,19 @@
 import { useState, useMemo } from 'react';
-import {
-  Ticket,
-  TicketStatus,
-  TicketPriority,
-  TicketCategory,
-} from '../types/chat';
+import { Ticket, TicketStatus, TicketPriority, TicketCategory, CampusUser } from '../types/chat';
 import {
   Search,
   User,
   PlusCircle,
   RotateCcw,
-  ArrowUpRight,
   Clock,
+  Wrench,
+  ArrowUpRight,
 } from 'lucide-react';
+import { normalizeSpecialization } from './AdminDashboard';
 
 interface TicketBoardProps {
   tickets: Ticket[];
+  currentUser?: CampusUser | null;
   onUpdateTicketStatus: (ticketId: string, newStatus: TicketStatus) => Promise<void>;
   onOpenInResolver: (ticketId: string) => void;
   onRefresh?: () => void;
@@ -40,15 +38,37 @@ const CATEGORIES: (TicketCategory | 'All')[] = [
   'Dorm ResNet',
   'NetID / Password',
   'Lab / Computer Access',
+  'Software',
+  'VPN',
+  'Email',
+  'Other',
 ];
+
+const CATEGORY_TO_SPECIALIZATION: Record<string, string[]> = {
+  'Eduroam Wi-Fi': ['Network'],
+  'Dorm ResNet': ['Network'],
+  'VPN': ['Network'],
+  'Canvas / SSO': ['Software', 'IAM / Access'],
+  'Software': ['Software'],
+  'Lab / Computer Access': ['Hardware', 'Software'],
+  'PaperCut Printing': ['Hardware'],
+  'Duo MFA': ['IAM / Access'],
+  'NetID / Password': ['IAM / Access'],
+  'Email': ['IAM / Access', 'Software'],
+  'Other': ['Support', 'Other'],
+};
 
 export default function TicketBoard({
   tickets,
+  currentUser,
   onUpdateTicketStatus,
   onOpenInResolver,
   onRefresh,
   onNewTicketClick,
 }: TicketBoardProps) {
+  const isTechnician = currentUser?.role === 'technician';
+  const techSpecialization = currentUser?.specialization || '';
+  const [onlyMyQueue, setOnlyMyQueue] = useState(isTechnician);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPriority, setSelectedPriority] = useState<TicketPriority | 'All'>('All');
   const [selectedCategory, setSelectedCategory] = useState<TicketCategory | 'All'>('All');
@@ -59,6 +79,14 @@ export default function TicketBoard({
   // Filtered tickets
   const filteredTickets = useMemo(() => {
     return tickets.filter((t) => {
+      if (onlyMyQueue && isTechnician && techSpecialization) {
+        const normSpec = normalizeSpecialization(techSpecialization);
+        const mappedSpecs = (CATEGORY_TO_SPECIALIZATION[t.category] || ['Support']).map(normalizeSpecialization);
+        const matchesCategory = mappedSpecs.includes(normSpec);
+        const matchesEscalation = t.escalation_info?.target_specialization && normalizeSpecialization(t.escalation_info.target_specialization) === normSpec;
+        const matchesAssignee = t.assigned_technician && normSpec.toLowerCase().includes(t.assigned_technician.toLowerCase());
+        if (!matchesCategory && !matchesEscalation && !matchesAssignee) return false;
+      }
       if (selectedPriority !== 'All' && t.priority !== selectedPriority) return false;
       if (selectedCategory !== 'All' && t.category !== selectedCategory) return false;
       if (searchQuery.trim()) {
@@ -72,7 +100,7 @@ export default function TicketBoard({
       }
       return true;
     });
-  }, [tickets, selectedPriority, selectedCategory, searchQuery]);
+  }, [tickets, onlyMyQueue, isTechnician, techSpecialization, selectedPriority, selectedCategory, searchQuery]);
 
   // Drag & drop handlers
   const handleDragStart = (ticketId: string) => {
@@ -110,6 +138,26 @@ export default function TicketBoard({
         </div>
 
         <div className="board-toolbar">
+          {isTechnician && techSpecialization && (
+            <button
+              type="button"
+              className="btn-secondary-sm"
+              onClick={() => setOnlyMyQueue(!onlyMyQueue)}
+              style={{
+                background: onlyMyQueue ? 'var(--primary-600)' : 'transparent',
+                color: onlyMyQueue ? '#fff' : 'var(--text-secondary)',
+                borderColor: onlyMyQueue ? 'var(--primary-500)' : 'var(--border-subtle)',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                gap: '0.35rem',
+              }}
+              title={onlyMyQueue ? 'Showing tickets for your specialization only' : 'Showing all campus tickets'}
+            >
+              <Wrench size={13} />
+              <span>{onlyMyQueue ? `My ${techSpecialization} Queue` : 'All Queue'}</span>
+            </button>
+          )}
+
           <div className="search-box-sm">
             <Search size={14} style={{ color: 'var(--text-muted)' }} />
             <input

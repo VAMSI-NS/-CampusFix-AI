@@ -1,8 +1,10 @@
 import os
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, HTTPException, status, Query
+from fastapi import FastAPI, HTTPException, status, Query, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 from app.models.chat import ChatRequest, ChatResponse
@@ -27,7 +29,17 @@ from app.models.analytics import (
     ReportSummaryResponse,
 )
 from app.models.diagnostics import DiagnosticsReportResponse
-from app.models.users import CampusUser
+from app.models.users import (
+    CampusUser,
+    LoginRequest,
+    LoginResponse,
+    UserUpdateRequest,
+    TechnicianCreateRequest,
+    TechnicianUpdateRequest,
+    ResetPasswordRequest,
+    ChangePasswordRequest,
+    ALL_SPECIALIZATIONS,
+)
 
 from app.services.ai_service import ai_service
 from app.services.ticket_service import ticket_service
@@ -36,14 +48,26 @@ from app.services.kb_service import kb_service
 from app.services.analytics_service import analytics_service
 from app.services.users_service import users_service
 from app.services.diagnostics_service import diagnostics_service
+from app.services.auth_service import auth_service
+from app.services.auth_deps import (
+    get_current_user,
+    get_current_user_optional,
+    require_roles,
+    require_host,
+    require_technician_or_host,
+)
 
 # Load environment variables
-load_dotenv()
+_backend_env = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
+if os.path.exists(_backend_env):
+    load_dotenv(dotenv_path=_backend_env)
+else:
+    load_dotenv()
 
 app = FastAPI(
     title="CampusFix IT Platform — Backend API",
-    description="University Helpdesk & Autonomous IT Incident Resolver Backend Service",
-    version="1.0.0",
+    description="University Helpdesk & Autonomous IT Incident Resolver Backend Service with Secure Authentication and RBAC",
+    version="1.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -69,16 +93,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
+assets_dir = os.path.join(frontend_dist, "assets")
+
+if os.path.exists(assets_dir):
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+
+# --- Root & Health Endpoints ---
+
 
 @app.get("/")
 def read_root():
-    """Root endpoint providing service overview."""
+    """Root endpoint: serves frontend SPA if built, otherwise API directory."""
+    index_file = os.path.join(frontend_dist, "index.html")
+    if os.path.isfile(index_file):
+        return FileResponse(index_file)
     return {
         "name": "CampusFix IT Platform API",
         "tagline": "University Helpdesk & Incident Resolver",
         "status": "operational",
         "docs": "/docs",
         "health": "/api/health",
+        "auth": "/api/auth/login",
         "chat": "/api/chat",
         "tickets": "/api/tickets",
         "status_panel": "/api/status",
@@ -98,11 +135,112 @@ def health_check():
         "status": "ok",
         "message": "CampusFix IT Platform backend service is healthy and operational.",
         "service": "CampusFix IT Backend",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "ai_ready": bool(os.getenv("OPENROUTER_API_KEY")),
         "model": os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-3-ultra-550b-a55b"),
     }
+
+
+# --- Authentication & Authorization Endpoints ---
+
+
+@app.post(
+    "/api/auth/login",
+    response_model=LoginResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Authenticate User, Technician, or Host with JWT token generation",
+)
+def login(login_data: LoginRequest):
+    """
+    Authenticates user credentials against backend-hashed passwords.
+    Validates technician specialization and role requirements.
+    Returns secure signed JWT Bearer token and sanitized user profile.
+    """
+    user, err = users_service.authenticate(
+        username=login_data.username,
+        password=login_data.password,
+        specialization=login_data.specialization,
+        role=login_data.role,
+    )
+    if err or not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=err or "Invalid username or password.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Generate JWT access token with user claims and session specialization
+    token = auth_service.create_access_token(
+        user=user,
+        specialization=login_data.specialization or user.specialization,
+    )
+
+    return LoginResponse(
+        token=token,
+        token_type="Bearer",
+        user=user,
+        expires_in=604800,
+    )
+
+
+@app.get(
+    "/api/auth/me",
+    response_model=CampusUser,
+    status_code=status.HTTP_200_OK,
+    summary="Get profile of currently authenticated user",
+)
+def get_current_user_profile(current_user: CampusUser = Depends(get_current_user)):
+    """Returns the validated identity and permissions of the currently authenticated token bearer."""
+    return current_user
+
+
+@app.post(
+    "/api/auth/change-password",
+    status_code=status.HTTP_200_OK,
+    summary="Change password for currently authenticated user or Host",
+)
+def change_password(
+    data: ChangePasswordRequest,
+    current_user: CampusUser = Depends(get_current_user),
+):
+    """Allows authenticated users (including Host/Admin) to change their password securely."""
+    if len(data.new_password.strip()) < 4:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be at least 4 characters long.",
+        )
+
+    success, err = users_service.change_user_password(
+        user_id=current_user.id,
+        current_password=data.current_password,
+        new_password=data.new_password,
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=err or "Unable to change password. Current password incorrect.",
+        )
+
+    return {
+        "status": "success",
+        "message": f"Password updated successfully for account '{current_user.name}'.",
+    }
+
+
+@app.get(
+    "/api/auth/specializations",
+    status_code=status.HTTP_200_OK,
+    summary="List available technician specializations",
+)
+def get_specializations():
+    """Returns official campus technician specializations."""
+    return {
+        "specializations": ALL_SPECIALIZATIONS,
+    }
+
+
+# --- AI Chat Support Endpoint ---
 
 
 @app.post(
@@ -148,11 +286,19 @@ async def chat_with_agent(request: ChatRequest):
 )
 def get_tickets(
     status: Optional[str] = Query(None, description="Filter by status (New, Diagnosing, Waiting for Student, Resolved, Escalated, Open, In Progress, Closed)"),
-    category: Optional[str] = Query(None, description="Filter by category (Eduroam Wi-Fi, Canvas / SSO, Duo MFA, PaperCut Printing, Dorm ResNet, NetID / Password, Lab / Computer Access)"),
+    category: Optional[str] = Query(None, description="Filter by category"),
     search: Optional[str] = Query(None, description="Search query across ticket ID, title, description, or netid"),
+    assigned_technician: Optional[str] = Query(None, description="Filter by assigned technician"),
+    specialization: Optional[str] = Query(None, description="Filter by technician specialization"),
 ):
     """Returns a list of campus IT incident tickets sorted newest first."""
-    return ticket_service.list_tickets(status=status, category=category, search=search)
+    return ticket_service.list_tickets(
+        status=status,
+        category=category,
+        search=search,
+        assigned_technician=assigned_technician,
+        specialization=specialization,
+    )
 
 
 @app.post(
@@ -240,13 +386,31 @@ def resolve_ticket(ticket_id: str, req: TicketResolveRequest):
 
 
 @app.post(
+    "/api/tickets/{ticket_id}/close",
+    response_model=TicketResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Officially close and archive an IT incident",
+)
+def close_ticket(ticket_id: str, notes: Optional[Dict[str, Any]] = None):
+    """Marks ticket as Closed, finalized, and archives the incident in the audit ledger."""
+    close_notes = notes.get("notes") if notes and isinstance(notes, dict) else None
+    ticket = ticket_service.close_ticket(ticket_id, close_notes)
+    if not ticket:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Incident ticket '{ticket_id}' not found.",
+        )
+    return ticket
+
+
+@app.post(
     "/api/tickets/{ticket_id}/escalate",
     response_model=TicketResponse,
     status_code=status.HTTP_200_OK,
-    summary="Escalate an incident to Tier-2 / Tech Bar walkup",
+    summary="Escalate an incident to target specialization, senior tech, or Host/Admin",
 )
 def escalate_ticket(ticket_id: str, escalation_info: EscalationDetails):
-    """Escalates an incident with routing reason, assigned tier, and Tech Bar walkup dispatch details."""
+    """Escalates an incident with routing reason, assigned tier, target specialization, and dispatch details."""
     ticket = ticket_service.escalate_ticket(ticket_id, escalation_info)
     if not ticket:
         raise HTTPException(
@@ -254,6 +418,148 @@ def escalate_ticket(ticket_id: str, escalation_info: EscalationDetails):
             detail=f"Incident ticket '{ticket_id}' not found.",
         )
     return ticket
+
+
+# --- Host Technician Management Endpoints (Strict RBAC Protected) ---
+
+
+@app.get(
+    "/api/technicians",
+    response_model=List[CampusUser],
+    status_code=status.HTTP_200_OK,
+    summary="List all technician accounts with live status and workloads (Host & Tech)",
+)
+def get_technicians(current_user: CampusUser = Depends(require_technician_or_host)):
+    """Returns directory of all registered technicians with specializations and workloads."""
+    return users_service.list_technicians()
+
+
+@app.post(
+    "/api/technicians",
+    response_model=CampusUser,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new technician account (Host Only)",
+)
+def create_technician(
+    data: TechnicianCreateRequest,
+    current_user: CampusUser = Depends(require_host),
+):
+    """Host endpoint to register and provision a new campus IT technician with secure hashed credentials."""
+    user, err = users_service.create_technician(data)
+    if err or not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=err or "Failed to create technician.",
+        )
+    return user
+
+
+@app.get(
+    "/api/technicians/{tech_id}",
+    response_model=CampusUser,
+    status_code=status.HTTP_200_OK,
+    summary="Get single technician profile by ID or username",
+)
+def get_technician_by_id(
+    tech_id: str,
+    current_user: CampusUser = Depends(require_technician_or_host),
+):
+    """Retrieves technician profile information and assignment details."""
+    tech = users_service.get_technician(tech_id)
+    if not tech:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Technician '{tech_id}' not found.",
+        )
+    return tech
+
+
+@app.put(
+    "/api/technicians/{tech_id}",
+    response_model=CampusUser,
+    status_code=status.HTTP_200_OK,
+    summary="Update technician profile, specialization, active status, or details (Host Only)",
+)
+def update_technician(
+    tech_id: str,
+    data: TechnicianUpdateRequest,
+    current_user: CampusUser = Depends(require_host),
+):
+    """Host endpoint to edit technician details, change specialization, or toggle active/inactive status."""
+    tech, err = users_service.update_technician(tech_id, data)
+    if err or not tech:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=err or f"Technician '{tech_id}' not found.",
+        )
+    return tech
+
+
+@app.post(
+    "/api/technicians/{tech_id}/reset-password",
+    status_code=status.HTTP_200_OK,
+    summary="Reset a technician's password (Host Only)",
+)
+def reset_technician_password(
+    tech_id: str,
+    data: ResetPasswordRequest,
+    current_user: CampusUser = Depends(require_host),
+):
+    """Host endpoint to reset a technician's password."""
+    if len(data.new_password.strip()) < 4:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 4 characters long.",
+        )
+
+    success, err = users_service.reset_technician_password(tech_id, data.new_password)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=err or f"Technician '{tech_id}' not found.",
+        )
+    return {
+        "status": "success",
+        "message": f"Password reset successfully for technician '{tech_id}'.",
+    }
+
+
+# --- User Directory Endpoints ---
+
+
+@app.get(
+    "/api/users",
+    response_model=List[CampusUser],
+    status_code=status.HTTP_200_OK,
+    summary="List IT staff and users (Admin & Host)",
+)
+def list_users(
+    role: Optional[str] = Query(None, description="Filter by role (student, technician, host, admin)"),
+    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+):
+    """Returns directory of technicians, staff administrators, and students."""
+    return users_service.list_users(role=role)
+
+
+@app.patch(
+    "/api/users/{user_id}/status",
+    response_model=CampusUser,
+    status_code=status.HTTP_200_OK,
+    summary="Update user / technician status",
+)
+def update_user_status(
+    user_id: str,
+    status_val: str = Query(..., description="Status (active, away, offline)"),
+    current_user: CampusUser = Depends(require_technician_or_host),
+):
+    """Updates technician availability status."""
+    user = users_service.update_user_status(user_id, status_val)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{user_id}' not found.",
+        )
+    return user
 
 
 # --- Campus Infrastructure Service Status ---
@@ -280,7 +586,7 @@ def get_campus_status():
     summary="Search & list campus IT knowledge base articles",
 )
 def list_kb_articles(
-    category: Optional[str] = Query(None, description="Filter by category (Wi-Fi, Password, Canvas / LMS, Printing, Software, VPN, Email, MFA / Duo, ResNet)"),
+    category: Optional[str] = Query(None, description="Filter by category"),
     search: Optional[str] = Query(None, description="Keyword search in title, tags, or content"),
 ):
     """Retrieves published knowledge base articles matching search/category criteria."""
@@ -308,10 +614,13 @@ def get_kb_article(article_id: str):
     "/api/kb",
     response_model=KBArticle,
     status_code=status.HTTP_201_CREATED,
-    summary="Create new knowledge base article (Admin)",
+    summary="Create new knowledge base article (Staff/Host)",
 )
-def create_kb_article(data: KBArticleCreate):
-    """Admin endpoint to publish a new IT help procedure."""
+def create_kb_article(
+    data: KBArticleCreate,
+    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+):
+    """Endpoint to publish a new IT help procedure."""
     return kb_service.create_article(data)
 
 
@@ -319,10 +628,14 @@ def create_kb_article(data: KBArticleCreate):
     "/api/kb/{article_id}",
     response_model=KBArticle,
     status_code=status.HTTP_200_OK,
-    summary="Update knowledge base article (Admin)",
+    summary="Update knowledge base article (Staff/Host)",
 )
-def update_kb_article(article_id: str, data: KBArticleUpdate):
-    """Admin endpoint to edit existing IT documentation."""
+def update_kb_article(
+    article_id: str,
+    data: KBArticleUpdate,
+    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+):
+    """Endpoint to edit existing IT documentation."""
     article = kb_service.update_article(article_id, data)
     if not article:
         raise HTTPException(
@@ -335,10 +648,13 @@ def update_kb_article(article_id: str, data: KBArticleUpdate):
 @app.delete(
     "/api/kb/{article_id}",
     status_code=status.HTTP_200_OK,
-    summary="Delete knowledge base article (Admin)",
+    summary="Delete knowledge base article (Staff/Host)",
 )
-def delete_kb_article(article_id: str):
-    """Admin endpoint to remove an obsolete help article."""
+def delete_kb_article(
+    article_id: str,
+    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+):
+    """Endpoint to remove an obsolete help article."""
     success = kb_service.delete_article(article_id)
     if not success:
         raise HTTPException(
@@ -365,7 +681,7 @@ def vote_kb_article_helpful(article_id: str):
     return article
 
 
-# --- Analytics & Reports Endpoints (Admin & Host) ---
+# --- Analytics & Reports Endpoints ---
 
 
 @app.get(
@@ -383,9 +699,9 @@ def get_analytics_kpis():
     "/api/analytics/graphs",
     response_model=AnalyticsGraphsResponse,
     status_code=status.HTTP_200_OK,
-    summary="Get comprehensive analytics charts and breakdowns (Admin)",
+    summary="Get comprehensive analytics charts and breakdowns",
 )
-def get_analytics_graphs():
+def get_analytics_graphs(current_user: Optional[CampusUser] = Depends(get_current_user_optional)):
     """Provides chart datasets: Priority donut, resolution trend, department breakdown, technician workloads."""
     return analytics_service.get_graphs_overview()
 
@@ -394,46 +710,16 @@ def get_analytics_graphs():
     "/api/reports",
     response_model=ReportSummaryResponse,
     status_code=status.HTTP_200_OK,
-    summary="Get management reports summary (Host Role - Read Only)",
+    summary="Get management reports summary (Host / Executive)",
 )
 def get_reports_summary(
-    date_range: Optional[str] = Query("Last 30 Days", description="Date range (Last 7 Days, Last 30 Days, This Semester, Year to Date)"),
+    date_range: Optional[str] = Query("Last 30 Days", description="Date range"),
     department: Optional[str] = Query("All", description="Filter by department"),
     category: Optional[str] = Query("All", description="Filter by category"),
+    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
 ):
-    """Returns executive incident metrics and SLA performance for Host read-only review."""
+    """Returns executive incident metrics and SLA performance for Host review."""
     return analytics_service.get_report_summary(date_range=date_range, department=department, category=category)
-
-
-# --- User & Technician Roster Endpoints ---
-
-
-@app.get(
-    "/api/users",
-    response_model=List[CampusUser],
-    status_code=status.HTTP_200_OK,
-    summary="List IT staff and users (Admin)",
-)
-def list_users(role: Optional[str] = Query(None, description="Filter by role (student, technician, admin, host)")):
-    """Returns directory of technicians, staff administrators, and students."""
-    return users_service.list_users(role=role)
-
-
-@app.patch(
-    "/api/users/{user_id}/status",
-    response_model=CampusUser,
-    status_code=status.HTTP_200_OK,
-    summary="Update technician status (Admin)",
-)
-def update_user_status(user_id: str, status_val: str = Query(..., description="Status (active, away, offline)")):
-    """Updates technician availability status."""
-    user = users_service.update_user_status(user_id, status_val)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"User '{user_id}' not found.",
-        )
-    return user
 
 
 # --- Diagnostics & Database Telemetry Endpoints ---
@@ -454,8 +740,39 @@ def run_diagnostics_probes():
     "/api/admin/database",
     response_model=Dict[str, Any],
     status_code=status.HTTP_200_OK,
-    summary="Get database storage and record counts (Admin)",
+    summary="Get database storage and record counts",
 )
-def get_database_overview():
+def get_database_overview(current_user: Optional[CampusUser] = Depends(get_current_user_optional)):
     """Returns table record counts, schema version, and storage telemetry."""
     return diagnostics_service.get_database_overview()
+
+
+# --- Single Page Application (SPA) Fallback Route ---
+
+
+@app.get("/{full_path:path}")
+async def serve_spa_or_file(full_path: str):
+    """
+    Catch-all route to serve static assets or fallback to index.html for client-side routing.
+    Ensures that visiting /resolver, /tickets, /kb, /admin, /reports directly does not return 404.
+    """
+    if full_path.startswith("api/") or full_path == "api" or full_path in ["docs", "redoc", "openapi.json"]:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"API endpoint '/{full_path}' not found.",
+        )
+
+    # Check for direct file match in dist (e.g. favicon.ico, vite.svg, etc.)
+    target_file = os.path.join(frontend_dist, full_path)
+    if os.path.isfile(target_file):
+        return FileResponse(target_file)
+
+    # SPA Fallback to index.html
+    index_file = os.path.join(frontend_dist, "index.html")
+    if os.path.isfile(index_file):
+        return FileResponse(index_file)
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Resource '/{full_path}' not found.",
+    )

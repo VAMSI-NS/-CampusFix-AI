@@ -45,12 +45,16 @@ export type TicketPriority = 'Low' | 'Medium' | 'High' | 'Urgent' | 'Critical';
 
 export type TicketStatus =
   | 'New'
-  | 'Diagnosing'
-  | 'Waiting for Student'
-  | 'Resolved'
-  | 'Escalated'
   | 'Open'
+  | 'Escalated'
+  | 'Assigned'
+  | 'Acknowledged'
+  | 'Diagnosing'
   | 'In Progress'
+  | 'Fix in Progress'
+  | 'Waiting for Student'
+  | 'On Hold'
+  | 'Resolved'
   | 'Closed';
 
 export type TicketCategory =
@@ -85,6 +89,9 @@ export interface EscalationDetails {
   tier: string;
   department: string;
   reason: string;
+  original_technician?: string;
+  target_specialization?: string;
+  target_role?: string;
   assigned_to?: string;
   tech_bar_location: string;
   student_id_required: boolean;
@@ -307,17 +314,43 @@ export interface ReportSummaryResponse {
 
 export type UserRole = 'student' | 'technician' | 'admin' | 'host';
 
+export type TechnicianSpecialization =
+  | 'Network'
+  | 'Hardware'
+  | 'Software'
+  | 'Support'
+  | 'IAM / Access'
+  | 'Network Technician'
+  | 'Hardware Technician'
+  | 'Software Technician'
+  | 'Support Technician'
+  | 'IAM/Access Technician'
+  | 'Other';
+
 export interface CampusUser {
   id: string;
+  technician_id?: string;
   name: string;
+  username?: string;
   email: string;
   netid: string;
   role: UserRole;
+  specialization?: string;
   department: string;
   status: 'active' | 'away' | 'offline';
+  is_active?: boolean;
+  phone?: string;
   active_assignments_count: number;
   avatar_initials: string;
   skills: string[];
+  created_at?: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  token_type: string;
+  user: CampusUser;
+  expires_in: number;
 }
 
 // --- Diagnostics & Probes Types ---
