@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   SystemStatusResponse,
+  CampusUser,
+  Ticket,
 } from '../types/chat';
 import { INITIAL_MOCK_STATUS } from '../data/mockData';
+import CampusMap from './CampusMap';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -17,12 +20,26 @@ import {
   Radio,
   BookOpen,
   Info,
+  MapPin,
 } from 'lucide-react';
 
-export default function CampusStatusPanel() {
+interface CampusStatusPanelProps {
+  currentUser?: CampusUser | null;
+  tickets?: Ticket[];
+  onOpenTicketInResolver?: (ticketId: string) => void;
+  onNavigateToMap?: () => void;
+}
+
+export default function CampusStatusPanel({
+  currentUser,
+  tickets = [],
+  onOpenTicketInResolver,
+  onNavigateToMap,
+}: CampusStatusPanelProps) {
   const [statusData, setStatusData] = useState<SystemStatusResponse>(() => INITIAL_MOCK_STATUS);
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [showEmbeddedMap, setShowEmbeddedMap] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     setIsLoading(true);
@@ -155,12 +172,48 @@ export default function CampusStatusPanel() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           {lastUpdated && (
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
               Updated at {lastUpdated}
             </span>
           )}
+
+          <button
+            className={`btn-secondary-sm ${showEmbeddedMap ? 'active' : ''}`}
+            onClick={() => setShowEmbeddedMap(!showEmbeddedMap)}
+            style={{
+              padding: '0.4rem 0.85rem',
+              fontSize: '0.78rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              borderColor: showEmbeddedMap ? 'var(--primary-500)' : 'var(--border-subtle)',
+              background: showEmbeddedMap ? 'var(--primary-600)' : 'transparent',
+              color: showEmbeddedMap ? '#ffffff' : 'var(--primary-600)',
+            }}
+          >
+            <MapPin size={14} />
+            <span>{showEmbeddedMap ? 'Hide Map' : '🗺️ View Live Campus Map'}</span>
+          </button>
+
+          {onNavigateToMap && (
+            <button
+              className="btn-secondary-sm"
+              onClick={onNavigateToMap}
+              style={{
+                padding: '0.4rem 0.75rem',
+                fontSize: '0.78rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+              }}
+              title="Open full interactive map screen"
+            >
+              <span>Full Screen</span>
+            </button>
+          )}
+
           <button
             className="btn-icon-sm"
             onClick={fetchStatus}
@@ -170,6 +223,18 @@ export default function CampusStatusPanel() {
           </button>
         </div>
       </div>
+
+      {/* Embedded Vignan University Map View */}
+      {showEmbeddedMap && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <CampusMap
+            isEmbedded
+            currentUser={currentUser}
+            tickets={tickets}
+            onOpenTicketInResolver={onOpenTicketInResolver}
+          />
+        </div>
+      )}
 
       {/* Services Grid (Student-Friendly) */}
       <div className="services-grid">

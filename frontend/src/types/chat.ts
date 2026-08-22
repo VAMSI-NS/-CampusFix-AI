@@ -217,6 +217,38 @@ export interface SystemStatusResponse {
   active_incidents_count: number;
 }
 
+// --- Vignan University Campus Map Types ---
+
+export interface CampusLocation {
+  id: string;
+  name: string;
+  code: string;
+  category: string;
+  latitude: number;
+  longitude: number;
+  description: string;
+  facilities: string[];
+  wifi_network: string;
+  active_tech_bar: boolean;
+  building_floor_count: number;
+  service_status: ServiceHealthState | 'operational' | 'degraded' | 'outage';
+  active_ticket_ids: string[];
+  active_incident_count: number;
+  assigned_technicians: string[];
+}
+
+export interface CampusMapDataResponse {
+  campus_name: string;
+  location_name: string;
+  postal_code: string;
+  center_coordinates: { lat: number; lng: number };
+  default_zoom: number;
+  locations: CampusLocation[];
+  total_locations: number;
+  active_incidents_count: number;
+  operational_services_count: number;
+}
+
 // --- Knowledge Base Types ---
 
 export interface KBArticle {

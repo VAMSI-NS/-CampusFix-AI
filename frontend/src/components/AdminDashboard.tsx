@@ -43,7 +43,9 @@ import {
   Sparkles,
   UserCheck,
   Trash2,
+  MapPin,
 } from 'lucide-react';
+import CampusMap from './CampusMap';
 
 interface AdminDashboardProps {
   tickets: Ticket[];
@@ -61,6 +63,7 @@ type AdminTab =
   | 'tickets'
   | 'escalations'
   | 'technicians'
+  | 'campus_map'
   | 'analytics'
   | 'network'
   | 'database'
@@ -769,6 +772,14 @@ export default function AdminDashboard({
           >
             <Users size={16} />
             <span>Technician Roster ({technicians.length})</span>
+          </button>
+
+          <button
+            className={`admin-nav-btn ${activeTab === 'campus_map' ? 'active' : ''}`}
+            onClick={() => setActiveTab('campus_map')}
+          >
+            <MapPin size={16} />
+            <span>Campus Map</span>
           </button>
 
           <button
@@ -1925,6 +1936,19 @@ export default function AdminDashboard({
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* =========================================================================
+            CAMPUS MAP TAB (Vignan University Real Geodata)
+            ========================================================================= */}
+        {activeTab === 'campus_map' && (
+          <div className="admin-section-content">
+            <CampusMap
+              currentUser={currentUser}
+              tickets={tickets}
+              onOpenTicketInResolver={onOpenInResolver}
+            />
           </div>
         )}
 

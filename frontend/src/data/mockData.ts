@@ -10,6 +10,8 @@ import {
   ReportSummaryResponse,
   DiagnosticProbeResult,
   TicketAIAnalysisResponse,
+  CampusLocation,
+  CampusMapDataResponse,
 } from '../types/chat';
 
 export const INITIAL_MOCK_TICKETS: Ticket[] = [
@@ -992,6 +994,264 @@ export function resetLocalSystemData(): { tickets: Ticket[]; technicians: Campus
   return {
     tickets: INITIAL_MOCK_TICKETS,
     technicians: INITIAL_MOCK_USERS.filter((u) => u.role === 'technician' || u.role === 'host'),
+  };
+}
+
+export const VIGNAN_CAMPUS_LOCATIONS: CampusLocation[] = [
+  {
+    id: 'loc-a-block',
+    name: 'A-Block (Main Administrative & Convocation)',
+    code: 'A-BLK',
+    category: 'Administrative',
+    latitude: 16.2338,
+    longitude: 80.5505,
+    description: 'Central Administrative Building, Vice Chancellor Secretariat, Registrar, Admissions, and Convocation Hall.',
+    facilities: ['Executive Offices', 'Main Convocation Auditorium', 'Administrative Wi-Fi Core', 'Campus Security Command'],
+    wifi_network: 'Eduroam / Vignan-Admin-5G',
+    active_tech_bar: false,
+    building_floor_count: 5,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+  },
+  {
+    id: 'loc-u-block',
+    name: 'U-Block / Mahaveer Block (CSE & IT Labs)',
+    code: 'U-BLK',
+    category: 'Academic',
+    latitude: 16.2345,
+    longitude: 80.5512,
+    description: 'Department of Computer Science & Engineering, IT labs, AI/ML research computing cluster, and software project labs.',
+    facilities: ['CSE High-Performance Computing Lab', 'AI & Data Science Labs', 'Cloud Infrastructure Lab', 'Smart Video Classrooms'],
+    wifi_network: 'Eduroam / Vignan-CS-Wi-Fi6',
+    active_tech_bar: false,
+    building_floor_count: 6,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+  },
+  {
+    id: 'loc-h-block',
+    name: 'H-Block / Aryabhata Block (ECE & EEE Labs)',
+    code: 'H-BLK',
+    category: 'Academic',
+    latitude: 16.2330,
+    longitude: 80.5518,
+    description: 'Electronics & Electrical Engineering block with hardware robotics, VLSI, and signal processing laboratories.',
+    facilities: ['Robotics & Embedded Systems Lab', 'VLSI CAD Suite', 'Power Systems Lab', 'Department Seminar Hall'],
+    wifi_network: 'Eduroam / Vignan-ECE-Net',
+    active_tech_bar: false,
+    building_floor_count: 5,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+  },
+  {
+    id: 'loc-ntr-library',
+    name: 'NTR Vignan Central Library & Tech Bar',
+    code: 'NTR-LIB',
+    category: 'Library & Tech Bar',
+    latitude: 16.2335,
+    longitude: 80.5500,
+    description: 'Central Campus Library with Digital Knowledge Center, 1st Floor IT Walkup Tech Bar, and PaperCut WebPrint Release Hub.',
+    facilities: ['Campus IT Walkup Tech Bar (1st Floor)', 'Digital Knowledge Resource Center', 'PaperCut Student Print Release Hub', '24/7 Silent Reading Enclave'],
+    wifi_network: 'Eduroam / Vignan-Library-Mesh',
+    active_tech_bar: true,
+    building_floor_count: 4,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+  },
+  {
+    id: 'loc-datacenter',
+    name: 'Central Computing Center & Campus Data Center',
+    code: 'CCC-DC',
+    category: 'Data Center',
+    latitude: 16.2340,
+    longitude: 80.5510,
+    description: 'Primary Campus Data Center hosting Shibboleth SSO, Active Directory, Eduroam RADIUS servers, and Core 10Gbps fiber switches.',
+    facilities: ['Central 10Gbps Fiber Backbone Switch', 'Eduroam RADIUS Authentication Server', 'Campus SSO / IAM Server Farm', 'Redundant N+1 UPS Battery Enclosure'],
+    wifi_network: 'Eduroam / Vignan-Secure-Infra',
+    active_tech_bar: false,
+    building_floor_count: 2,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+  },
+  {
+    id: 'loc-priyamvada-hostel',
+    name: 'Priyamvada Boys Hostel (ResNet Hub Alpha)',
+    code: 'PBH-DORM',
+    category: 'Hostel / Residential',
+    latitude: 16.2355,
+    longitude: 80.5495,
+    description: 'Main campus residential block for male undergraduate and research students with high-density ResNet switches.',
+    facilities: ['Dorm ResNet Ethernet Switch Stack', 'Common Study Lounge Wi-Fi 6', 'PaperCut ResNet Satellite Printer', 'Hostel Warden Desk'],
+    wifi_network: 'Eduroam / Vignan-ResNet-Alpha',
+    active_tech_bar: false,
+    building_floor_count: 5,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+  },
+  {
+    id: 'loc-sarojini-hostel',
+    name: 'Sarojini Girls Hostel (ResNet Hub Beta)',
+    code: 'SGH-DORM',
+    category: 'Hostel / Residential',
+    latitude: 16.2320,
+    longitude: 80.5525,
+    description: 'Residential block for female students featuring secure biometric access and dedicated dorm ResNet access points.',
+    facilities: ['Dorm ResNet Access Hub', 'Digital Study & Recreation Center', 'Biometric Turnstile Access Network', 'Satellite Printing Terminal'],
+    wifi_network: 'Eduroam / Vignan-ResNet-Beta',
+    active_tech_bar: false,
+    building_floor_count: 5,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+  },
+  {
+    id: 'loc-sac-dining',
+    name: 'Sangam Dining & Student Activity Center (SAC)',
+    code: 'SAC-CTR',
+    category: 'Student Center',
+    latitude: 16.2325,
+    longitude: 80.5508,
+    description: 'Student recreational hub, cafeteria, indoor games arena, and university cultural activity center.',
+    facilities: ['Campus Cafeteria & Food Court', 'Indoor Sports Arena', 'Student Clubs & Activity Hub', 'Guest Wi-Fi Portal Node'],
+    wifi_network: 'Eduroam / Vignan-SAC-Public',
+    active_tech_bar: false,
+    building_floor_count: 3,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+  },
+  {
+    id: 'loc-innovation-hub',
+    name: 'Vignan Innovation & Incubation Center (V-Hub)',
+    code: 'V-HUB',
+    category: 'Academic',
+    latitude: 16.2328,
+    longitude: 80.5495,
+    description: 'Technology business incubator, entrepreneurship cell (E-Cell), IoT prototyping workspace, and startup co-working arena.',
+    facilities: ['Startup Prototyping Workshop', 'High-Speed Low-Latency Dedicated Link', 'Video Conference Boardrooms', 'Hardware Maker Lab'],
+    wifi_network: 'Eduroam / Vignan-Innovate-Mesh',
+    active_tech_bar: false,
+    building_floor_count: 3,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+  },
+  {
+    id: 'loc-l-block',
+    name: 'Biotechnology & Pharmacy Block (L-Block)',
+    code: 'L-BLK',
+    category: 'Academic',
+    latitude: 16.2342,
+    longitude: 80.5522,
+    description: 'Departments of Biotechnology, Bioinformatics, and Pharmaceutical Sciences with environmental monitoring IoT nodes.',
+    facilities: ['Bioinformatics Supercomputing Terminal', 'Microbiology Research Labs', 'Analytical Instrumentation Lab', 'Smart Classrooms'],
+    wifi_network: 'Eduroam / Vignan-Bio-Net',
+    active_tech_bar: false,
+    building_floor_count: 4,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+  },
+];
+
+export function getClientCampusMapData(
+  currentUser?: CampusUser | null,
+  ticketsList: Ticket[] = INITIAL_MOCK_TICKETS
+): CampusMapDataResponse {
+  const isHost = currentUser && (currentUser.role === 'host' || currentUser.role === 'admin');
+  const isTechnician = currentUser && currentUser.role === 'technician';
+  const userName = currentUser?.name?.toLowerCase();
+
+  let activeTotal = 0;
+
+  const enrichedLocations = VIGNAN_CAMPUS_LOCATIONS.map((loc) => {
+    const locLower = loc.name.toLowerCase();
+    const codeLower = loc.code.toLowerCase();
+
+    const matched = ticketsList.filter((t) => {
+      if (!t.location) return false;
+      const tLoc = t.location.toLowerCase();
+      if (t.status === 'Resolved' || t.status === 'Closed') return false;
+
+      if (loc.id.includes(tLoc) || tLoc.includes(codeLower)) return true;
+      if (tLoc.includes('library') && locLower.includes('library')) return true;
+      if ((tLoc.includes('u-block') || tLoc.includes('mahaveer') || tLoc.includes('engineering')) && locLower.includes('u-block')) return true;
+      if ((tLoc.includes('a-block') || tLoc.includes('admin')) && locLower.includes('a-block')) return true;
+      if ((tLoc.includes('h-block') || tLoc.includes('aryabhata')) && locLower.includes('h-block')) return true;
+      if ((tLoc.includes('priyamvada') || tLoc.includes('boys hostel') || tLoc.includes('residential') || tLoc.includes('maple')) && locLower.includes('priyamvada')) return true;
+      if ((tLoc.includes('sarojini') || tLoc.includes('girls hostel')) && locLower.includes('sarojini')) return true;
+      if ((tLoc.includes('data center') || tLoc.includes('computing center') || tLoc.includes('ccc')) && locLower.includes('data center')) return true;
+      if ((tLoc.includes('sac') || tLoc.includes('dining') || tLoc.includes('sangam')) && locLower.includes('sangam')) return true;
+      if ((tLoc.includes('innovation') || tLoc.includes('v-hub')) && locLower.includes('innovation')) return true;
+      if ((tLoc.includes('l-block') || tLoc.includes('bio') || tLoc.includes('pharmacy') || tLoc.includes('science')) && locLower.includes('l-block')) return true;
+
+      return false;
+    });
+
+    let visible = matched;
+    if (!isHost) {
+      if (isTechnician) {
+        visible = matched.filter(
+          (t) =>
+            (t.assigned_technician && userName && t.assigned_technician.toLowerCase().includes(userName)) ||
+            !t.assigned_technician ||
+            (currentUser?.specialization && currentUser.specialization === t.category)
+        );
+      } else {
+        visible = currentUser?.netid ? matched.filter((t) => t.netid === currentUser.netid) : [];
+      }
+    }
+
+    const hasCritical = matched.some((t) => t.priority === 'Critical' || t.priority === 'Urgent');
+    const hasHigh = matched.some((t) => t.priority === 'High');
+
+    let st = loc.service_status;
+    if (hasCritical) st = 'outage';
+    else if (hasHigh || matched.length >= 2) st = 'degraded';
+
+    activeTotal += matched.length;
+
+    const assignedTechs = Array.from(
+      new Set(matched.map((t) => t.assigned_technician).filter(Boolean) as string[])
+    );
+
+    return {
+      ...loc,
+      service_status: st,
+      active_ticket_ids: visible.map((t) => t.ticket_number),
+      active_incident_count: matched.length,
+      assigned_technicians: isHost || isTechnician ? assignedTechs : [],
+    };
+  });
+
+  const operationalCount = enrichedLocations.filter((l) => l.service_status === 'operational').length;
+
+  return {
+    campus_name: "Vignan's Foundation for Science, Technology & Research (VFSTR)",
+    location_name: 'Vadlamudi, Guntur District, Andhra Pradesh, India',
+    postal_code: '522213',
+    center_coordinates: { lat: 16.2334, lng: 80.5508 },
+    default_zoom: 17,
+    locations: enrichedLocations,
+    total_locations: enrichedLocations.length,
+    active_incidents_count: activeTotal,
+    operational_services_count: operationalCount,
   };
 }
 

@@ -17,6 +17,7 @@ import {
   Sparkles,
   LogIn,
   LogOut,
+  MapPin,
 } from 'lucide-react';
 import LandingPage from './components/LandingPage';
 import IncidentWorkspace from './components/IncidentWorkspace';
@@ -29,6 +30,7 @@ import HealthDashboard from './components/HealthDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import HostReports from './components/HostReports';
 import AuthModal from './components/AuthModal';
+import CampusMap from './components/CampusMap';
 import { Ticket, TicketStatus, UserRole, CampusUser } from './types/chat';
 import { getLocalTickets, saveLocalTickets } from './data/mockData';
 import './App.css';
@@ -50,6 +52,7 @@ type TabType =
   | 'history'
   | 'tickets'
   | 'status'
+  | 'map'
   | 'kb'
   | 'diagnostics'
   | 'admin'
@@ -123,6 +126,15 @@ function getRouteFromPath(pathname: string, hash: string): { tab: TabType | '404
     case '/health-status':
       return { tab: 'status' };
 
+    case '/map':
+    case '/campus-map':
+    case '/vignan-map':
+    case '/campusmap':
+    case '/locations':
+    case '/buildings':
+    case '/geodata':
+      return { tab: 'map' };
+
     case '/kb':
     case '/help-center':
     case '/knowledge-base':
@@ -165,6 +177,9 @@ function getRouteFromPath(pathname: string, hash: string): { tab: TabType | '404
       return { tab: 'reports', role: 'host' };
   }
 
+  if (firstSegment === '/map' || firstSegment === '/campus-map' || firstSegment === '/locations') {
+    return { tab: 'map' };
+  }
   if (firstSegment === '/tickets' || firstSegment === '/ticket' || firstSegment === '/board') {
     return { tab: 'tickets' };
   }
@@ -205,6 +220,8 @@ function getPathForTab(tab: TabType): string {
       return '/tickets';
     case 'status':
       return '/status';
+    case 'map':
+      return '/map';
     case 'kb':
       return '/kb';
     case 'diagnostics':
@@ -675,6 +692,14 @@ export default function App() {
               <span>Service Status</span>
               <span className="tab-live-dot" />
             </button>
+
+            <button
+              className={`nav-tab-btn ${activeTab === 'map' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('map')}
+            >
+              <MapPin size={15} />
+              <span>Campus Map</span>
+            </button>
           </>
         )}
 
@@ -707,6 +732,14 @@ export default function App() {
             >
               <Wrench size={15} />
               <span>AI Help Desk</span>
+            </button>
+
+            <button
+              className={`nav-tab-btn ${activeTab === 'map' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('map')}
+            >
+              <MapPin size={15} />
+              <span>Campus Map</span>
             </button>
 
             <button
@@ -771,6 +804,14 @@ export default function App() {
             </button>
 
             <button
+              className={`nav-tab-btn ${activeTab === 'map' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('map')}
+            >
+              <MapPin size={15} />
+              <span>Campus Map</span>
+            </button>
+
+            <button
               className={`nav-tab-btn ${activeTab === 'resolver' && !is404 ? 'active' : ''}`}
               onClick={() => navigateToTab('resolver')}
             >
@@ -832,6 +873,14 @@ export default function App() {
               <TicketIcon size={15} />
               <span>Ticket Board</span>
               <span className="badge-mini">{tickets.length}</span>
+            </button>
+
+            <button
+              className={`nav-tab-btn ${activeTab === 'map' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('map')}
+            >
+              <MapPin size={15} />
+              <span>Campus Map</span>
             </button>
 
             <button
@@ -981,7 +1030,24 @@ export default function App() {
             )}
 
             {activeTab === 'status' && (
-              <CampusStatusPanel />
+              <CampusStatusPanel
+                currentUser={currentUser}
+                tickets={tickets}
+                onOpenTicketInResolver={handleSelectTicketForResolver}
+                onNavigateToMap={() => navigateToTab('map')}
+              />
+            )}
+
+            {activeTab === 'map' && (
+              <CampusMap
+                currentUser={currentUser}
+                tickets={tickets}
+                onOpenTicketInResolver={handleSelectTicketForResolver}
+                onAskAiAboutLocation={(locName) => {
+                  setResolverInitialQuery(`What is the current network status and active IT support operations at ${locName}?`);
+                  navigateToTab('resolver');
+                }}
+              />
             )}
 
             {activeTab === 'kb' && (

@@ -43,6 +43,8 @@ from app.models.users import (
     ALL_SPECIALIZATIONS,
 )
 
+from app.models.campus_map import CampusMapDataResponse, CampusLocation
+from app.services.campus_map_service import campus_map_service
 from app.services.ai_service import ai_service
 from app.services.ticket_service import ticket_service
 from app.services.status_service import status_service
@@ -484,6 +486,22 @@ def analyze_ticket_endpoint(
             detail=f"Incident ticket '{ticket_id}' not found.",
         )
     return analysis
+
+
+# --- Campus Map & Geographic Infrastructure Endpoints ---
+
+
+@app.get(
+    "/api/campus/map",
+    response_model=CampusMapDataResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Real Vignan University (Vadlamudi) Interactive Campus Map Data",
+)
+def get_campus_map(
+    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+):
+    """Returns verified geographic coordinates, buildings, service health, and active incidents for Vignan University Vadlamudi."""
+    return campus_map_service.get_campus_map_data(user=current_user)
 
 
 # --- Host Technician Management Endpoints (Strict RBAC Protected) ---
