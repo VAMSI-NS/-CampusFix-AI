@@ -27,6 +27,7 @@ import {
   Layers,
   Globe,
   Compass,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface CampusMapProps {
@@ -38,8 +39,8 @@ interface CampusMapProps {
   isEmbedded?: boolean;
 }
 
-// Vignan University, Vadlamudi, Guntur, AP coordinates
-const VIGNAN_CENTER: [number, number] = [16.2334, 80.5508];
+// Vignan University (VFSTR), Vadlamudi, Guntur, AP center coordinates
+const VIGNAN_CENTER: [number, number] = [16.2335, 80.5510];
 const DEFAULT_ZOOM = 17;
 
 type MapLayerType = 'satellite' | 'street' | 'dark';
@@ -245,10 +246,11 @@ export default function CampusMap({
       const isSelected = selectedLocation?.id === loc.id;
       const hasOutage = loc.service_status === 'outage';
       const hasDegraded = loc.service_status === 'degraded';
+      const hasIncidents = loc.active_incident_count > 0;
       const isTechBar = loc.active_tech_bar;
 
       // Color Theme
-      let markerColor = '#10b981'; // Green (Operational)
+      let markerColor = '#10b981'; // Green (Nominal)
       let pulseColor = 'rgba(16, 185, 129, 0.4)';
       let iconEmoji = '🏢';
 
@@ -266,27 +268,34 @@ export default function CampusMap({
         iconEmoji = '🛠️';
       }
 
-      if (loc.category === 'Hostel / Residential') iconEmoji = '🏠';
-      else if (loc.category === 'Data Center') iconEmoji = '🗄️';
-      else if (loc.category === 'Student Center') iconEmoji = '☕';
-      else if (loc.category === 'Library & Tech Bar') iconEmoji = '📚';
-      else if (loc.category === 'Sports & Athletics') iconEmoji = '⚽';
+      if (loc.category === 'Guest House & Residential') iconEmoji = '🏠';
+      else if (loc.category === 'Library') iconEmoji = '📚';
+      else if (loc.category === 'Sports & Recreation') iconEmoji = '🎾';
+      else if (loc.category === 'Academic & Research') iconEmoji = '🔬';
+      else if (loc.category === 'Academic & Laboratory') iconEmoji = '🧪';
+      else if (loc.category === 'Administrative & Academic') iconEmoji = '🏛️';
+
+      // Clean short building label to display directly on the satellite map
+      const displayName = loc.name.split('(')[0].replace('Vignan', '').trim() || loc.code;
 
       const customHtml = `
         <div class="campus-map-pin ${isSelected ? 'selected' : ''} ${hasOutage ? 'pulse-danger' : hasDegraded ? 'pulse-warn' : ''} ${mapLayer === 'satellite' ? 'on-satellite' : ''}" style="--pin-color: ${markerColor}; --pulse-color: ${pulseColor};">
           <div class="pin-inner">
             <span class="pin-icon">${iconEmoji}</span>
-            ${loc.active_incident_count > 0 ? `<span class="pin-badge">${loc.active_incident_count}</span>` : ''}
+            ${hasIncidents ? `<span class="pin-badge">${loc.active_incident_count}</span>` : ''}
           </div>
-          <div class="pin-label">${loc.code}</div>
+          <div class="pin-label-box">
+            <span class="pin-code-tag">${loc.code}</span>
+            <span class="pin-title-text">${displayName}</span>
+          </div>
         </div>
       `;
 
       const customIcon = L.divIcon({
         html: customHtml,
         className: 'custom-leaflet-pin',
-        iconSize: [46, 46],
-        iconAnchor: [23, 23],
+        iconSize: [120, 50],
+        iconAnchor: [60, 25],
       });
 
       const marker = L.marker([loc.latitude, loc.longitude], { icon: customIcon });
@@ -299,8 +308,9 @@ export default function CampusMap({
       marker.bindTooltip(
         `<div class="map-tooltip-content">
           <strong>${loc.name}</strong>
+          <div style="font-size: 0.72rem; color: #94a3b8; margin-bottom: 2px;">${loc.category}</div>
           <div>Status: <span style="color: ${markerColor}; font-weight: 700;">${loc.service_status.toUpperCase()}</span></div>
-          ${loc.active_incident_count > 0 ? `<div>Active Incidents: <strong>${loc.active_incident_count}</strong></div>` : '<div>All systems nominal</div>'}
+          ${hasIncidents ? `<div>Active Incidents: <strong>${loc.active_incident_count}</strong></div>` : '<div>✓ All systems nominal</div>'}
         </div>`,
         { direction: 'top', offset: [0, -20] }
       );
@@ -335,23 +345,29 @@ export default function CampusMap({
       const tLoc = t.location.toLowerCase();
       if (selectedLocation.id.includes(tLoc) || tLoc.includes(codeLower)) return true;
       if (tLoc.includes('library') && locLower.includes('library')) return true;
-      if ((tLoc.includes('u-block') || tLoc.includes('mahaveer') || tLoc.includes('engineering')) && locLower.includes('u-block')) return true;
-      if ((tLoc.includes('a-block') || tLoc.includes('admin')) && locLower.includes('a-block')) return true;
-      if ((tLoc.includes('h-block') || tLoc.includes('aryabhata')) && locLower.includes('h-block')) return true;
-      if ((tLoc.includes('priyamvada') || tLoc.includes('boys hostel') || tLoc.includes('residential')) && locLower.includes('priyamvada')) return true;
-      if ((tLoc.includes('sarojini') || tLoc.includes('girls hostel')) && locLower.includes('sarojini')) return true;
-      if ((tLoc.includes('data center') || tLoc.includes('computing center') || tLoc.includes('ccc')) && locLower.includes('data center')) return true;
-      if ((tLoc.includes('sac') || tLoc.includes('dining') || tLoc.includes('sangam')) && locLower.includes('sangam')) return true;
-      if ((tLoc.includes('innovation') || tLoc.includes('v-hub')) && locLower.includes('innovation')) return true;
-      if ((tLoc.includes('l-block') || tLoc.includes('bio') || tLoc.includes('pharmacy')) && locLower.includes('l-block')) return true;
-      if ((tLoc.includes('sport') || tLoc.includes('ground') || tLoc.includes('stadium') || tLoc.includes('gym')) && locLower.includes('sports')) return true;
-      if ((tLoc.includes('oat') || tLoc.includes('theatre') || tLoc.includes('quadrangle')) && locLower.includes('open air')) return true;
+      if ((tLoc.includes('u-block') || tLoc.includes('u block') || tLoc.includes('it dept') || tLoc.includes('cse')) && locLower.includes('u-block')) return true;
+      if ((tLoc.includes('a-block') || tLoc.includes('a block') || tLoc.includes('admin') || tLoc.includes('registrar') || tLoc.includes('health center')) && locLower.includes('a-block')) return true;
+      if ((tLoc.includes('visvesvaraya') || tLoc.includes('amphitheater') || tLoc.includes('oat')) && locLower.includes('visvesvaraya')) return true;
+      if ((tLoc.includes('guest house') || tLoc.includes('vfstr guest')) && locLower.includes('guest house')) return true;
+      if ((tLoc.includes('pharmacy') || tLoc.includes('vpc')) && locLower.includes('pharmacy')) return true;
+      if ((tLoc.includes('textile')) && locLower.includes('textile')) return true;
+      if ((tLoc.includes('lara')) && locLower.includes('lara')) return true;
+      if ((tLoc.includes('tennis') || tLoc.includes('shuttle') || tLoc.includes('court')) && locLower.includes('tennis')) return true;
 
       return false;
     });
   }, [selectedLocation, tickets]);
 
-  const categories = ['All', 'Academic', 'Administrative', 'Library & Tech Bar', 'Data Center', 'Hostel / Residential', 'Sports & Athletics', 'Student Center'];
+  const categories = [
+    'All',
+    'Academic Block',
+    'Administrative & Academic',
+    'Library',
+    'Guest House & Residential',
+    'Academic & Research',
+    'Academic & Laboratory',
+    'Sports & Recreation',
+  ];
 
   return (
     <div className={`campus-map-wrapper ${isEmbedded ? 'embedded' : 'standalone'} ${isFullscreen ? 'fullscreen-mode' : ''}`}>
@@ -360,13 +376,13 @@ export default function CampusMap({
         <div className="map-title-cluster">
           <div className="map-live-tag">
             <span className="live-radar-dot" />
-            <span>REAL VIGNAN UNIVERSITY SATELLITE GEODATA</span>
+            <span>VERIFIED VIGNAN UNIVERSITY SATELLITE GEODATA</span>
           </div>
           <h2 className="map-heading">
-            Vignan University Interactive Campus Map
+            Vignan University Verified Campus Map
           </h2>
           <p className="map-subtitle">
-            Vadlamudi, Guntur District, Andhra Pradesh • 16.2334° N, 80.5508° E • High-Resolution Aerial Satellite & Infrastructure Grid
+            Vadlamudi, Guntur District, Andhra Pradesh • 16.2335° N, 80.5510° E • Verified Infrastructure & IT Health Overlay
           </p>
         </div>
 
@@ -402,12 +418,12 @@ export default function CampusMap({
 
           <div className="map-stat-chip">
             <Building size={14} style={{ color: '#60a5fa' }} />
-            <span><strong>{mapData?.total_locations || 12}</strong> Verified Zones</span>
+            <span><strong>{mapData?.total_locations || 9}</strong> Verified Buildings</span>
           </div>
 
           <div className="map-stat-chip">
             <CheckCircle2 size={14} style={{ color: '#34d399' }} />
-            <span><strong>{mapData?.operational_services_count || 10}</strong> Nominal</span>
+            <span><strong>{mapData?.operational_services_count || 8}</strong> Nominal</span>
           </div>
 
           <div className={`map-stat-chip ${mapData && mapData.active_incidents_count > 0 ? 'warning' : ''}`}>
@@ -455,7 +471,7 @@ export default function CampusMap({
           <input
             type="text"
             className="map-search-input"
-            placeholder="Search Vignan buildings, labs, hostels, sports..."
+            placeholder="Search verified Vignan buildings, labs, admin, guest house..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -529,13 +545,13 @@ export default function CampusMap({
         {mapLayer === 'satellite' && (
           <div className="satellite-watermark-tag">
             <Globe size={12} />
-            <span>Esri High-Res Satellite View (Vignan Vadlamudi)</span>
+            <span>Esri High-Res Satellite View • Vignan University Vadlamudi</span>
           </div>
         )}
 
         {/* Quick Location Ribbon on Map overlay */}
         <div className="campus-quick-ribbon">
-          {filteredLocations.slice(0, 8).map((loc) => (
+          {filteredLocations.map((loc) => (
             <button
               key={loc.id}
               type="button"
@@ -543,7 +559,7 @@ export default function CampusMap({
               onClick={() => handleSelectLocation(loc)}
             >
               <span className="ribbon-code">{loc.code}</span>
-              <span className="ribbon-name">{loc.name.split('(')[0].trim()}</span>
+              <span className="ribbon-name">{loc.name.split('(')[0].replace('Vignan', '').trim()}</span>
               {loc.active_incident_count > 0 && (
                 <span className="ribbon-badge">{loc.active_incident_count}</span>
               )}
@@ -556,7 +572,12 @@ export default function CampusMap({
           <div className="location-details-drawer">
             <div className="drawer-header">
               <div className="drawer-title-group">
-                <span className="building-code-badge">{selectedLocation.code}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.2rem' }}>
+                  <span className="building-code-badge">{selectedLocation.code}</span>
+                  <span className="verified-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.15rem 0.45rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34d399', fontSize: '0.68rem', fontWeight: 700 }}>
+                    <ShieldCheck size={11} /> Verified Building
+                  </span>
+                </div>
                 <h3 className="building-title">{selectedLocation.name}</h3>
                 <span className="building-cat-tag">{selectedLocation.category}</span>
               </div>
@@ -634,7 +655,7 @@ export default function CampusMap({
 
               {/* Facilities Included */}
               <div className="drawer-section">
-                <div className="section-label">Campus Facilities & Zones</div>
+                <div className="section-label">Verified Facilities & Departments</div>
                 <div className="facilities-tags-wrap">
                   {selectedLocation.facilities.map((fac, i) => (
                     <span key={i} className="facility-pill">

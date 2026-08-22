@@ -593,6 +593,48 @@ input, textarea, select {
   border: 2px solid #0f172a;
 }
 
+.pin-label-box {
+  margin-top: 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  background: rgba(10, 15, 30, 0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--pin-color, #10b981);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+  max-width: 140px;
+  text-align: center;
+}
+
+.pin-code-tag {
+  font-size: 0.6rem;
+  font-weight: 900;
+  color: #60a5fa;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.pin-title-text {
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+  line-height: 1.15;
+}
+
+.on-satellite .pin-label-box {
+  background: rgba(3, 7, 18, 0.95);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.9);
+}
+
 .pin-label {
   margin-top: 3px;
   padding: 0.15rem 0.4rem;

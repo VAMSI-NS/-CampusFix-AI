@@ -235,6 +235,7 @@ export interface CampusLocation {
   active_ticket_ids: string[];
   active_incident_count: number;
   assigned_technicians: string[];
+  verification_status?: 'verified' | 'unmapped';
 }
 
 export interface CampusMapDataResponse {
