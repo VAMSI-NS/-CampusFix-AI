@@ -955,6 +955,7 @@ export default function App() {
                 selectedTicketId={selectedTicketId}
                 initialQuery={resolverInitialQuery}
                 tickets={tickets}
+                currentUser={currentUser}
                 onTicketsUpdated={(updated) => setTickets(updated)}
                 onSwitchToHistory={() => navigateToTab('history')}
               />

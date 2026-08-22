@@ -352,7 +352,7 @@ export default function AuthModal({
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={selectedRole === 'host' ? 'e.g. VAMSI' : selectedRole === 'technician' ? 'e.g. ramu' : 'e.g. student'}
+                placeholder={selectedRole === 'host' ? 'e.g. VAMSI' : selectedRole === 'technician' ? 'e.g. sarah, dave, alex, ramu' : 'e.g. student'}
                 style={{
                   width: '100%',
                   padding: '0.65rem 0.75rem 0.65rem 2.25rem',

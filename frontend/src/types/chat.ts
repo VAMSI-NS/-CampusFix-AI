@@ -146,6 +146,25 @@ export interface TicketCreatePayload {
   chat_transcript?: string;
 }
 
+export interface TicketAIAnalysisResponse {
+  ticket_id: string;
+  ticket_number: string;
+  detected_category: string;
+  category_confidence_score: number;
+  estimated_priority: string;
+  priority_rationale: string;
+  recommended_specialization: string;
+  specialization_rationale: string;
+  summary_for_technician: string;
+  root_cause_hypothesis: string;
+  suggested_diagnostic_steps: string[];
+  next_best_action: string;
+  escalation_risk_assessment: string;
+  similar_incidents_detected: string[];
+  host_workload_advice?: string;
+  analyzed_at: string;
+}
+
 export interface TicketUpdatePayload {
   title?: string;
   status?: TicketStatus;

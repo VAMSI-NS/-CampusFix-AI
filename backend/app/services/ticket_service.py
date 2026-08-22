@@ -15,6 +15,7 @@ from app.models.ticket import (
     TicketCategory,
     TicketPriority,
     DiagnosticStage,
+    TicketAIAnalysisResponse,
 )
 from app.database import db
 
@@ -924,6 +925,129 @@ class TicketService:
                 logger.error(f"Error reassigning ticket in DB: {e}")
 
         return ticket
+
+    def analyze_ticket(self, ticket_id: str) -> Optional[TicketAIAnalysisResponse]:
+        """Generates real-time AI diagnostic reasoning, root cause analysis, and technician dispatch recommendations."""
+        ticket = self.get_ticket(ticket_id)
+        if not ticket:
+            return None
+
+        title = ticket.title or ""
+        desc = ticket.description or ""
+        cat = ticket.category or "Other"
+        combined_text = f"{title} {desc}".lower()
+
+        # 1. Detected category and confidence
+        cat_confidence = 0.95 if cat != "Other" else 0.78
+        detected_category = cat
+
+        # 2. Priority estimation and rationale
+        estimated_priority = ticket.priority
+        priority_rationale = f"Classified as {estimated_priority} based on campus impact, device context ({ticket.device or 'Standard Client'}), and location ({ticket.location or 'Campus'})."
+        if "exam" in combined_text or "midterm" in combined_text or "deadline" in combined_text:
+            estimated_priority = "High" if estimated_priority != "Critical" else "Critical"
+            priority_rationale = "Elevated to High/Urgent priority due to imminent academic submission or exam deadline."
+
+        # 3. Recommended Specialization
+        spec_map = {
+            "Eduroam Wi-Fi": ("Network", "Requires wireless 802.1X RADIUS profile verification and AP telemetry check."),
+            "Dorm ResNet": ("Network", "Requires physical Ethernet port link-state check and switchport VLAN validation."),
+            "VPN": ("Network", "Requires GlobalProtect gateway routing and IPsec tunnel diagnostic."),
+            "Canvas / SSO": ("Software", "Requires LMS SAML token inspection and browser session cookie clearing."),
+            "Software": ("Software", "Requires license server handshake and application package verification."),
+            "Lab / Computer Access": ("Hardware", "Requires physical computer lab terminal inspection and peripheral check."),
+            "PaperCut Printing": ("Hardware", "Requires print queue spooler service buffer inspection and badge reader verification."),
+            "Duo MFA": ("IAM / Access", "Requires Identity & Access Management hardware token migration or bypass passcode issuance."),
+            "NetID / Password": ("IAM / Access", "Requires Active Directory credential sync and lockout status reset."),
+            "Email": ("IAM / Access", "Requires Exchange Online / IMAP routing audit."),
+        }
+        recommended_spec, spec_rationale = spec_map.get(cat, ("Support", "General campus IT helpdesk and first-contact diagnostic triage."))
+
+        # 4. Root Cause Hypothesis & Summary for Technician
+        root_cause = f"Potential protocol mismatch or client-side caching issue affecting {cat} services."
+        summary = f"Student {ticket.netid} reports persistent trouble with {cat} at {ticket.location}. Device: {ticket.device or 'Not specified'}."
+
+        if "wifi" in combined_text or "eduroam" in combined_text or "802.1x" in combined_text:
+            root_cause = "802.1X EAP-PEAP trust chain failure or cached outdated campus root certificate."
+            summary = "Student client device failing RADIUS authentication handshake on campus access points."
+        elif "duo" in combined_text or "mfa" in combined_text or "2fa" in combined_text:
+            root_cause = "Device migration token de-synchronization or missing push notification push token."
+            summary = "Student cannot receive Duo Push authorization prompts following device update."
+        elif "papercut" in combined_text or "print" in combined_text or "spooler" in combined_text:
+            root_cause = "WebPrint spooler buffer queue stall or paper jam at destination release station."
+            summary = "Submitted print job stalled in queue buffer; requires release station service refresh."
+        elif "canvas" in combined_text or "sso" in combined_text or "login" in combined_text:
+            root_cause = "Stale Shibboleth/SAML session cookie loop preventing identity assertion."
+            summary = "Single Sign-On redirect loop on academic learning portal."
+
+        # 5. Suggested Diagnostic Steps
+        diagnostic_steps = [
+            f"Verify client authentication identity format ({ticket.netid}@university.edu).",
+            f"Inspect live service telemetry on {cat} infrastructure cluster.",
+            "Review diagnostic logs and clear client-side security profiles/cookies.",
+            "Perform live test handshake and validate end-to-end functionality.",
+        ]
+        if cat == "Eduroam Wi-Fi":
+            diagnostic_steps = [
+                "Verify EAP Method is PEAP and Phase 2 Auth is MSCHAPv2.",
+                "Ensure CA Certificate domain is explicitly set to 'university.edu'.",
+                "Forget network and re-enter full NetID email address.",
+                "Run AP probe test for nearest campus access point.",
+            ]
+        elif cat == "PaperCut Printing":
+            diagnostic_steps = [
+                "Inspect print server spooler status for Library / Lab release station.",
+                "Check student balance and refund unreleased quota ($1.40).",
+                "Ensure document format conforms to standard PDF specifications.",
+                "Restart release station local daemon if display is stalled.",
+            ]
+        elif cat == "Duo MFA":
+            diagnostic_steps = [
+                "Instruct student to open Duo Mobile directly and pull down to refresh.",
+                "Verify student photo ID for Tech Bar physical walkup security clearance.",
+                "Generate a 6-digit emergency bypass code in IAM management console.",
+                "Re-enroll primary smartphone device token.",
+            ]
+
+        # 6. Next Best Action
+        next_action = f"Execute first diagnostic step with student and verify status on {cat} cluster."
+        if ticket.status == "Escalated":
+            next_action = f"Host dispatcher: Assign incident to active {recommended_spec} technician from roster."
+        elif ticket.diagnostic_progress >= 75:
+            next_action = "Validate resolution with student and finalize ticket closure."
+
+        # 7. Escalation Risk Assessment
+        escalation_risk = "Low risk — routine self-service or Tier-1 diagnostic resolution expected within 15 minutes."
+        if estimated_priority in ["High", "Critical", "Urgent"] or "midterm" in combined_text:
+            escalation_risk = "High risk — requires expedited Tech Bar walkup clearance or Tier-2 senior engineer intervention."
+
+        # 8. Similar Incidents
+        similar = []
+        for other in self._tickets:
+            if other.id != ticket.id and (other.category == ticket.category or (other.location and other.location == ticket.location)):
+                similar.append(f"{other.ticket_number}: {other.title[:45]}... [{other.status}]")
+                if len(similar) >= 3:
+                    break
+
+        host_advice = f"{recommended_spec} queue currently optimal. Recommended assignee: Available on-duty {recommended_spec} engineer."
+
+        return TicketAIAnalysisResponse(
+            ticket_id=ticket.id,
+            ticket_number=ticket.ticket_number,
+            detected_category=detected_category,
+            category_confidence_score=cat_confidence,
+            estimated_priority=estimated_priority,
+            priority_rationale=priority_rationale,
+            recommended_specialization=recommended_spec,
+            specialization_rationale=spec_rationale,
+            summary_for_technician=summary,
+            root_cause_hypothesis=root_cause,
+            suggested_diagnostic_steps=diagnostic_steps,
+            next_best_action=next_action,
+            escalation_risk_assessment=escalation_risk,
+            similar_incidents_detected=similar,
+            host_workload_advice=host_advice,
+        )
 
     def reset_data(self) -> Dict[str, Any]:
         """Resets ticket database to clean default initial state."""

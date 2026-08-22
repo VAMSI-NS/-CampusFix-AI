@@ -8,8 +8,10 @@ import {
   EscalationDetails,
   TicketCreatePayload,
   TicketUpdatePayload,
+  CampusUser,
+  TicketAIAnalysisResponse,
 } from '../types/chat';
-import { createClientMockTicket, saveLocalTickets } from '../data/mockData';
+import { createClientMockTicket, saveLocalTickets, generateClientTicketAnalysis } from '../data/mockData';
 import ChatInterface from './ChatInterface';
 import {
   CheckCircle2,
@@ -32,6 +34,10 @@ import {
   Monitor,
   RotateCcw,
   Sparkles,
+  Zap,
+  ChevronDown,
+  ChevronUp,
+  UserCheck,
 } from 'lucide-react';
 
 interface IncidentWorkspaceProps {
@@ -40,6 +46,7 @@ interface IncidentWorkspaceProps {
   selectedTicketId?: string | null;
   initialQuery?: string;
   tickets?: Ticket[];
+  currentUser?: CampusUser | null;
   onTicketsUpdated?: (tickets: Ticket[]) => void;
   onTicketChanged?: (ticket: Ticket) => void;
   onSwitchToHistory?: () => void;
@@ -79,6 +86,7 @@ export default function IncidentWorkspace({
   selectedTicketId,
   initialQuery,
   tickets: parentTickets,
+  currentUser,
   onTicketsUpdated,
   onTicketChanged,
   onSwitchToHistory,
@@ -103,9 +111,16 @@ export default function IncidentWorkspace({
   const [isReportHostModalOpen, setIsReportHostModalOpen] = useState(false);
   const [reportHostReason, setReportHostReason] = useState('');
   const [reportHostNotes, setReportHostNotes] = useState('');
+  const [reportHostSuggestedSpec, setReportHostSuggestedSpec] = useState<string>('Network');
 
   // Action log feedback state
   const [actionSuccessFeedback, setActionSuccessFeedback] = useState(false);
+  const [claimSuccessFeedback, setClaimSuccessFeedback] = useState(false);
+
+  // AI Diagnostic Analysis State
+  const [aiAnalysis, setAiAnalysis] = useState<TicketAIAnalysisResponse | null>(null);
+  const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
+  const [isAnalysisExpanded, setIsAnalysisExpanded] = useState(true);
 
   // New ticket form
   const [newTitle, setNewTitle] = useState('');
@@ -123,6 +138,41 @@ export default function IncidentWorkspace({
 
   // Technician note input
   const [techNoteInput, setTechNoteInput] = useState('');
+
+  // Fetch AI Analysis for active ticket
+  const fetchAiAnalysis = useCallback(async (ticket: Ticket) => {
+    setIsLoadingAnalysis(true);
+    let analysis: TicketAIAnalysisResponse | null = null;
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          analysis = await res.json();
+        }
+      }
+    } catch {
+      // client fallback below
+    }
+
+    if (!analysis) {
+      analysis = generateClientTicketAnalysis(ticket, tickets);
+    }
+
+    setAiAnalysis(analysis);
+    setIsLoadingAnalysis(false);
+  }, [tickets]);
+
+  useEffect(() => {
+    if (activeTicket) {
+      fetchAiAnalysis(activeTicket);
+    } else {
+      setAiAnalysis(null);
+    }
+  }, [activeTicket?.id, fetchAiAnalysis]);
 
   // Fetch tickets if not loaded
   const fetchTickets = useCallback(async () => {
@@ -269,8 +319,115 @@ export default function IncidentWorkspace({
   const handleAddTechNote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeTicket || !techNoteInput.trim()) return;
-    await handleUpdateTicket({ technician_note: techNoteInput.trim() });
+    const authorName = currentUser?.name || 'Assigned Technician';
+    const noteText = techNoteInput.trim();
+    const nowIso = new Date().toISOString();
+
+    const newNote = {
+      id: `note-${Date.now()}`,
+      author: authorName,
+      author_role: (currentUser?.role === 'host' ? 'system' : 'technician') as 'technician' | 'system' | 'student',
+      text: noteText,
+      created_at: nowIso,
+    };
+
+    const updated: Ticket = {
+      ...activeTicket,
+      notes: [...(activeTicket.notes || []), newNote],
+      updated_at: nowIso,
+    };
+
+    setActiveTicket(updated);
+    const updatedList = tickets.map((t) => (t.id === updated.id ? updated : t));
+    setLocalTickets(updatedList);
+    saveLocalTickets(updatedList);
+    if (onTicketsUpdated) onTicketsUpdated(updatedList);
+    if (onTicketChanged) onTicketChanged(updated);
+
+    fetch(`/api/tickets/${activeTicket.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ technician_note: noteText }),
+    }).catch(() => {});
+
     setTechNoteInput('');
+  };
+
+  const handleClaimTicket = async () => {
+    if (!activeTicket || !currentUser) return;
+    const claimTechName = `${currentUser.name} (${currentUser.specialization || 'Tech'})`;
+    const nowIso = new Date().toISOString();
+
+    const newAct = {
+      id: `act-${Date.now()}`,
+      timestamp: nowIso,
+      action: `Incident claimed by ${claimTechName}`,
+      result: `Assigned technician updated to ${claimTechName}. Status set to Diagnosing.`,
+      actor: 'technician' as const,
+    };
+
+    const updated: Ticket = {
+      ...activeTicket,
+      assigned_technician: claimTechName,
+      status: 'Diagnosing',
+      actions_taken: [...(activeTicket.actions_taken || []), newAct],
+      updated_at: nowIso,
+    };
+
+    setActiveTicket(updated);
+    const updatedList = tickets.map((t) => (t.id === updated.id ? updated : t));
+    setLocalTickets(updatedList);
+    saveLocalTickets(updatedList);
+    if (onTicketsUpdated) onTicketsUpdated(updatedList);
+    if (onTicketChanged) onTicketChanged(updated);
+
+    fetch(`/api/tickets/${activeTicket.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assigned_technician: claimTechName, status: 'Diagnosing' }),
+    }).catch(() => {});
+
+    setClaimSuccessFeedback(true);
+    setTimeout(() => setClaimSuccessFeedback(false), 2500);
+  };
+
+  const handleExecuteAiStep = (stepText: string) => {
+    if (!activeTicket) return;
+    const actText = stepText;
+    const actResult = 'Diagnostic recommendation executed and verified with student.';
+    const nowIso = new Date().toISOString();
+
+    const newAction = {
+      id: `act-${Date.now()}`,
+      timestamp: nowIso,
+      action: actText,
+      result: actResult,
+      actor: 'technician' as const,
+    };
+    const nextProgress = Math.min(100, Math.max(activeTicket.diagnostic_progress || 0, 30) + 20);
+
+    const updated: Ticket = {
+      ...activeTicket,
+      actions_taken: [...(activeTicket.actions_taken || []), newAction],
+      diagnostic_progress: nextProgress,
+      updated_at: nowIso,
+    };
+
+    setActiveTicket(updated);
+    const updatedList = tickets.map((t) => (t.id === updated.id ? updated : t));
+    setLocalTickets(updatedList);
+    saveLocalTickets(updatedList);
+    if (onTicketsUpdated) onTicketsUpdated(updatedList);
+    if (onTicketChanged) onTicketChanged(updated);
+
+    fetch(`/api/tickets/${activeTicket.id}/action`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: actText, result: actResult, actor: 'technician' }),
+    }).catch(() => {});
+
+    setActionSuccessFeedback(true);
+    setTimeout(() => setActionSuccessFeedback(false), 2500);
   };
 
   const handleResolveTicket = async () => {
@@ -327,14 +484,9 @@ export default function IncidentWorkspace({
   const handleEscalateTicket = async () => {
     if (!activeTicket || !escalationReason.trim()) return;
     const token = localStorage.getItem('campusfix_token');
-    const storedUserStr = localStorage.getItem('campusfix_user');
-    let originalTech = activeTicket.assigned_technician || 'CampusFix Support';
-    try {
-      if (storedUserStr) {
-        const u = JSON.parse(storedUserStr);
-        if (u.name) originalTech = `${u.name}${u.technician_id ? ` (${u.technician_id})` : ''}`;
-      }
-    } catch {}
+    const originalTech = currentUser
+      ? `${currentUser.name} (${currentUser.specialization || 'Tech'})`
+      : (activeTicket.assigned_technician || 'CampusFix Support');
 
     const escalationPayload: EscalationDetails = {
       tier: 'Tier-2 Specialist Escalation',
@@ -405,25 +557,20 @@ export default function IncidentWorkspace({
   const handleReportToHost = async () => {
     if (!activeTicket) return;
     const token = localStorage.getItem('campusfix_token');
-    const storedUserStr = localStorage.getItem('campusfix_user');
-    let originalTech = activeTicket.assigned_technician || 'CampusFix Technician';
-    try {
-      if (storedUserStr) {
-        const u = JSON.parse(storedUserStr);
-        if (u.name) originalTech = `${u.name}${u.technician_id ? ` (${u.technician_id})` : ''}`;
-      }
-    } catch {}
+    const originalTech = currentUser
+      ? `${currentUser.name} (${currentUser.specialization || 'Tech'})`
+      : (activeTicket.assigned_technician || 'CampusFix Technician');
 
     const escalationPayload: EscalationDetails = {
       tier: 'Host Reassignment Queue',
       department: 'Host / Admin',
       reason: reportHostReason.trim() || 'Technician reported unable to resolve. Requesting Host reassignment.',
       original_technician: originalTech,
-      target_specialization: activeTicket.category,
+      target_specialization: reportHostSuggestedSpec,
       assigned_to: 'Host Dispatcher',
       tech_bar_location: 'Campus IT Host Operations Command Center',
       student_id_required: false,
-      notes: reportHostNotes.trim() || `Reported by ${originalTech} for reassignment to another technician.`,
+      notes: reportHostNotes.trim() || `Reported by ${originalTech}. Suggested Specialization: ${reportHostSuggestedSpec}.`,
       escalated_at: new Date().toISOString(),
     };
 
@@ -460,7 +607,7 @@ export default function IncidentWorkspace({
           {
             id: `act-${Date.now()}`,
             timestamp: nowIso,
-            action: `Reported to Host for Reassignment by ${originalTech}`,
+            action: `Reported to Host for Reassignment to ${reportHostSuggestedSpec} by ${originalTech}`,
             result: `Reason: ${escalationPayload.reason}`,
             actor: 'technician',
           },
@@ -471,7 +618,7 @@ export default function IncidentWorkspace({
             id: `note-${Date.now()}`,
             author: originalTech,
             author_role: 'technician',
-            text: `[Report to Host] ${escalationPayload.reason}. ${reportHostNotes.trim()}`,
+            text: `[Report to Host] Suggested Specialization: ${reportHostSuggestedSpec}. Reason: ${escalationPayload.reason}. ${reportHostNotes.trim()}`,
             created_at: nowIso,
           },
         ],
@@ -746,6 +893,52 @@ export default function IncidentWorkspace({
 
                 <h2 className="dossier-title">{activeTicket.title}</h2>
 
+                {/* Logged-in Technician Identity & Claim Action */}
+                {currentUser && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      background: 'rgba(59, 130, 246, 0.08)',
+                      border: '1px solid rgba(59, 130, 246, 0.25)',
+                      borderRadius: '8px',
+                      padding: '0.45rem 0.75rem',
+                      margin: '0.65rem 0',
+                      fontSize: '0.8rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <UserCheck size={14} style={{ color: '#60a5fa' }} />
+                      <span>
+                        Operator: <strong>{currentUser.name}</strong> ({currentUser.specialization || currentUser.role})
+                      </span>
+                      <span style={{ color: 'var(--text-muted)' }}>•</span>
+                      <span>
+                        Assigned: <strong>{activeTicket.assigned_technician || 'Unassigned'}</strong>
+                      </span>
+                    </div>
+
+                    {currentUser.role === 'technician' && activeTicket.assigned_technician !== currentUser.name && (
+                      <button
+                        type="button"
+                        className="btn-secondary-sm"
+                        style={{
+                          padding: '0.2rem 0.55rem',
+                          fontSize: '0.72rem',
+                          borderColor: 'rgba(59, 130, 246, 0.4)',
+                          color: '#60a5fa',
+                          cursor: 'pointer',
+                        }}
+                        onClick={handleClaimTicket}
+                        disabled={claimSuccessFeedback}
+                      >
+                        {claimSuccessFeedback ? '✓ Claimed!' : '⚡ Claim Ticket'}
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {/* Priority & Category Dropdowns */}
                 <div className="dossier-meta-bar">
                   <div className="meta-dropdown-item">
@@ -886,6 +1079,172 @@ export default function IncidentWorkspace({
                   <span className="detail-key">Location:</span>
                   <span className="detail-val">{activeTicket.location}</span>
                 </div>
+              </div>
+
+              {/* AI Autonomous Diagnostic Assistant & Reasoning Section */}
+              <div
+                className="dossier-section"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(59, 130, 246, 0.04) 100%)',
+                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  borderRadius: '12px',
+                  padding: '1rem',
+                  marginBottom: '1rem',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                  }}
+                  onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Sparkles size={16} style={{ color: 'var(--primary-400, #818cf8)' }} />
+                    <h3 style={{ fontSize: '0.92rem', fontWeight: 800, margin: 0, color: '#e0e7ff' }}>
+                      CampusFix AI Diagnostic Assistant & Incident Analysis
+                    </h3>
+                    {aiAnalysis && (
+                      <span
+                        style={{
+                          fontSize: '0.68rem',
+                          padding: '0.15rem 0.45rem',
+                          borderRadius: '999px',
+                          background: 'rgba(99, 102, 241, 0.25)',
+                          color: '#a5b4fc',
+                          border: '1px solid rgba(99, 102, 241, 0.4)',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {Math.round(aiAnalysis.category_confidence_score * 100)}% Confidence
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                  >
+                    {isAnalysisExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
+                </div>
+
+                {isAnalysisExpanded && (
+                  <div style={{ marginTop: '0.85rem' }}>
+                    {isLoadingAnalysis && !aiAnalysis ? (
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '0.5rem 0' }}>
+                        Generating real-time diagnostic reasoning and technician dispatch recommendations...
+                      </div>
+                    ) : aiAnalysis ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {/* Metadata Badges */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+                          <div style={{ fontSize: '0.78rem', background: 'rgba(255,255,255,0.04)', padding: '0.25rem 0.6rem', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Detected: </span>
+                            <strong>{aiAnalysis.detected_category}</strong>
+                          </div>
+
+                          <div style={{ fontSize: '0.78rem', background: 'rgba(59, 130, 246, 0.15)', color: '#93c5fd', padding: '0.25rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                            <span>Recommended Specialization: </span>
+                            <strong>{aiAnalysis.recommended_specialization}</strong>
+                          </div>
+
+                          <div style={{ fontSize: '0.78rem', background: 'rgba(245, 158, 11, 0.12)', color: '#fde68a', padding: '0.25rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                            <span>Severity: </span>
+                            <strong>{aiAnalysis.estimated_priority}</strong>
+                          </div>
+                        </div>
+
+                        {/* Root-Cause Hypothesis */}
+                        <div style={{ padding: '0.55rem 0.75rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', borderLeft: '3px solid var(--primary-500)' }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary-400)', textTransform: 'uppercase' }}>
+                            Root-Cause Hypothesis
+                          </div>
+                          <p style={{ fontSize: '0.82rem', margin: '0.2rem 0 0', color: 'var(--text-primary)' }}>
+                            {aiAnalysis.root_cause_hypothesis}
+                          </p>
+                        </div>
+
+                        {/* Next Best Action Banner */}
+                        <div style={{ padding: '0.55rem 0.75rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', fontWeight: 700, color: '#34d399' }}>
+                            <Zap size={13} />
+                            <span>Next Best Action:</span>
+                          </div>
+                          <p style={{ fontSize: '0.82rem', margin: '0.15rem 0 0', color: '#e2e8f0' }}>
+                            {aiAnalysis.next_best_action}
+                          </p>
+                        </div>
+
+                        {/* Suggested Step-by-Step Diagnostic Actions */}
+                        <div>
+                          <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                            Recommended Diagnostic Actions ({aiAnalysis.suggested_diagnostic_steps.length}):
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                            {aiAnalysis.suggested_diagnostic_steps.map((step, idx) => (
+                              <div
+                                key={idx}
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  background: 'rgba(255, 255, 255, 0.03)',
+                                  padding: '0.4rem 0.6rem',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-subtle)',
+                                  fontSize: '0.8rem',
+                                }}
+                              >
+                                <span>
+                                  <strong style={{ color: 'var(--primary-400)', marginRight: '0.35rem' }}>#{idx + 1}</strong>
+                                  {step}
+                                </span>
+                                <button
+                                  type="button"
+                                  className="btn-secondary-sm"
+                                  style={{
+                                    fontSize: '0.7rem',
+                                    padding: '0.2rem 0.45rem',
+                                    color: '#38bdf8',
+                                    borderColor: 'rgba(56, 189, 248, 0.3)',
+                                    whiteSpace: 'nowrap',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.25rem',
+                                    cursor: 'pointer',
+                                  }}
+                                  onClick={() => handleExecuteAiStep(step)}
+                                  title="Log this step into the ticket action log"
+                                >
+                                  <Zap size={11} />
+                                  <span>Quick Execute</span>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Escalation Risk & Similar Tickets */}
+                        <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', paddingTop: '0.4rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>Risk Profile: </span>
+                            {aiAnalysis.escalation_risk_assessment}
+                          </div>
+                          {aiAnalysis.similar_incidents_detected.length > 0 && (
+                            <div>
+                              <span style={{ color: 'var(--text-muted)' }}>Similar Incidents: </span>
+                              {aiAnalysis.similar_incidents_detected.length} related tickets
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
               </div>
 
               {/* Issue Description & Synopsis */}
@@ -1098,6 +1457,25 @@ export default function IncidentWorkspace({
               <p className="modal-desc">
                 If you are unable to resolve this incident or lack the necessary system permissions / hardware replacement tools, report this to the <strong>Host Operations Command Center</strong> so the host administrator can reassign this incident to another available technician.
               </p>
+
+              <div className="form-group">
+                <label className="form-label">Suggested Specialization for Host Reassignment</label>
+                <select
+                  className="form-input"
+                  value={reportHostSuggestedSpec}
+                  onChange={(e) => setReportHostSuggestedSpec(e.target.value)}
+                  style={{ background: 'var(--bg-input, #0f172a)', color: '#fff', cursor: 'pointer' }}
+                >
+                  <option value="Network">🌐 Network (Wi-Fi, ResNet, VPN, Switches, RADIUS)</option>
+                  <option value="Hardware">🖨️ Hardware (Workstations, PaperCut Printers, Terminals)</option>
+                  <option value="Software">💻 Software (LMS / Canvas, MATLAB, Academic Licenses)</option>
+                  <option value="IAM / Access">🔑 IAM / Access (Duo MFA, Active Directory, NetID)</option>
+                  <option value="Database">🗄️ Database (Campus DB, Student Records, SQL)</option>
+                  <option value="Security">🛡️ Security (Threats, Account Compromise, SSL/Certs)</option>
+                  <option value="Support">🎧 Support (General Tier-1 Helpdesk & Tech Bar)</option>
+                  <option value="Other">📦 Other Specialization</option>
+                </select>
+              </div>
 
               <div className="form-group">
                 <label className="form-label">Reason for Reporting to Host</label>

@@ -2478,8 +2478,20 @@ export default function AdminDashboard({
                 Category: <strong>{reassignTicket.category}</strong> • Current Tech: <strong>{reassignTicket.assigned_technician || 'Unassigned'}</strong>
               </div>
               {reassignTicket.escalation_info && (
-                <div style={{ fontSize: '0.78rem', color: '#fbbf24', marginTop: '0.35rem' }}>
-                  Reported Reason: {reassignTicket.escalation_info.reason}
+                <div style={{ marginTop: '0.4rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  {reassignTicket.escalation_info.target_specialization && (
+                    <div style={{ fontSize: '0.78rem', color: '#60a5fa' }}>
+                      ⚡ Recommended Specialization: <strong>{reassignTicket.escalation_info.target_specialization}</strong>
+                    </div>
+                  )}
+                  {reassignTicket.escalation_info.original_technician && (
+                    <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                      Reported by: {reassignTicket.escalation_info.original_technician}
+                    </div>
+                  )}
+                  <div style={{ fontSize: '0.78rem', color: '#fbbf24' }}>
+                    Reason: {reassignTicket.escalation_info.reason}
+                  </div>
                 </div>
               )}
             </div>

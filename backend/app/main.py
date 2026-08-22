@@ -16,6 +16,7 @@ from app.models.ticket import (
     TicketResolveRequest,
     TicketReassignRequest,
     EscalationDetails,
+    TicketAIAnalysisResponse,
 )
 from app.models.service_status import SystemStatusResponse
 from app.models.knowledge_base import (
@@ -463,6 +464,26 @@ def reassign_ticket(
             detail=f"Incident ticket '{ticket_id}' not found.",
         )
     return ticket
+
+
+@app.post(
+    "/api/tickets/{ticket_id}/analyze",
+    response_model=TicketAIAnalysisResponse,
+    status_code=status.HTTP_200_OK,
+    summary="CampusFix AI Diagnostic Analysis & Root Cause Reasoning Engine",
+)
+def analyze_ticket_endpoint(
+    ticket_id: str,
+    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+):
+    """Generates real-time AI reasoning, root cause analysis, and technician dispatch recommendations for a ticket."""
+    analysis = ticket_service.analyze_ticket(ticket_id)
+    if not analysis:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Incident ticket '{ticket_id}' not found.",
+        )
+    return analysis
 
 
 # --- Host Technician Management Endpoints (Strict RBAC Protected) ---

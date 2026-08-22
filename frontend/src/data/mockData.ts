@@ -9,6 +9,7 @@ import {
   AnalyticsGraphsResponse,
   ReportSummaryResponse,
   DiagnosticProbeResult,
+  TicketAIAnalysisResponse,
 } from '../types/chat';
 
 export const INITIAL_MOCK_TICKETS: Ticket[] = [
@@ -313,16 +314,51 @@ export function authenticateClientMockUser(
   specialization?: TechnicianSpecialization
 ): LoginResponse | null {
   const cleanU = username.trim().toLowerCase();
+  const allUsers = getLocalTechnicians();
 
-  let user = INITIAL_MOCK_USERS.find(
-    (u) => u.username?.toLowerCase() === cleanU || u.netid?.toLowerCase() === cleanU || u.name.toLowerCase() === cleanU
+  // Search across existing persisted local technicians and mock users
+  let user = allUsers.find(
+    (u) =>
+      u.username?.toLowerCase() === cleanU ||
+      u.netid?.toLowerCase() === cleanU ||
+      u.name.toLowerCase() === cleanU ||
+      (u.role === role && specialization && u.specialization === specialization)
   );
 
   if (!user) {
     if (role === 'host' || cleanU.includes('vamsi') || cleanU.includes('admin')) {
       user = INITIAL_MOCK_USERS[0];
     } else if (role === 'technician') {
-      user = INITIAL_MOCK_USERS.find((u) => u.specialization === specialization) || INITIAL_MOCK_USERS[1];
+      const spec = specialization || 'Network';
+      const cleanName = username.trim().length > 1 ? username.trim() : `${spec} Technician`;
+      const initials = cleanName
+        .split(' ')
+        .filter(Boolean)
+        .map((p) => p[0].toUpperCase())
+        .join('')
+        .slice(0, 2) || 'TC';
+
+      user = {
+        id: `user-tech-${Date.now()}`,
+        technician_id: `TECH-${Math.floor(100 + Math.random() * 900)}`,
+        name: cleanName,
+        username: cleanU || cleanName.toLowerCase().replace(/\s+/g, '.'),
+        email: `${cleanU || cleanName.toLowerCase().replace(/\s+/g, '.')}@university.edu`,
+        netid: cleanU || cleanName.toLowerCase().replace(/\s+/g, '.'),
+        role: 'technician',
+        specialization: spec,
+        department: `${spec} Engineering & Operations`,
+        status: 'active',
+        is_active: true,
+        phone: `+1 (555) 01${Math.floor(10 + Math.random() * 90)}-${Math.floor(1000 + Math.random() * 9000)}`,
+        active_assignments_count: 1,
+        avatar_initials: initials,
+        skills: [`${spec} Operations`, 'Campus IT Support', 'Live Triage'],
+        created_at: new Date().toISOString(),
+      };
+
+      // Save dynamically into local technician storage
+      saveLocalTechnicians([...allUsers, user]);
     } else {
       user = INITIAL_MOCK_USERS[INITIAL_MOCK_USERS.length - 1];
     }
@@ -331,8 +367,121 @@ export function authenticateClientMockUser(
   return {
     token: `demo-jwt-token-${user.id}-${Date.now()}`,
     token_type: 'Bearer',
-    user: { ...user, role: role === 'host' ? 'host' : role === 'technician' ? 'technician' : 'student' },
+    user: {
+      ...user,
+      role: role === 'host' ? 'host' : role === 'technician' ? 'technician' : 'student',
+      specialization: role === 'technician' ? (user.specialization || specialization || 'Network') : user.specialization,
+    },
     expires_in: 86400,
+  };
+}
+
+export function generateClientTicketAnalysis(
+  ticket: Ticket,
+  allTickets: Ticket[] = []
+): TicketAIAnalysisResponse {
+  const title = ticket.title || '';
+  const desc = ticket.description || '';
+  const cat = ticket.category || 'Other';
+  const combined = `${title} ${desc}`.toLowerCase();
+
+  let estimatedPriority = ticket.priority;
+  let priorityRationale = `Calculated as ${estimatedPriority} based on campus impact, device context (${ticket.device || 'Campus Client'}), and student location.`;
+
+  if (combined.includes('exam') || combined.includes('midterm') || combined.includes('deadline') || combined.includes('urgent')) {
+    estimatedPriority = 'High';
+    priorityRationale = 'Priority elevated to High due to imminent academic exam/submission deadline context.';
+  }
+
+  const specMap: Record<string, [string, string]> = {
+    'Eduroam Wi-Fi': ['Network', 'Requires 802.1X wireless certificate validation and RADIUS profile configuration.'],
+    'Dorm ResNet': ['Network', 'Requires switchport link-state verification and LAN MAC registration in ResNet portal.'],
+    'VPN': ['Network', 'Requires GlobalProtect IPsec gateway configuration and client profile refresh.'],
+    'Canvas / SSO': ['Software', 'Requires SAML authentication session flush and browser token handshake check.'],
+    'Software': ['Software', 'Requires academic license key verification and local daemon driver reinstall.'],
+    'Lab / Computer Access': ['Hardware', 'Requires physical terminal hardware inspection and peripheral check.'],
+    'PaperCut Printing': ['Hardware', 'Requires release station buffer spooler restart and student quota verification.'],
+    'Duo MFA': ['IAM / Access', 'Requires Duo Mobile device push token reactivation or Tech Bar bypass passcode.'],
+    'NetID / Password': ['IAM / Access', 'Requires Active Directory password synchronization and account lockout check.'],
+    'Email': ['IAM / Access', 'Requires Exchange Online mailbox routing inspection.'],
+  };
+
+  const [recommendedSpec, specRationale] = specMap[cat] || ['Support', 'General campus IT Tier-1 triage and walkup support.'];
+
+  let rootCause = `Potential protocol mismatch or client-side caching issue affecting ${cat} services.`;
+  let summary = `Student ${ticket.netid} reports persistent trouble with ${cat} at ${ticket.location}.`;
+
+  if (combined.includes('wifi') || combined.includes('eduroam') || combined.includes('certificate')) {
+    rootCause = '802.1X EAP-PEAP trust chain failure or outdated campus root CA certificate.';
+    summary = 'Student device failing RADIUS authentication handshake with campus access points.';
+  } else if (combined.includes('duo') || combined.includes('mfa') || combined.includes('2fa') || combined.includes('phone')) {
+    rootCause = 'Device push token de-synchronization following OS upgrade or new smartphone migration.';
+    summary = 'Student cannot complete Duo Push 2FA authentication prompts to access campus portal.';
+  } else if (combined.includes('print') || combined.includes('papercut') || combined.includes('spooler')) {
+    rootCause = 'WebPrint release spooler buffer queue stall or destination station driver lock.';
+    summary = 'Print job stalled in queue buffer; release station display unresponsive.';
+  } else if (combined.includes('canvas') || combined.includes('sso') || combined.includes('login')) {
+    rootCause = 'Stale Shibboleth Single Sign-On session cookie causing redirect loop.';
+    summary = 'Authentication token loop preventing student from reaching course materials.';
+  }
+
+  const diagnosticSteps: string[] = [
+    `Verify authentication identity format (${ticket.netid}@university.edu).`,
+    `Check live telemetry status for ${cat} campus cluster.`,
+    'Execute diagnostic profile reset on student device.',
+    'Perform verification test and confirm end-to-end connectivity.',
+  ];
+
+  if (cat === 'Eduroam Wi-Fi') {
+    diagnosticSteps[0] = 'Verify EAP Method is PEAP and Phase 2 Auth is MSCHAPv2.';
+    diagnosticSteps[1] = 'Ensure CA Certificate domain is explicitly set to university.edu.';
+    diagnosticSteps[2] = 'Forget network profile, clear cached identity, and reconnect.';
+  } else if (cat === 'PaperCut Printing') {
+    diagnosticSteps[0] = 'Inspect PaperCut spooler service buffer for Library / Lab release station.';
+    diagnosticSteps[1] = 'Verify student balance and refund stalled quota ($1.40).';
+    diagnosticSteps[2] = 'Ensure uploaded document conforms to standard PDF format.';
+  } else if (cat === 'Duo MFA') {
+    diagnosticSteps[0] = 'Open Duo Mobile app directly and pull down to refresh notifications.';
+    diagnosticSteps[1] = 'Check Focus / Do Not Disturb permissions on smartphone.';
+    diagnosticSteps[2] = 'Issue temporary 6-digit bypass code or visit Tech Bar with photo ID.';
+  }
+
+  let nextAction = `Execute recommended diagnostic action #1 and verify ${cat} status with student.`;
+  if (ticket.status === 'Escalated') {
+    nextAction = `Host Operations: Dispatch incident to on-duty ${recommendedSpec} technician.`;
+  } else if (ticket.diagnostic_progress >= 75) {
+    nextAction = 'Confirm student fix validation and mark incident as Resolved.';
+  }
+
+  const escalationRisk =
+    estimatedPriority === 'High' || estimatedPriority === 'Critical' || estimatedPriority === 'Urgent'
+      ? 'High risk — requires expedited Tech Bar walkup pass or Tier-2 privileges.'
+      : 'Low risk — standard Tier-1 diagnostic resolution expected within 15 minutes.';
+
+  const similarList: string[] = [];
+  allTickets.forEach((t) => {
+    if (t.id !== ticket.id && (t.category === ticket.category || t.location === ticket.location)) {
+      similarList.push(`${t.ticket_number}: ${t.title.slice(0, 42)}... [${t.status}]`);
+    }
+  });
+
+  return {
+    ticket_id: ticket.id,
+    ticket_number: ticket.ticket_number,
+    detected_category: cat,
+    category_confidence_score: cat !== 'Other' ? 0.96 : 0.81,
+    estimated_priority: estimatedPriority,
+    priority_rationale: priorityRationale,
+    recommended_specialization: recommendedSpec,
+    specialization_rationale: specRationale,
+    summary_for_technician: summary,
+    root_cause_hypothesis: rootCause,
+    suggested_diagnostic_steps: diagnosticSteps,
+    next_best_action: nextAction,
+    escalation_risk_assessment: escalationRisk,
+    similar_incidents_detected: similarList.slice(0, 3),
+    host_workload_advice: `${recommendedSpec} queue active. Recommended assignment: Available ${recommendedSpec} engineer.`,
+    analyzed_at: new Date().toISOString(),
   };
 }
 

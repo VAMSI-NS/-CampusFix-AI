@@ -84,6 +84,27 @@ class TicketReassignRequest(BaseModel):
     reassignment_notes: Optional[str] = None
 
 
+class TicketAIAnalysisResponse(BaseModel):
+    ticket_id: str
+    ticket_number: str
+    detected_category: str
+    category_confidence_score: float
+    estimated_priority: str
+    priority_rationale: str
+    recommended_specialization: str
+    specialization_rationale: str
+    summary_for_technician: str
+    root_cause_hypothesis: str
+    suggested_diagnostic_steps: List[str]
+    next_best_action: str
+    escalation_risk_assessment: str
+    similar_incidents_detected: List[str]
+    host_workload_advice: Optional[str] = None
+    analyzed_at: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+
+
 def normalize_priority_str(v: str) -> str:
     if not v:
         return "Medium"
