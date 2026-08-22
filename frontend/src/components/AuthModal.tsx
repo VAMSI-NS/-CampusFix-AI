@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import {
-  ShieldCheck,
   Lock,
   User,
-  Wrench,
-  GraduationCap,
   Sparkles,
   AlertCircle,
   X,
   Eye,
   EyeOff,
   CheckCircle2,
+  MapPin,
+  Radio,
+  ArrowRight,
 } from 'lucide-react';
 import { CampusUser, LoginResponse, TechnicianSpecialization, UserRole } from '../types/chat';
 import { authenticateClientMockUser } from '../data/mockData';
@@ -23,11 +23,11 @@ interface AuthModalProps {
 }
 
 const SPECIALIZATIONS: { id: TechnicianSpecialization; label: string }[] = [
-  { id: 'Network', label: 'Network Technician (Wi-Fi, RADIUS, DNS, VPN)' },
-  { id: 'Hardware', label: 'Hardware Technician (PaperCut, Printers, Terminals)' },
-  { id: 'Software', label: 'Software Technician (Canvas, LMS, Academic Apps)' },
-  { id: 'Support', label: 'Support Technician (Walkup Help Bar, Triage)' },
-  { id: 'IAM / Access', label: 'IAM/Access Technician (Duo 2FA, NetID, SSO)' },
+  { id: 'Network', label: 'Network Specialist (Wi-Fi 6E, RADIUS, VLANs)' },
+  { id: 'Hardware', label: 'Hardware Specialist (PaperCut, Lab Stations)' },
+  { id: 'Software', label: 'Software Specialist (Canvas LMS, Academic Apps)' },
+  { id: 'Support', label: 'Support Specialist (Tech Bar Walkup Triage)' },
+  { id: 'IAM / Access', label: 'IAM / Access (Duo 2FA, Shibboleth SSO)' },
 ];
 
 export default function AuthModal({
@@ -37,8 +37,8 @@ export default function AuthModal({
   initialRole = 'student',
 }: AuthModalProps) {
   const [selectedRole, setSelectedRole] = useState<UserRole>(initialRole);
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('student');
+  const [password, setPassword] = useState('student@123');
   const [specialization, setSpecialization] = useState<TechnicianSpecialization>('Network');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,18 +62,10 @@ export default function AuthModal({
     }
   };
 
-  const handleFillDemo = (role: UserRole, user: string, pass: string, spec?: TechnicianSpecialization) => {
-    setSelectedRole(role);
-    setUsername(user);
-    setPassword(pass);
-    if (spec) setSpecialization(spec);
-    setErrorMsg(null);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      setErrorMsg('Please enter both username and password.');
+      setErrorMsg('Please provide both username and password.');
       return;
     }
 
@@ -81,565 +73,352 @@ export default function AuthModal({
     setErrorMsg(null);
 
     try {
-      const payload: Record<string, unknown> = {
-        username: username.trim(),
-        password: password.trim(),
-        role: selectedRole === 'host' ? 'host' : selectedRole === 'technician' ? 'technician' : 'student',
-      };
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username.trim(),
+          password: password.trim(),
+          role: selectedRole,
+          specialization: selectedRole === 'technician' ? specialization : undefined,
+        }),
+      });
 
-      if (selectedRole === 'technician') {
-        payload.specialization = specialization;
+      if (res.ok) {
+        const data: LoginResponse = await res.json();
+        localStorage.setItem('campusfix_token', data.token);
+        localStorage.setItem('campusfix_user', JSON.stringify(data.user));
+        onLoginSuccess(data.token, data.user);
+        onClose();
+        return;
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        setErrorMsg(errJson.detail || 'Authentication failed. Please verify credentials.');
       }
+    } catch {
+      // Offline fallback
+      const mockResult = authenticateClientMockUser(
+        username.trim(),
+        password.trim(),
+        selectedRole,
+        selectedRole === 'technician' ? specialization : undefined
+      );
 
-      let successData: LoginResponse | null = null;
-
-      try {
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-
-        if (res.ok) {
-          const contentType = res.headers.get('content-type') || '';
-          if (contentType.includes('application/json')) {
-            const data = await res.json();
-            if (data && data.token && data.user) {
-              successData = data as LoginResponse;
-            }
-          }
-        }
-      } catch (networkErr) {
-        console.warn('Backend login endpoint unavailable, trying client fallback:', networkErr);
+      if (mockResult) {
+        localStorage.setItem('campusfix_token', mockResult.token);
+        localStorage.setItem('campusfix_user', JSON.stringify(mockResult.user));
+        onLoginSuccess(mockResult.token, mockResult.user);
+        onClose();
+        return;
+      } else {
+        setErrorMsg('Invalid NetID or password. Use one of the fast 1-click accounts below.');
       }
-
-      // If backend was not reached or returned non-JSON (e.g. on static GitHub Pages), authenticate with client mock accounts
-      if (!successData) {
-        const cleanU = username.trim().toLowerCase();
-        const cleanP = password.trim();
-        const matched = authenticateClientMockUser(cleanU, cleanP, selectedRole, specialization);
-        if (matched) {
-          successData = matched;
-        } else {
-          throw new Error('Invalid credentials. Please verify your username and password.');
-        }
-      }
-
-      // Persist auth tokens
-      localStorage.setItem('campusfix_token', successData.token);
-      localStorage.setItem('campusfix_user', JSON.stringify(successData.user));
-
-      onLoginSuccess(successData.token, successData.user);
-      onClose();
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Login failed. Please check credentials.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="modal-backdrop-overlay" onClick={onClose}>
+    <div className="modal-backdrop-saas" onClick={onClose}>
       <div
-        className="auth-modal-card"
-        onClick={(e) => e.stopPropagation()}
+        className="modal-dialog-saas"
         style={{
-          background: 'var(--bg-surface, #1e293b)',
-          border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.1))',
-          borderRadius: '16px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(59, 130, 246, 0.15)',
-          maxWidth: '480px',
-          width: '92%',
-          padding: '1.75rem',
-          position: 'relative',
-          color: 'var(--text-primary, #f8fafc)',
-          animation: 'fadeInScale 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          width: '100%',
+          maxWidth: '820px',
+          display: 'grid',
+          gridTemplateColumns: 'minmax(280px, 1fr) minmax(360px, 1.3fr)',
         }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          style={{
-            position: 'absolute',
-            top: '1rem',
-            right: '1rem',
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--text-tertiary, #94a3b8)',
-            cursor: 'pointer',
-            padding: '0.4rem',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          title="Close Login Modal"
-        >
-          <X size={18} />
-        </button>
-
-        {/* Modal Header */}
-        <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-          <div
-            style={{
-              width: '48px',
-              height: '48px',
-              margin: '0 auto 0.75rem',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(99, 102, 241, 0.3))',
-              border: '1px solid rgba(59, 130, 246, 0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#60a5fa',
-            }}
-          >
-            {selectedRole === 'host' ? (
-              <ShieldCheck size={26} />
-            ) : selectedRole === 'technician' ? (
-              <Wrench size={26} />
-            ) : (
-              <GraduationCap size={26} />
-            )}
-          </div>
-          <h2 style={{ fontSize: '1.35rem', fontWeight: 800, margin: '0 0 0.25rem' }}>
-            {selectedRole === 'host'
-              ? 'Host / Executive Access'
-              : selectedRole === 'technician'
-              ? 'Technician Workspace Login'
-              : 'Student Helpdesk Access'}
-          </h2>
-          <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary, #94a3b8)', margin: 0 }}>
-            {selectedRole === 'host'
-              ? 'Full platform authority, technician provisioning & executive reports'
-              : selectedRole === 'technician'
-              ? 'Role-validated diagnostic workbench & incident lifecycle resolver'
-              : 'Interactive campus IT troubleshooting & ticket tracking'}
-          </p>
-        </div>
-
-        {/* Role Switcher Tabs */}
+        {/* Left SaaS Brand Panel */}
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr 1fr',
-            gap: '0.35rem',
-            background: 'var(--bg-card, rgba(15, 23, 42, 0.6))',
-            padding: '0.25rem',
-            borderRadius: '10px',
-            marginBottom: '1.25rem',
-            border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
+            background: 'linear-gradient(145deg, #090e1a 0%, #111d33 100%)',
+            padding: '2rem',
+            borderRight: '1px solid var(--border-default)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            position: 'relative',
+            overflow: 'hidden',
           }}
         >
-          <button
-            type="button"
-            onClick={() => handleRoleTabChange('student')}
-            style={{
-              padding: '0.5rem 0.25rem',
-              borderRadius: '8px',
-              border: 'none',
-              background: selectedRole === 'student' ? 'var(--primary-600, #2563eb)' : 'transparent',
-              color: selectedRole === 'student' ? '#fff' : 'var(--text-secondary, #94a3b8)',
-              fontWeight: selectedRole === 'student' ? 700 : 500,
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.35rem',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <GraduationCap size={14} />
-            <span>Student</span>
-          </button>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'linear-gradient(135deg, var(--primary-600) 0%, var(--ai-cyan) 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffffff',
+                  boxShadow: '0 0 14px var(--primary-glow)',
+                }}
+              >
+                <Sparkles size={20} />
+              </div>
+              <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+                CAMPUSFIX.AI
+              </span>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => handleRoleTabChange('technician')}
-            style={{
-              padding: '0.5rem 0.25rem',
-              borderRadius: '8px',
-              border: 'none',
-              background: selectedRole === 'technician' ? 'var(--primary-600, #2563eb)' : 'transparent',
-              color: selectedRole === 'technician' ? '#fff' : 'var(--text-secondary, #94a3b8)',
-              fontWeight: selectedRole === 'technician' ? 700 : 500,
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.35rem',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Wrench size={14} />
-            <span>Technician</span>
-          </button>
+            <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', lineHeight: 1.3, marginBottom: '0.75rem' }}>
+              Enterprise Campus IT Operations & Incident Intelligence
+            </h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Powered by NVIDIA Nemotron & verified Vignan University geospatial telemetry.
+            </p>
 
-          <button
-            type="button"
-            onClick={() => handleRoleTabChange('host')}
-            style={{
-              padding: '0.5rem 0.25rem',
-              borderRadius: '8px',
-              border: 'none',
-              background: selectedRole === 'host' ? 'var(--primary-600, #2563eb)' : 'transparent',
-              color: selectedRole === 'host' ? '#fff' : 'var(--text-secondary, #94a3b8)',
-              fontWeight: selectedRole === 'host' ? 700 : 500,
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.35rem',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <ShieldCheck size={14} />
-            <span>Host / Admin</span>
-          </button>
+            {/* Feature Pills */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: '#cbd5e1' }}>
+                <CheckCircle2 size={15} style={{ color: 'var(--success)' }} />
+                <span>Real-time autonomous diagnostic triage</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: '#cbd5e1' }}>
+                <MapPin size={15} style={{ color: '#fb923c' }} />
+                <span>9 Verified Vignan University blocks</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: '#cbd5e1' }}>
+                <Radio size={15} style={{ color: 'var(--ai-cyan)' }} />
+                <span>Live RADIUS, LMS & 2FA telemetry</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+            Vignan's Foundation for Science, Technology & Research (VFSTR) • Vadlamudi
+          </div>
         </div>
 
-        {/* Error Notification */}
-        {errorMsg && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '0.5rem',
-              padding: '0.65rem 0.85rem',
-              borderRadius: '8px',
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.4)',
-              color: '#fca5a5',
-              fontSize: '0.82rem',
-              marginBottom: '1rem',
-            }}
-          >
-            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-            <span>{errorMsg}</span>
-          </div>
-        )}
-
-        {/* Login Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-          {/* Username / NetID */}
+        {/* Right Authentication Form Panel */}
+        <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                color: 'var(--text-secondary, #94a3b8)',
-                marginBottom: '0.35rem',
-              }}
-            >
-              Username / Campus NetID
-            </label>
-            <div style={{ position: 'relative' }}>
-              <User
-                size={16}
-                style={{
-                  position: 'absolute',
-                  left: '0.75rem',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-tertiary, #64748b)',
-                }}
-              />
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder={selectedRole === 'host' ? 'e.g. VAMSI' : selectedRole === 'technician' ? 'e.g. sarah, dave, alex, ramu' : 'e.g. student'}
-                style={{
-                  width: '100%',
-                  padding: '0.65rem 0.75rem 0.65rem 2.25rem',
-                  borderRadius: '8px',
-                  background: 'var(--bg-input, rgba(15, 23, 42, 0.8))',
-                  border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.12))',
-                  color: 'var(--text-primary, #fff)',
-                  fontSize: '0.88rem',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-                required
-              />
-            </div>
-          </div>
-
-          {/* Technician Specialization Dropdown */}
-          {selectedRole === 'technician' && (
-            <div>
-              <label
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  color: 'var(--text-secondary, #94a3b8)',
-                  marginBottom: '0.35rem',
-                }}
-              >
-                <span>Assigned Specialization</span>
-                <span style={{ fontSize: '0.72rem', color: '#60a5fa' }}>Backend Validated</span>
-              </label>
-              <select
-                value={specialization}
-                onChange={(e) => setSpecialization(e.target.value as TechnicianSpecialization)}
-                style={{
-                  width: '100%',
-                  padding: '0.65rem 0.75rem',
-                  borderRadius: '8px',
-                  background: 'var(--bg-input, rgba(15, 23, 42, 0.8))',
-                  border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.12))',
-                  color: 'var(--text-primary, #fff)',
-                  fontSize: '0.88rem',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-              >
-                {SPECIALIZATIONS.map((spec) => (
-                  <option key={spec.id} value={spec.id} style={{ background: '#0f172a', color: '#fff' }}>
-                    {spec.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Password */}
-          <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                color: 'var(--text-secondary, #94a3b8)',
-                marginBottom: '0.35rem',
-              }}
-            >
-              Password
-            </label>
-            <div style={{ position: 'relative' }}>
-              <Lock
-                size={16}
-                style={{
-                  position: 'absolute',
-                  left: '0.75rem',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-tertiary, #64748b)',
-                }}
-              />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password..."
-                style={{
-                  width: '100%',
-                  padding: '0.65rem 2.5rem 0.65rem 2.25rem',
-                  borderRadius: '8px',
-                  background: 'var(--bg-input, rgba(15, 23, 42, 0.8))',
-                  border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.12))',
-                  color: 'var(--text-primary, #fff)',
-                  fontSize: '0.88rem',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-                required
-              />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#ffffff' }}>
+                  Sign in to CampusFix
+                </h3>
+                <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  Select your role to access authorized tools.
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute',
-                  right: '0.65rem',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-tertiary, #94a3b8)',
-                  cursor: 'pointer',
-                  padding: '0.2rem',
-                }}
-                title={showPassword ? 'Hide Password' : 'Show Password'}
+                className="btn-saas-ghost"
+                style={{ padding: '0.35rem' }}
+                onClick={onClose}
               >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                <X size={18} />
               </button>
             </div>
-          </div>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={isLoading}
-            style={{
-              marginTop: '0.5rem',
-              padding: '0.75rem 1rem',
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-              color: '#fff',
-              border: 'none',
-              fontWeight: 700,
-              fontSize: '0.92rem',
-              cursor: isLoading ? 'wait' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            {isLoading ? (
-              <span>Verifying credentials...</span>
-            ) : (
-              <>
-                <CheckCircle2 size={17} />
-                <span>
-                  {selectedRole === 'host'
-                    ? 'Authenticate as Host'
-                    : selectedRole === 'technician'
-                    ? `Sign in as ${specialization} Tech`
-                    : 'Sign in to CampusFix'}
-                </span>
-              </>
+            {/* Role Tab Switcher */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '0.35rem',
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-default)',
+                padding: '0.25rem',
+                borderRadius: 'var(--radius-md)',
+                marginBottom: '1.25rem',
+              }}
+            >
+              <button
+                type="button"
+                style={{
+                  padding: '0.5rem 0.25rem',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  border: 'none',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                  background: selectedRole === 'student' ? 'var(--primary-600)' : 'transparent',
+                  color: selectedRole === 'student' ? '#ffffff' : 'var(--text-secondary)',
+                  transition: 'all var(--transition-fast)',
+                }}
+                onClick={() => handleRoleTabChange('student')}
+              >
+                🎓 Student
+              </button>
+              <button
+                type="button"
+                style={{
+                  padding: '0.5rem 0.25rem',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  border: 'none',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                  background: selectedRole === 'technician' ? 'var(--primary-600)' : 'transparent',
+                  color: selectedRole === 'technician' ? '#ffffff' : 'var(--text-secondary)',
+                  transition: 'all var(--transition-fast)',
+                }}
+                onClick={() => handleRoleTabChange('technician')}
+              >
+                🛠️ Staff
+              </button>
+              <button
+                type="button"
+                style={{
+                  padding: '0.5rem 0.25rem',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  border: 'none',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                  background: selectedRole === 'host' ? '#f59e0b' : 'transparent',
+                  color: selectedRole === 'host' ? '#000000' : 'var(--text-secondary)',
+                  transition: 'all var(--transition-fast)',
+                }}
+                onClick={() => handleRoleTabChange('host')}
+              >
+                👑 Host
+              </button>
+            </div>
+
+            {errorMsg && (
+              <div
+                style={{
+                  padding: '0.65rem 0.85rem',
+                  background: 'var(--danger-subtle)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: 'var(--radius-md)',
+                  color: '#fca5a5',
+                  fontSize: '0.76rem',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                }}
+              >
+                <AlertCircle size={15} />
+                <span>{errorMsg}</span>
+              </div>
             )}
-          </button>
-        </form>
 
-        {/* Quick Demo Credentials helper */}
-        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.6rem' }}>
-            <Sparkles size={13} style={{ color: '#fbbf24' }} />
-            <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary, #94a3b8)' }}>
-              Quick Fill Demo Credentials
-            </span>
+            {/* Login Form */}
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <div>
+                <label style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.3rem' }}>
+                  NetID / University Username
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <User size={15} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input
+                    type="text"
+                    className="saas-input"
+                    style={{ paddingLeft: '2.5rem' }}
+                    placeholder="Enter your university username..."
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.3rem' }}>
+                  Password
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <Lock size={15} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    className="saas-input"
+                    style={{ paddingLeft: '2.5rem', paddingRight: '2.5rem' }}
+                    placeholder="••••••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+
+              {selectedRole === 'technician' && (
+                <div>
+                  <label style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.3rem' }}>
+                    Technician Specialization Domain
+                  </label>
+                  <select
+                    className="saas-input"
+                    value={specialization}
+                    onChange={(e) => setSpecialization(e.target.value as TechnicianSpecialization)}
+                  >
+                    {SPECIALIZATIONS.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="btn-saas btn-saas-primary"
+                style={{ width: '100%', padding: '0.75rem', marginTop: '0.5rem' }}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <span>Authenticating...</span>
+                ) : (
+                  <>
+                    <span>Sign In as {selectedRole.toUpperCase()}</span>
+                    <ArrowRight size={14} />
+                  </>
+                )}
+              </button>
+            </form>
           </div>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-            <button
-              type="button"
-              onClick={() => handleFillDemo('host', 'VAMSI', 'vamsi@123')}
-              style={{
-                padding: '0.35rem 0.6rem',
-                borderRadius: '6px',
-                background: 'rgba(245, 158, 11, 0.12)',
-                border: '1px solid rgba(245, 158, 11, 0.35)',
-                color: '#fbbf24',
-                fontSize: '0.74rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.3rem',
-              }}
-            >
-              <span>👑 Host: VAMSI</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleFillDemo('technician', 'ramu', 'ramu@123', 'Network')}
-              style={{
-                padding: '0.35rem 0.6rem',
-                borderRadius: '6px',
-                background: 'rgba(59, 130, 246, 0.12)',
-                border: '1px solid rgba(59, 130, 246, 0.35)',
-                color: '#60a5fa',
-                fontSize: '0.74rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.3rem',
-              }}
-            >
-              <span>🛠️ Network: Ramu</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleFillDemo('technician', 'sarah', 'sarah@123', 'IAM / Access')}
-              style={{
-                padding: '0.35rem 0.6rem',
-                borderRadius: '6px',
-                background: 'rgba(168, 85, 247, 0.12)',
-                border: '1px solid rgba(168, 85, 247, 0.35)',
-                color: '#c084fc',
-                fontSize: '0.74rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.3rem',
-              }}
-            >
-              <span>🔑 IAM: Sarah</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleFillDemo('technician', 'dave', 'dave@123', 'Hardware')}
-              style={{
-                padding: '0.35rem 0.6rem',
-                borderRadius: '6px',
-                background: 'rgba(234, 88, 12, 0.12)',
-                border: '1px solid rgba(234, 88, 12, 0.35)',
-                color: '#fb923c',
-                fontSize: '0.74rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.3rem',
-              }}
-            >
-              <span>🖨️ Hardware: Dave</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleFillDemo('technician', 'alex', 'alex@123', 'Software')}
-              style={{
-                padding: '0.35rem 0.6rem',
-                borderRadius: '6px',
-                background: 'rgba(14, 165, 233, 0.12)',
-                border: '1px solid rgba(14, 165, 233, 0.35)',
-                color: '#38bdf8',
-                fontSize: '0.74rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.3rem',
-              }}
-            >
-              <span>💻 Software: Alex</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleFillDemo('technician', 'priya', 'priya@123', 'Support')}
-              style={{
-                padding: '0.35rem 0.6rem',
-                borderRadius: '6px',
-                background: 'rgba(16, 185, 129, 0.12)',
-                border: '1px solid rgba(16, 185, 129, 0.35)',
-                color: '#34d399',
-                fontSize: '0.74rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.3rem',
-              }}
-            >
-              <span>🤝 Support: Priya</span>
-            </button>
+          {/* 1-Click Fast Access Chips */}
+          <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>
+              ⚡ 1-Click Demo Profiles:
+            </span>
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="badge-saas badge-saas-neutral"
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  handleRoleTabChange('student');
+                }}
+              >
+                Marcus (Student)
+              </button>
+              <button
+                type="button"
+                className="badge-saas badge-saas-primary"
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  handleRoleTabChange('technician');
+                }}
+              >
+                Ramu (Network Tech)
+              </button>
+              <button
+                type="button"
+                className="badge-saas badge-saas-warning"
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  handleRoleTabChange('host');
+                }}
+              >
+                VAMSI (Host)
+              </button>
+            </div>
           </div>
         </div>
       </div>
