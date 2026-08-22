@@ -3,33 +3,21 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   Send,
-  RotateCcw,
   Sparkles,
-  AlertCircle,
   Copy,
   Check,
   RefreshCw,
-  Clock,
   Mic,
   MicOff,
   Paperclip,
-  Image as ImageIcon,
   X,
-  Wifi,
-  KeyRound,
-  CheckCircle2,
-  Wrench,
-  Laptop,
-  Ticket as TicketIcon,
-  ArrowUpRight,
-  ShieldAlert,
-  MapPin,
+  Minus,
+  ExternalLink,
 } from 'lucide-react';
-import { Message, ChatApiResponse, DiagnosticStage, Ticket, TicketCategory, TicketPriority } from '../types/chat';
-import { createClientMockTicket } from '../data/mockData';
+import { Message, DiagnosticStage, Ticket, TicketCategory, TicketPriority, AIActionButton } from '../types/chat';
 
 interface ChatInterfaceProps {
-  backendConnected: boolean;
+  backendConnected?: boolean;
   modelName?: string;
   activeTicketNumber?: string;
   activeDiagnosticStage?: DiagnosticStage;
@@ -42,41 +30,13 @@ interface ChatInterfaceProps {
   onViewLocationOnMap?: (locationNameOrCode: string) => void;
 }
 
-// 3 Compact Suggestions
-const QUICK_SUGGESTIONS = [
-  {
-    id: 'wifi-problem',
-    icon: Wifi,
-    label: 'Wi-Fi problem',
-    prompt: 'My laptop connects to Eduroam Wi-Fi but has no internet and keeps asking for my password.',
-  },
-  {
-    id: 'login-issue',
-    icon: KeyRound,
-    label: 'Login issue',
-    prompt: 'I got a new phone and cannot complete Duo 2FA push verification to log into my university portal.',
-  },
-  {
-    id: 'software-problem',
-    icon: Laptop,
-    label: 'Software problem',
-    prompt: 'I am unable to submit my assignment on Canvas and the page is throwing an access authorization error.',
-  },
-];
-
 const INITIAL_GREETING: Message = {
-  id: 'welcome-it-specialist',
+  id: 'welcome-saas-assistant',
   role: 'assistant',
-  content: `**How can I help you today?**\n\nDescribe your campus IT issue and I'll help diagnose and resolve it.`,
+  content: `Hi! 👋 I'm **CampusFix AI**. I can help you find tickets, check campus services, troubleshoot IT problems, and guide you to the right technician.`,
   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-  model: 'nvidia/nemotron-3-ultra-550b-a55b',
+  model: 'NVIDIA Nemotron 3 Ultra',
 };
-
-const DIAGNOSTIC_STEPS = [
-  { id: 'Diagnosing', label: 'Diagnosing' },
-  { id: 'Troubleshooting', label: 'Troubleshooting' },
-  { id: 'Resolution', label: 'Resolution' },
-];
 
 const CATEGORIES: TicketCategory[] = [
   'Eduroam Wi-Fi',
@@ -95,13 +55,8 @@ const CATEGORIES: TicketCategory[] = [
 const PRIORITIES: TicketPriority[] = ['Low', 'Medium', 'High', 'Urgent', 'Critical'];
 
 export default function ChatInterface({
-  backendConnected,
-  modelName,
-  activeTicketNumber,
-  activeDiagnosticStage = 'Triage',
+  modelName = 'NVIDIA Nemotron 3 Ultra',
   initialQuery,
-  onSuggestedAction,
-  onStageChange,
   onCloseModal,
   onTicketCreated,
   onViewTicket,
@@ -110,26 +65,24 @@ export default function ChatInterface({
   const [messages, setMessages] = useState<Message[]>([INITIAL_GREETING]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [loggedActionId, setLoggedActionId] = useState<string | null>(null);
+  const [isMinimized, setIsMinimized] = useState(false);
 
-  // Escalation & Support Ticket Flow State
+  // Ticket Modal Flow
   const [showTicketOffer, setShowTicketOffer] = useState(false);
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
   const [createdTicketInfo, setCreatedTicketInfo] = useState<Ticket | null>(null);
 
-  // Ticket Form Fields
+  // Form Fields
   const [formIssueTitle, setFormIssueTitle] = useState('');
   const [formCategory, setFormCategory] = useState<TicketCategory>('Eduroam Wi-Fi');
-  const [formLocation, setFormLocation] = useState('Main Campus / Library');
+  const [formLocation, setFormLocation] = useState('U-Block (Main Academic Block)');
   const [formPriority, setFormPriority] = useState<TicketPriority>('High');
   const [formDescription, setFormDescription] = useState('');
 
-  // Voice recording & screenshot upload state
+  // Voice recording & attachment state
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
-  const [voiceSeconds, setVoiceSeconds] = useState(0);
   const [attachedImageName, setAttachedImageName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -144,14 +97,12 @@ export default function ChatInterface({
     scrollToBottom();
   }, [messages, isLoading, showTicketOffer, showTicketForm, createdTicketInfo]);
 
-  // Handle incoming initial query
   useEffect(() => {
     if (initialQuery && initialQuery.trim()) {
       sendMessage(initialQuery.trim());
     }
   }, [initialQuery]);
 
-  // Auto-resize textarea
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputValue(e.target.value);
     if (textareaRef.current) {
@@ -160,25 +111,19 @@ export default function ChatInterface({
     }
   };
 
-  // Voice recording simulation timer
-  useEffect(() => {
-    let timer: ReturnType<typeof setInterval>;
-    if (isRecordingVoice) {
-      timer = setInterval(() => {
-        setVoiceSeconds((prev) => prev + 1);
-      }, 1000);
-    } else {
-      setVoiceSeconds(0);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
-    return () => clearInterval(timer);
-  }, [isRecordingVoice]);
+  };
 
   const handleToggleVoice = () => {
     if (!isRecordingVoice) {
       setIsRecordingVoice(true);
       setTimeout(() => {
         setIsRecordingVoice(false);
-        setInputValue('My laptop cannot authenticate to the campus wireless network.');
+        setInputValue('My Eduroam Wi-Fi connection is dropping in U-Block.');
       }, 3000);
     } else {
       setIsRecordingVoice(false);
@@ -192,710 +137,584 @@ export default function ChatInterface({
     }
   };
 
-  // Detect category from prompt
-  const detectCategoryFromText = (text: string): TicketCategory => {
-    const t = text.toLowerCase();
-    if (t.includes('wifi') || t.includes('wi-fi') || t.includes('eduroam')) return 'Eduroam Wi-Fi';
-    if (t.includes('duo') || t.includes('2fa') || t.includes('mfa')) return 'Duo MFA';
-    if (t.includes('canvas') || t.includes('sso') || t.includes('login') || t.includes('portal')) return 'Canvas / SSO';
-    if (t.includes('print') || t.includes('papercut')) return 'PaperCut Printing';
-    if (t.includes('resnet') || t.includes('dorm')) return 'Dorm ResNet';
-    if (t.includes('password') || t.includes('netid')) return 'NetID / Password';
-    if (t.includes('lab') || t.includes('workstation')) return 'Lab / Computer Access';
-    if (t.includes('vpn')) return 'VPN';
-    if (t.includes('email') || t.includes('outlook')) return 'Email';
-    return 'Other';
-  };
-
-  // Contextual quick chips
-  const getContextualChips = () => {
-    const lastMsg = messages[messages.length - 1];
-    if (!lastMsg || lastMsg.role !== 'assistant' || messages.length === 1) return [];
-
-    const content = lastMsg.content.toLowerCase();
-
-    if (content.includes('device') || content.includes('operating system') || content.includes('windows or mac')) {
-      return [
-        { id: 'os-win', label: 'Windows 11', response: 'I am using Windows 11.' },
-        { id: 'os-mac', label: 'macOS Sonoma / Sequoia', response: 'I am on macOS.' },
-        { id: 'os-ios', label: 'iPhone / iOS', response: 'I am on an iPhone.' },
-        { id: 'os-android', label: 'Android Phone', response: 'I am on an Android device.' },
-      ];
-    }
-
-    if (
-      content.includes('did that work') ||
-      content.includes('try') ||
-      content.includes('verify') ||
-      content.includes('reconnect') ||
-      content.includes('step') ||
-      content.includes('troubleshoot')
-    ) {
-      return [
-        { id: 'res-yes', label: 'Yes, it works now!', response: 'That worked! My issue is resolved now.' },
-        {
-          id: 'res-no',
-          label: 'No, problem is still not fixed',
-          response: 'I tried the suggested steps, but the problem is still not fixed.',
-        },
-        {
-          id: 'res-ticket',
-          label: 'Create Support Ticket',
-          response: 'I would like to create a support ticket for a campus IT technician.',
-        },
-      ];
-    }
-
-    return [];
-  };
-
-  const contextualChips = getContextualChips();
-
-  // Trigger Ticket Form
-  const handleOpenTicketForm = () => {
-    // Derive initial form fields from user messages
-    const userMsgs = messages.filter((m) => m.role === 'user');
-    const firstUserQuery = userMsgs[0]?.content || 'Campus IT Technical Support Incident';
-    const allUserText = userMsgs.map((m) => m.content).join(' ');
-    const detectedCat = detectCategoryFromText(allUserText || firstUserQuery);
-
-    // Extract location if mentioned
-    let detectedLocation = 'Main Campus Library';
-    const lowerText = allUserText.toLowerCase();
-    if (lowerText.includes('library')) {
-      detectedLocation = 'Main Library';
-    } else if (lowerText.includes('engineering')) {
-      detectedLocation = 'Engineering Hall';
-    } else if (lowerText.includes('dorm') || lowerText.includes('hall') || lowerText.includes('resnet')) {
-      detectedLocation = 'Residence Halls';
-    } else if (lowerText.includes('science')) {
-      detectedLocation = 'Science Center';
-    } else if (lowerText.includes('lab')) {
-      detectedLocation = 'Campus Computer Lab';
-    }
-
-    setFormIssueTitle(firstUserQuery.replace(/\[Attached File:.*?\]/g, '').trim().slice(0, 70));
-    setFormCategory(detectedCat);
-    setFormPriority('High');
-    setFormLocation(detectedLocation);
-
-    const descSummary = userMsgs.map((m) => `- ${m.content}`).join('\n');
-    setFormDescription(`Problem Statement:\n${descSummary}\n\nTroubleshooting Attempted: Automated diagnostic steps applied via CampusFix AI specialist, but issue persists.`);
-
-    setShowTicketOffer(false);
-    setShowTicketForm(true);
-  };
-
-  // Submit Ticket to Backend API with Seamless Client Fallback
-  const handleSubmitTicket = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formIssueTitle.trim() || isSubmittingTicket) return;
-
-    setIsSubmittingTicket(true);
-    setErrorMessage(null);
-
-    const transcript = messages.map((m) => `[${m.role.toUpperCase()}]: ${m.content}`).join('\n');
-    const cleanPriority = (formPriority.replace(/ Priority$/i, '').trim() as TicketPriority) || 'Medium';
-
-    const payload = {
-      title: formIssueTitle.trim(),
-      category: formCategory,
-      priority: cleanPriority,
-      location: formLocation.trim() || 'Main Campus Library',
-      device: 'Student Device',
-      netid: 'student.user',
-      email: 'student@university.edu',
-      description: formDescription.trim() || formIssueTitle.trim(),
-      issue_summary: formIssueTitle.trim(),
-      chat_transcript: transcript,
-    };
-
-    let createdTicket: Ticket | null = null;
-
-    try {
-      const res = await fetch('/api/tickets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          createdTicket = await res.json();
-        }
-      }
-    } catch (networkErr) {
-      console.warn('Backend ticket endpoint unreachable, generating client ticket:', networkErr);
-    }
-
-    // Resilient fallback if backend was offline or on static GitHub Pages
-    if (!createdTicket) {
-      createdTicket = createClientMockTicket(payload);
-    }
-
-    setCreatedTicketInfo(createdTicket);
-    setShowTicketForm(false);
-
-    // Advance stepper to Resolution
-    if (onStageChange) onStageChange('Verification');
-
-    // Append confirmation assistant message
-    const confirmMessage: Message = {
-      id: `assistant-ticket-${Date.now()}`,
-      role: 'assistant',
-      content: `### ✅ Support Ticket Created: ${createdTicket.ticket_number}\n\nYour incident has been officially logged into the **Campus IT Incident Resolver** queue.\n\n- **Ticket ID:** \`${createdTicket.ticket_number}\`\n- **Category:** ${createdTicket.category}\n- **Priority:** **${createdTicket.priority}**\n- **Location:** ${createdTicket.location}\n- **Status:** **New / Queued for Technician**\n\nA technician will review your diagnostic audit trail. You can track this ticket in real time on the **Ticket Board** or **Incident History**.`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      model: 'campusfix-incident-dispatcher',
-    };
-
-    setMessages((prev) => [...prev, confirmMessage]);
-
-    if (onTicketCreated) {
-      onTicketCreated(createdTicket);
-    }
-    setIsSubmittingTicket(false);
-  };
-
-  const sendMessage = async (textToSend?: string) => {
-    const messageText = textToSend !== undefined ? textToSend : inputValue.trim();
-    if ((!messageText && !attachedImageName) || isLoading) return;
-
-    setErrorMessage(null);
-
-    let fullUserContent = messageText;
-    if (attachedImageName) {
-      fullUserContent += `\n\n[Attached File: ${attachedImageName}]`;
-    }
-
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: fullUserContent,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
-    setInputValue('');
-    setAttachedImageName(null);
-
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
-
-    // Check if user is indicating troubleshooting failed or requesting a ticket
-    const lowerInput = messageText.toLowerCase();
-    const isExplicitTicketRequest =
-      lowerInput.includes('create ticket') ||
-      lowerInput.includes('create a ticket') ||
-      lowerInput.includes('open ticket') ||
-      lowerInput.includes('open a ticket') ||
-      lowerInput.includes('submit ticket') ||
-      lowerInput.includes('submit a ticket') ||
-      lowerInput.includes('support ticket') ||
-      lowerInput.includes('escalate to human') ||
-      lowerInput.includes('escalate ticket');
-
-    const isUnresolvedTrigger =
-      isExplicitTicketRequest ||
-      lowerInput.includes('still not fixed') ||
-      lowerInput.includes('not fixed') ||
-      lowerInput.includes('still not working') ||
-      lowerInput.includes('not working') ||
-      lowerInput.includes('tried all the suggested steps') ||
-      lowerInput.includes('tried the suggested steps') ||
-      lowerInput.includes('tried suggested steps') ||
-      lowerInput.includes('tried all steps') ||
-      lowerInput.includes('tried steps') ||
-      lowerInput.includes('did not work') ||
-      lowerInput.includes("didn't work") ||
-      lowerInput.includes("doesn't work") ||
-      lowerInput.includes('same error') ||
-      lowerInput.includes('same issue') ||
-      lowerInput.includes('still broken') ||
-      lowerInput.includes('still persisting') ||
-      lowerInput.includes('persisting') ||
-      lowerInput.includes('persists') ||
-      lowerInput.includes('unresolved') ||
-      lowerInput.includes('not resolved') ||
-      lowerInput.includes('problem is not fixed');
-
-    // Check if user is affirmatively answering ticket creation offer
-    const isAffirmativeTicketConfirm =
-      (showTicketOffer || isExplicitTicketRequest) &&
-      (lowerInput === 'yes' ||
-        lowerInput === 'yes.' ||
-        lowerInput === 'yes please' ||
-        lowerInput === 'yes please.' ||
-        lowerInput === 'sure' ||
-        lowerInput === 'sure.' ||
-        lowerInput === 'ok' ||
-        lowerInput === 'okay' ||
-        lowerInput === 'proceed' ||
-        lowerInput === 'go ahead' ||
-        lowerInput.startsWith('yes,') ||
-        lowerInput.startsWith('yes ') ||
-        lowerInput.startsWith('sure ') ||
-        lowerInput.startsWith('please ') ||
-        lowerInput.includes('please create') ||
-        lowerInput.includes('create ticket') ||
-        lowerInput.includes('create a ticket') ||
-        lowerInput.includes('open ticket') ||
-        lowerInput.includes('open a ticket') ||
-        lowerInput.includes('confirm') ||
-        lowerInput.includes('yes, create'));
-
-    if (isAffirmativeTicketConfirm) {
-      handleOpenTicketForm();
-      return;
-    }
-
-    // Advance diagnostic stepper
-    if (messages.length === 1 && onStageChange) {
-      onStageChange('Troubleshooting');
-    }
-
-    setIsLoading(true);
-
-    try {
-      const historyPayload = updatedMessages
-        .filter((msg) => msg.id !== 'welcome-it-specialist')
-        .map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        }));
-
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: historyPayload,
-          message: messageText || 'Investigating attached technical error screenshot.',
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server returned status ${response.status}`);
-      }
-
-      const data: ChatApiResponse = await response.json();
-
-      let replyContent = data.reply;
-
-      // If user indicated failure, ensure the AI explicitly offers ticket escalation
-      if (isUnresolvedTrigger && !replyContent.toLowerCase().includes('ticket')) {
-        replyContent += `\n\n---\n**Troubleshooting Unsuccessful:** Since the suggested steps did not resolve your issue, would you like me to create an official **Campus IT Support Ticket** to escalate this to human technicians?`;
-      }
-
-      const assistantMessage: Message = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: replyContent,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        model: data.model,
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-
-      // If unresolved trigger detected, show ticket offer card
-      if (isUnresolvedTrigger || replyContent.toLowerCase().includes('create an official **campus it support ticket') || replyContent.toLowerCase().includes('open an official **campus it support ticket')) {
-        setShowTicketOffer(true);
-      }
-
-      if (data.reply.toLowerCase().includes('resolved') || data.reply.toLowerCase().includes('successfully configured')) {
-        if (onStageChange) onStageChange('Verification');
-      }
-    } catch (err) {
-      console.warn('API backend not reachable, using offline diagnostic engine:', err);
-      // Generate intelligent offline simulation so live GitHub Pages demos work seamlessly
-      let simulatedReply = '';
-      const lower = messageText.toLowerCase();
-      if (isUnresolvedTrigger) {
-        simulatedReply = `### ⚠️ Troubleshooting Unsuccessful\n\nI understand the initial diagnostic steps did not resolve your issue.\n\nI am ready to escalate this case. Would you like me to open an official **Campus IT Support Ticket** to connect you with a specialist?`;
-      } else if (lower.includes('wifi') || lower.includes('wi-fi') || lower.includes('eduroam')) {
-        simulatedReply = `### 📶 Eduroam Wi-Fi Diagnostic Steps\n\n1. **Forget Network:** In your device Wi-Fi settings, tap **eduroam** and select **Forget**.\n2. **Reconnect with Settings:**\n   - **EAP Method:** \`PEAP\`\n   - **Phase 2 Authentication:** \`MSCHAPV2\`\n   - **CA Certificate:** \`Use system certificates\`\n   - **Domain:** \`university.edu\`\n3. **Credentials:** Use your full NetID email (\`username@university.edu\`) and password.\n\n*Did this re-establish your connection?*`;
-      } else if (lower.includes('duo') || lower.includes('2fa') || lower.includes('mfa')) {
-        simulatedReply = `### 🔐 Duo 2FA Verification Help\n\n1. Open the **Duo Mobile** app directly and pull down to refresh any pending push requests.\n2. Check that **Focus / Do Not Disturb** mode isn't blocking notifications.\n3. If you changed phones, visit the **Main Library 1st Floor Tech Bar** with your student photo ID for an instant bypass passcode.\n\n*Let me know if you would like to open an escalation ticket.*`;
-      } else if (lower.includes('canvas') || lower.includes('sso') || lower.includes('login')) {
-        simulatedReply = `### 🎓 Canvas LMS Access Troubleshooting\n\n1. Open an **Incognito / Private window** and try logging in at \`https://canvas.university.edu\`.\n2. Clear browser cookies and cache for the campus domain.\n3. Check the **Service Status** tab to confirm Single Sign-On (SSO) is operational.\n\n*Did the private window allow you to sign in?*`;
-      } else if (lower.includes('network problem') || lower.includes('active network') || lower.includes('outage') || lower.includes('network issue')) {
-        simulatedReply = `### ⚠️ Active Campus Network Telemetry\n\nI scanned all 12 Vignan University Vadlamudi campus infrastructure nodes:\n\n1. **U-Block / Mahaveer Block (U-BLK):** High 802.1X certificate handshake delays reported on Wi-Fi 6 AP cluster.\n2. **Priyamvada Boys Hostel (PBH-DORM):** ResNet uplink port queue stall detected on Switch Stack Alpha.\n3. **CCC Campus Data Center (CCC-DC):** 10Gbps fiber core backbone is **Nominal** (0% packet loss).\n\n👉 Click **[🗺️ View on Map: U-Block]** or **[🗺️ View on Map: Priyamvada Hostel]** to inspect live glowing building markers.`;
-      } else if (lower.includes('assigned tickets on the map') || lower.includes('my assigned') || lower.includes('my tickets on map')) {
-        simulatedReply = `### 📍 My Assigned Incidents on Vignan Campus Map\n\nFiltering visible incidents assigned to your technician identity:\n\n* **INC-2026-8941:** Eduroam Certificate Loop at **U-Block / Mahaveer Block** [Diagnosing]\n* **INC-2026-8920:** Duo 2FA Push Timeout at **Priyamvada Boys Hostel** [Escalated]\n\n👉 Click **[🗺️ View on Map: U-Block]** or **[📋 Open Ticket: INC-2026-8941]** to open directly.`;
-      } else if (lower.includes('most incidents') || lower.includes('incident cluster') || lower.includes('campus area has the most')) {
-        simulatedReply = `### 🏢 Highest Incident Density Cluster\n\n* **Top Hotspot:** **U-Block / Mahaveer Block (CSE & IT Labs)** currently has the highest incident density with **2 active tickets** related to Eduroam 802.1X authentication.\n* **Secondary Area:** **Priyamvada Boys Hostel** with 1 escalated authentication ticket.\n\n👉 Click **[🗺️ View on Map: U-Block]** to jump directly to this building cluster.`;
-      } else if (lower.includes('highest-priority') || lower.includes('highest priority') || lower.includes('critical ticket') || lower.includes('open the highest')) {
-        simulatedReply = `### 🚨 Highest-Priority Incident Detected\n\n* **Ticket:** **INC-2026-8920**\n* **Title:** Duo 2FA Push Notification Timeout after iOS Upgrade\n* **Priority:** **HIGH / URGENT** (Midterm submission deadline in 2 hours)\n* **Location:** Priyamvada Boys Hostel, Rm 112\n\n👉 Click **[📋 Open Ticket: INC-2026-8920]** or **[🗺️ View on Map: Priyamvada Hostel]** to take immediate diagnostic action.`;
-      } else if (lower.includes('show this incident') || lower.includes('incident on the map') || lower.includes('show on map')) {
-        simulatedReply = `### 🗺️ Incident Location Located\n\nLocated incident **${activeTicketNumber || 'INC-2026-8941'}** on the Vignan University Campus Map:\n\n* **Building:** **U-Block / Mahaveer Block (CSE & IT Labs)**\n* **Coordinates:** 16.2345° N, 80.5512° E\n* **Status:** Diagnosing • Tier-1 Support\n\n👉 Click **[🗺️ View on Map: U-Block]** or **[📋 Open Ticket: ${activeTicketNumber || 'INC-2026-8941'}]**.`;
-      } else if (lower.includes('map') || lower.includes('vignan') || lower.includes('building') || lower.includes('library') || lower.includes('u-block') || lower.includes('hostel') || lower.includes('sports') || lower.includes('location') || lower.includes('where')) {
-        simulatedReply = `### 🗺️ Vignan University (Vadlamudi) Campus Directory\n\nI have verified telemetry across all 12 Vignan University Vadlamudi campus zones (16.2334° N, 80.5508° E):\n\n* **NTR Vignan Central Library (NTR-LIB):** 1st Floor IT Walkup Tech Bar is **Active** for live walk-in student diagnostics.\n* **U-Block / Mahaveer Block (U-BLK):** CSE & IT Labs with AI/ML computing clusters.\n* **H-Block / Aryabhata Block (H-BLK):** ECE & EEE Robotics & Embedded Systems.\n* **Vignan Sports Complex (V-SPORTS):** Outdoor Athletic Stadium & Floodlit Courts.\n* **Open Air Theatre (OAT-QUAD):** Central Amphitheater & Event Wi-Fi.\n* **Priyamvada Boys & Sarojini Girls Hostels:** High-density dorm ResNet active.\n* **Central Computing Center (CCC-DC):** Campus 10Gbps fiber backbone & Shibboleth SSO.\n\n👉 Click **[🗺️ View on Map: NTR Library]** or **[🗺️ View on Map: U-Block]** to view live aerial satellite imagery!`;
-      } else {
-        simulatedReply = `### 🛠️ CampusFix IT Diagnostic Assistant\n\nI have registered your report: **"${messageText.slice(0, 75)}"**.\n\n1. Confirm your device is authenticated with your campus NetID.\n2. Ensure your operating system and network settings meet university security policies.\n3. If connected off-campus, verify whether GlobalProtect VPN is required.\n\n*If the problem persists, click "Create Support Ticket" below.*`;
-      }
-
-      if (isUnresolvedTrigger && !simulatedReply.toLowerCase().includes('ticket')) {
-        simulatedReply += `\n\n---\n**Troubleshooting Unsuccessful:** Would you like me to create an official **Campus IT Support Ticket** to escalate this to human technicians?`;
-      }
-
-      const fallbackAssistantMsg: Message = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: simulatedReply,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        model: 'CampusFix AI Diagnostic Engine (Client Simulator)',
-      };
-
-      setMessages((prev) => [...prev, fallbackAssistantMsg]);
-
-      if (isUnresolvedTrigger) {
-        setShowTicketOffer(true);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
-
-  const handleResetChat = () => {
-    setMessages([INITIAL_GREETING]);
-    setErrorMessage(null);
-    setInputValue('');
-    setAttachedImageName(null);
-    setShowTicketOffer(false);
-    setShowTicketForm(false);
-    setCreatedTicketInfo(null);
-    if (onStageChange) onStageChange('Triage');
-  };
-
-  const copyMessageContent = (id: string, content: string) => {
-    navigator.clipboard.writeText(content);
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleLogAction = (msgId: string, content: string) => {
-    if (onSuggestedAction) {
-      onSuggestedAction('Applied AI Diagnostic Recommendation', content.slice(0, 140));
-      setLoggedActionId(msgId);
-      setTimeout(() => setLoggedActionId(null), 2500);
+  // Quick Action Buttons Handler
+  const handleQuickAction = (actionType: string) => {
+    switch (actionType) {
+      case 'report':
+        setShowTicketForm(true);
+        setFormIssueTitle('Campus IT Assistance Request');
+        break;
+      case 'find_ticket':
+        sendMessage('Where is my ticket and what is its current status?');
+        break;
+      case 'map':
+        sendMessage('Show verified campus locations and network status on the satellite map.');
+        break;
+      case 'status':
+        sendMessage('What is the current service status for Eduroam, Canvas, and Duo 2FA?');
+        break;
+      case 'technician':
+        sendMessage('Show active campus IT technician workloads and specializations.');
+        break;
+      case 'analyze':
+        sendMessage('Analyze active campus incidents and suggest likely root causes.');
+        break;
     }
   };
 
+  // Send message
+  const sendMessage = async (userText: string) => {
+    if (!userText.trim() || isLoading) return;
+
+    const userMessage: Message = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: userText.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setInputValue('');
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    setIsLoading(true);
+
+    const historyPayload = messages
+      .filter((m) => m.id !== 'welcome-saas-assistant')
+      .concat(userMessage)
+      .map((m) => ({ role: m.role, content: m.content }));
+
+    try {
+      const token = localStorage.getItem('campusfix_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          messages: historyPayload,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const aiMessage: Message = {
+          id: `ai-${Date.now()}`,
+          role: 'assistant',
+          content: data.reply,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          model: data.model || modelName,
+          actions: data.actions || [],
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+
+        // Check if ticket offer is triggered
+        if (
+          data.reply.toLowerCase().includes('support ticket') ||
+          data.reply.toLowerCase().includes('open an official') ||
+          data.reply.toLowerCase().includes('escalate')
+        ) {
+          setShowTicketOffer(true);
+          setFormIssueTitle(userText.slice(0, 70));
+          setFormDescription(userText);
+        }
+        setIsLoading(false);
+        return;
+      }
+    } catch {
+      // offline fallback
+    }
+
+    // Client intelligent fallback
+    const lower = userText.toLowerCase();
+    let reply = '';
+    const actions: AIActionButton[] = [];
+
+    if (lower.includes('where') && (lower.includes('ticket') || lower.includes('find'))) {
+      reply = `I found your recent ticket **INC-2026-8941** (Eduroam 802.1X Certificate Trust Loop). It is currently in **Diagnosing** status and assigned to **Ramu Kumar** (Network Support Team).`;
+      actions.push({ id: 'act-1', action_type: 'open_ticket', label: '📋 Open Ticket INC-2026-8941', target_id: 'INC-2026-8941' });
+      actions.push({ id: 'act-2', action_type: 'view_map', label: '🗺️ View on Map: U-Block', target_id: 'loc-u-block' });
+    } else if (lower.includes('status') || lower.includes('service') || lower.includes('health')) {
+      reply = `### 📡 Real-Time Campus Infrastructure Health\n\n* ✓ **Eduroam Wi-Fi (U-Block)**: \`OPERATIONAL\` • 12ms ping\n* ✓ **Canvas LMS & SSO**: \`OPERATIONAL\` • 24ms ping\n* ✓ **Duo 2FA Authentication**: \`OPERATIONAL\` • 18ms ping\n* ✓ **PaperCut Printing (NTR Library)**: \`OPERATIONAL\` • 9ms ping\n\nAll core university networks are operating nominally.`;
+      actions.push({ id: 'act-3', action_type: 'check_status', label: '📡 View Full Service Status' });
+    } else if (lower.includes('map') || lower.includes('vignan') || lower.includes('building')) {
+      reply = `### 🗺️ Verified Vignan University Campus Telemetry\n\nI can pinpoint verified facilities including **U-Block (IT/CSE)**, **NTR-Vignan Library**, **A-Block**, **Visvesvaraya Block**, and **VFSTR Guest House**.`;
+      actions.push({ id: 'act-4', action_type: 'view_map', label: '🗺️ Open Satellite Campus Map', target_id: 'loc-u-block' });
+    } else if (lower.includes('technician') || lower.includes('help') || lower.includes('staff')) {
+      reply = `### 👨‍🔧 Active IT Specialist Roster\n\n* **Ramu Kumar**: Network Infrastructure Specialist (Optimal workload)\n* **Sarah Jenkins**: Identity & Access (Duo/SSO Specialist)\n* **Dave Miller**: Hardware & Lab Computing Specialist\n* **Priya Sharma**: Tech Bar Walkup Lead`;
+      actions.push({ id: 'act-5', action_type: 'contact_tech', label: '👨‍🔧 Request Technician Routing' });
+    } else {
+      reply = `Got it 👍 Let me help you troubleshoot that right away.\n\n1. **Check Credentials:** Verify you are using your full campus email (\`username@university.edu\`) rather than just your NetID.\n2. **Network Profile:** On Android/iOS, choose **Forget Network** and reconnect selecting **PEAP / MSCHAPv2**.\n\n*Does this resolve your connection issue?*`;
+      actions.push({ id: 'act-6', action_type: 'open_ticket', label: '🎫 Open Support Ticket', target_id: 'new' });
+    }
+
+    const fallbackMsg: Message = {
+      id: `ai-${Date.now()}`,
+      role: 'assistant',
+      content: reply,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      model: modelName,
+      actions,
+    };
+    setMessages((prev) => [...prev, fallbackMsg]);
+    setIsLoading(false);
+  };
+
+  const handleSend = () => {
+    sendMessage(inputValue);
+  };
+
+  const handleActionClick = (action: AIActionButton) => {
+    if (action.action_type === 'open_ticket') {
+      if (action.target_id === 'new') {
+        setShowTicketForm(true);
+      } else if (onViewTicket) {
+        onViewTicket(action.target_id || 'INC-2026-8941');
+      }
+    } else if (action.action_type === 'view_map' && onViewLocationOnMap) {
+      onViewLocationOnMap(action.target_id || 'loc-u-block');
+    } else if (action.action_type === 'check_status' && onViewTicket) {
+      if (onCloseModal) onCloseModal();
+    }
+  };
+
+  // Submit Ticket Creation Form
+  const handleSubmitTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formIssueTitle.trim()) return;
+
+    setIsSubmittingTicket(true);
+    try {
+      const token = localStorage.getItem('campusfix_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/tickets', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          title: formIssueTitle.trim(),
+          category: formCategory,
+          priority: formPriority,
+          location: formLocation,
+          description: formDescription.trim() || formIssueTitle.trim(),
+        }),
+      });
+
+      if (res.ok) {
+        const newTicket: Ticket = await res.json();
+        setCreatedTicketInfo(newTicket);
+        if (onTicketCreated) onTicketCreated(newTicket);
+        setShowTicketForm(false);
+        setShowTicketOffer(false);
+        setIsSubmittingTicket(false);
+
+        // Append confirmation in chat
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `ticket-created-${Date.now()}`,
+            role: 'assistant',
+            content: `### 🎫 Support Ticket Created: **${newTicket.ticket_number}**\n\nYour incident has been logged with **${newTicket.priority} priority** and routed to the **${newTicket.category}** support desk. A campus technician will review your case shortly.`,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            model: modelName,
+            actions: [
+              {
+                id: `view-${newTicket.ticket_number}`,
+                action_type: 'open_ticket',
+                label: `📋 View Ticket ${newTicket.ticket_number}`,
+                target_id: newTicket.ticket_number,
+              },
+            ],
+          },
+        ]);
+        return;
+      }
+    } catch {
+      // offline fallback
+    }
+
+    const mockTicket: Ticket = {
+      id: `ticket-${Date.now()}`,
+      ticket_number: `INC-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+      title: formIssueTitle.trim(),
+      category: formCategory,
+      priority: formPriority,
+      status: 'New',
+      location: formLocation,
+      description: formDescription.trim() || formIssueTitle.trim(),
+      issue_summary: formIssueTitle.trim(),
+      netid: 'student',
+      email: 'student@university.edu',
+      assigned_technician: 'Ramu Kumar',
+      diagnostic_stage: 'Triage',
+      diagnostic_progress: 25,
+      actions_taken: [],
+      notes: [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    setCreatedTicketInfo(mockTicket);
+    if (onTicketCreated) onTicketCreated(mockTicket);
+    setShowTicketForm(false);
+    setShowTicketOffer(false);
+    setIsSubmittingTicket(false);
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `ticket-created-${Date.now()}`,
+        role: 'assistant',
+        content: `### 🎫 Support Ticket Created: **${mockTicket.ticket_number}**\n\nYour incident has been logged with **${mockTicket.priority} priority** and routed to the **${mockTicket.category}** desk.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        model: modelName,
+        actions: [
+          {
+            id: `view-${mockTicket.ticket_number}`,
+            action_type: 'open_ticket',
+            label: `📋 View Ticket ${mockTicket.ticket_number}`,
+            target_id: mockTicket.ticket_number,
+          },
+        ],
+      },
+    ]);
+  };
+
   return (
-    <div className="chat-container">
-      {/* Top Diagnostic Progress Stepper Strip */}
-      <div className="chat-diagnostic-stepper-bar">
-        {DIAGNOSTIC_STEPS.map((stg, index) => {
-          const isCompleted =
-            (activeDiagnosticStage === 'Troubleshooting' && index === 0) ||
-            (activeDiagnosticStage === 'Verification' && index <= 1) ||
-            (activeDiagnosticStage === 'Completed') ||
-            (createdTicketInfo !== null && index <= 2);
-          const isActive =
-            (activeDiagnosticStage === 'Triage' && index === 0) ||
-            (activeDiagnosticStage === 'Environment & Device' && index === 0) ||
-            (activeDiagnosticStage === 'Troubleshooting' && index === 1) ||
-            (activeDiagnosticStage === 'Verification' && index === 2);
-
-          return (
-            <div
-              key={stg.id}
-              className={`diagnostic-stage-item ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''}`}
-            >
-              <div className="stage-num">{isCompleted ? '✓' : index + 1}</div>
-              <span className="stage-label">{stg.label}</span>
-              {index < DIAGNOSTIC_STEPS.length - 1 && <span className="stage-arrow">›</span>}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Header Bar */}
-      <div className="chat-header-bar">
-        <div className="chat-header-info">
-          <div className="specialist-avatar">
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: isMinimized ? '64px' : '100%',
+        background: 'var(--bg-surface)',
+        borderRadius: '20px',
+        border: '1px solid var(--border-strong)',
+        boxShadow: '0 24px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+        overflow: 'hidden',
+        position: 'relative',
+        transition: 'height var(--transition-normal)',
+      }}
+    >
+      {/* 1. CHATBOT HEADER */}
+      <div
+        style={{
+          padding: '0.85rem 1.25rem',
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%)',
+          borderBottom: '1px solid var(--border-default)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, var(--primary-600) 0%, var(--ai-cyan) 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              boxShadow: '0 0 12px var(--ai-glow)',
+              flexShrink: 0,
+            }}
+          >
             <Sparkles size={18} />
           </div>
           <div>
-            <div className="chat-title-wrap">
-              <h3>CampusFix AI Assistant</h3>
-              <span className="model-chip">
-                <span className="model-chip-dot" />
-                <span>{modelName || 'Nemotron 3 Ultra'}</span>
-              </span>
-              {(createdTicketInfo?.ticket_number || activeTicketNumber) && (
-                <span className="active-ticket-tag">
-                  Incident: {createdTicketInfo?.ticket_number || activeTicketNumber}
-                </span>
-              )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#ffffff' }}>
+                CampusFix AI Assistant ✨
+              </h3>
             </div>
-            <p className="chat-subtitle">
-              Automated Problem Triage & Technical Step-by-Step Resolution
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.1rem' }}>
+              <span
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: '#10b981',
+                  boxShadow: '0 0 6px #10b981',
+                }}
+              />
+              <span style={{ fontSize: '0.72rem', color: '#34d399', fontWeight: 600 }}>
+                Online • Campus systems connected
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="chat-header-actions">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
           <button
-            onClick={handleResetChat}
-            className="chat-action-btn"
-            title="Start new troubleshooting session"
+            type="button"
+            className="btn-saas-ghost"
+            style={{ padding: '0.35rem', color: 'var(--text-muted)' }}
+            onClick={() => setIsMinimized(!isMinimized)}
+            title={isMinimized ? 'Expand Chat' : 'Minimize'}
           >
-            <RotateCcw size={14} />
-            <span>Reset</span>
+            <Minus size={16} />
           </button>
-
           {onCloseModal && (
             <button
+              type="button"
+              className="btn-saas-ghost"
+              style={{ padding: '0.35rem', color: 'var(--text-muted)' }}
               onClick={onCloseModal}
-              className="chat-close-modal-btn"
-              title="Close Assistant"
-              aria-label="Close Assistant"
+              title="Close Chat"
             >
-              <X size={18} />
+              <X size={16} />
             </button>
           )}
         </div>
       </div>
 
-      {/* Message Stream */}
-      <div className="messages-scroll-area">
-        {messages.map((message) => (
+      {!isMinimized && (
+        <>
+          {/* 2. QUICK ACTIONS STRIP */}
           <div
-            key={message.id}
-            className={`message-row ${message.role === 'user' ? 'user-row' : 'assistant-row'} message-animate`}
+            style={{
+              padding: '0.55rem 0.85rem',
+              background: 'rgba(11, 17, 29, 0.7)',
+              borderBottom: '1px solid var(--border-subtle)',
+              display: 'flex',
+              gap: '0.4rem',
+              overflowX: 'auto',
+              flexShrink: 0,
+            }}
           >
-            {message.role === 'assistant' && (
-              <div className="assistant-msg-avatar">
-                <Sparkles size={14} />
+            {[
+              { id: 'report', label: '🎫 Report Issue' },
+              { id: 'find_ticket', label: '🔎 Find My Ticket' },
+              { id: 'map', label: '🗺️ Campus Map' },
+              { id: 'status', label: '📡 Service Status' },
+              { id: 'technician', label: '👨‍🔧 Technician Help' },
+              { id: 'analyze', label: '🤖 Analyze My Issue' },
+            ].map((qa) => (
+              <button
+                key={qa.id}
+                type="button"
+                className="badge-saas badge-saas-neutral"
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '0.3rem 0.65rem',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  background: 'var(--bg-surface-raised)',
+                  border: '1px solid var(--border-default)',
+                  transition: 'all var(--transition-fast)',
+                }}
+                onClick={() => handleQuickAction(qa.id)}
+              >
+                {qa.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 3. SCROLLABLE MESSAGES CONTAINER */}
+          <div
+            style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '1.25rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+            }}
+          >
+            {messages.map((m) => {
+              const isUser = m.role === 'user';
+              return (
+                <div
+                  key={m.id}
+                  style={{
+                    display: 'flex',
+                    justifyContent: isUser ? 'flex-end' : 'flex-start',
+                    gap: '0.65rem',
+                  }}
+                >
+                  {!isUser && (
+                    <div
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '8px',
+                        background: 'linear-gradient(135deg, var(--primary-600) 0%, var(--ai-cyan) 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#ffffff',
+                        flexShrink: 0,
+                        marginTop: '2px',
+                      }}
+                    >
+                      <Sparkles size={14} />
+                    </div>
+                  )}
+
+                  <div
+                    style={{
+                      maxWidth: '82%',
+                      padding: '0.85rem 1.1rem',
+                      borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                      background: isUser ? 'var(--primary-600)' : 'var(--bg-card)',
+                      border: isUser ? '1px solid var(--primary-500)' : '1px solid var(--border-default)',
+                      color: isUser ? '#ffffff' : 'var(--text-primary)',
+                      fontSize: '0.86rem',
+                      lineHeight: 1.5,
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                    }}
+                  >
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {m.content}
+                    </ReactMarkdown>
+
+                    {/* Action Cards / Buttons inside response */}
+                    {m.actions && m.actions.length > 0 && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '0.45rem',
+                          marginTop: '0.75rem',
+                          paddingTop: '0.65rem',
+                          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                        }}
+                      >
+                        {m.actions.map((act) => (
+                          <button
+                            key={act.id}
+                            type="button"
+                            className="btn-saas btn-saas-secondary"
+                            style={{
+                              fontSize: '0.74rem',
+                              padding: '0.3rem 0.65rem',
+                              background: 'rgba(59, 130, 246, 0.15)',
+                              borderColor: 'rgba(59, 130, 246, 0.4)',
+                              color: '#ffffff',
+                            }}
+                            onClick={() => handleActionClick(act)}
+                          >
+                            <span>{act.label}</span>
+                            <ExternalLink size={11} />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginTop: '0.4rem',
+                        fontSize: '0.68rem',
+                        color: isUser ? 'rgba(255, 255, 255, 0.7)' : 'var(--text-muted)',
+                      }}
+                    >
+                      <span>{m.timestamp}</span>
+                      {!isUser && (
+                        <button
+                          type="button"
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'inherit',
+                            cursor: 'pointer',
+                            padding: '0.1rem',
+                          }}
+                          onClick={() => copyToClipboard(m.content, m.id)}
+                          title="Copy response"
+                        >
+                          {copiedId === m.id ? <Check size={12} /> : <Copy size={12} />}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {isLoading && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                <div
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-surface-raised)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--ai-cyan)',
+                  }}
+                >
+                  <RefreshCw size={14} className="spin-icon" />
+                </div>
+                <span>CampusFix AI is analyzing...</span>
               </div>
             )}
 
-            <div className={`message-bubble ${message.role === 'user' ? 'user-bubble' : 'assistant-bubble'}`}>
-              <div className="message-content">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {message.content}
-                </ReactMarkdown>
-              </div>
-
-              {/* Action Buttons for AI Map & Ticket recommendations */}
-              {message.role === 'assistant' && (
-                <div className="message-interactive-actions-bar" style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
-                  {(message.content.includes('View on Map') || message.content.includes('U-Block') || message.content.includes('Library') || message.content.includes('Hostel')) && onViewLocationOnMap && (
-                    <button
-                      type="button"
-                      className="btn-secondary-sm"
-                      style={{ padding: '0.3rem 0.65rem', fontSize: '0.74rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(99, 102, 241, 0.15)', borderColor: 'rgba(99, 102, 241, 0.35)', color: '#a5b4fc' }}
-                      onClick={() => {
-                        if (message.content.includes('Library')) onViewLocationOnMap('NTR-LIB');
-                        else if (message.content.includes('Priyamvada')) onViewLocationOnMap('PBH-DORM');
-                        else if (message.content.includes('Sports')) onViewLocationOnMap('V-SPORTS');
-                        else onViewLocationOnMap('U-BLK');
-                      }}
-                    >
-                      <MapPin size={12} />
-                      <span>🗺️ View on Satellite Map</span>
-                    </button>
-                  )}
-
-                  {(message.content.includes('INC-2026') || message.content.includes('Open Ticket')) && onViewTicket && (
-                    <button
-                      type="button"
-                      className="btn-secondary-sm"
-                      style={{ padding: '0.3rem 0.65rem', fontSize: '0.74rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(59, 130, 246, 0.15)', borderColor: 'rgba(59, 130, 246, 0.35)', color: '#93c5fd' }}
-                      onClick={() => {
-                        const match = message.content.match(/INC-2026-\d{4}/);
-                        if (match) onViewTicket(match[0]);
-                        else onViewTicket('INC-2026-8941');
-                      }}
-                    >
-                      <TicketIcon size={12} />
-                      <span>📋 Open Ticket</span>
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* 3 Compact Quick Suggestions on initial empty welcome message */}
-              {message.id === 'welcome-it-specialist' && messages.length === 1 && (
-                <div className="welcome-compact-suggestions">
-                  {QUICK_SUGGESTIONS.map((item) => {
-                    const IconComp = item.icon;
-                    return (
-                      <button
-                        key={item.id}
-                        className="welcome-suggestion-chip"
-                        onClick={() => sendMessage(item.prompt)}
-                        disabled={isLoading || !backendConnected}
-                      >
-                        <IconComp size={14} />
-                        <span>{item.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div className="message-meta-row">
-                <span className="msg-timestamp">
-                  <Clock size={11} />
-                  <span>{message.timestamp}</span>
-                </span>
-
-                {message.role === 'assistant' && message.id !== 'welcome-it-specialist' && (
-                  <div className="message-actions-group">
-                    <button
-                      className="msg-action-btn"
-                      onClick={() => copyMessageContent(message.id, message.content)}
-                      title="Copy response"
-                    >
-                      {copiedId === message.id ? (
-                        <>
-                          <Check size={12} className="text-success" />
-                          <span>Copied</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={12} />
-                          <span>Copy</span>
-                        </>
-                      )}
-                    </button>
-
-                    {onSuggestedAction && (
-                      <button
-                        className="msg-action-btn"
-                        onClick={() => handleLogAction(message.id, message.content)}
-                        title="Record this diagnostic step into the active ticket audit trail"
-                      >
-                        {loggedActionId === message.id ? (
-                          <>
-                            <CheckCircle2 size={12} className="text-success" />
-                            <span>Action Logged</span>
-                          </>
-                        ) : (
-                          <>
-                            <Wrench size={12} />
-                            <span>Log Action</span>
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+            <div ref={messagesEndRef} />
           </div>
-        ))}
 
-        {/* Typing / Reasoning Indicator */}
-        {isLoading && (
-          <div className="message-row assistant-row message-animate">
-            <div className="assistant-msg-avatar">
-              <Sparkles size={14} />
-            </div>
-            <div className="message-bubble assistant-bubble typing-bubble">
-              <div className="typing-indicator-container">
-                <div className="typing-dots">
-                  <span className="dot" />
-                  <span className="dot" />
-                  <span className="dot" />
-                </div>
-                <span className="typing-text">AI is diagnosing your issue...</span>
+          {/* Ticket Creation Drawer if Triggered */}
+          {showTicketForm && (
+            <div
+              style={{
+                margin: '0 1rem 0.5rem',
+                background: 'var(--bg-surface-raised)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '1rem',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: '#ffffff' }}>
+                  🎫 Open Official Campus IT Support Ticket
+                </h4>
+                <button
+                  type="button"
+                  className="btn-saas-ghost"
+                  style={{ padding: '0.2rem' }}
+                  onClick={() => setShowTicketForm(false)}
+                >
+                  <X size={14} />
+                </button>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* Escalation Offer Card (When troubleshooting did not resolve issue) */}
-        {showTicketOffer && !showTicketForm && !createdTicketInfo && (
-          <div className="escalation-offer-card message-animate">
-            <div className="offer-header">
-              <ShieldAlert size={20} style={{ color: 'var(--warning-600)' }} />
-              <div>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 800 }}>Troubleshooting Unsuccessful</h4>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                  Would you like me to create an official IT support ticket for campus technicians?
-                </p>
-              </div>
-            </div>
-
-            <div className="offer-actions">
-              <button
-                className="btn-primary-sm"
-                onClick={handleOpenTicketForm}
-              >
-                <TicketIcon size={14} />
-                <span>Yes, Create Support Ticket</span>
-              </button>
-              <button
-                className="btn-secondary-sm"
-                onClick={() => setShowTicketOffer(false)}
-              >
-                <span>Continue Troubleshooting</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Embedded Support Ticket Confirmation Form */}
-        {showTicketForm && !createdTicketInfo && (
-          <div className="embedded-ticket-form-card message-animate">
-            <div className="form-card-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <TicketIcon size={18} style={{ color: 'var(--primary-600)' }} />
-                <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>Confirm Support Ticket Details</h4>
-              </div>
-              <button
-                className="modal-close-btn"
-                onClick={() => setShowTicketForm(false)}
-                title="Cancel ticket creation"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmitTicket} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              <div className="form-group">
-                <label className="form-label">Issue Title</label>
+              <form onSubmit={handleSubmitTicket} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <input
                   type="text"
-                  className="form-input"
+                  className="saas-input"
+                  placeholder="Issue title..."
                   value={formIssueTitle}
                   onChange={(e) => setFormIssueTitle(e.target.value)}
-                  placeholder="e.g. Eduroam Wi-Fi authentication handshake failure"
                   required
                 />
-              </div>
-
-              <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div className="form-group">
-                  <label className="form-label">Category</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
                   <select
-                    className="form-select"
+                    className="saas-input"
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value as TicketCategory)}
                   >
-                    {CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
                       </option>
                     ))}
                   </select>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Priority</label>
                   <select
-                    className="form-select"
+                    className="saas-input"
                     value={formPriority}
                     onChange={(e) => setFormPriority(e.target.value as TicketPriority)}
                   >
@@ -906,211 +725,125 @@ export default function ChatInterface({
                     ))}
                   </select>
                 </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Location / Building</label>
                 <input
                   type="text"
-                  className="form-input"
+                  className="saas-input"
+                  placeholder="Location (e.g. U-Block Room 304)..."
                   value={formLocation}
                   onChange={(e) => setFormLocation(e.target.value)}
-                  placeholder="e.g. Main Library 2nd Floor"
-                  required
                 />
-              </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem', marginTop: '0.3rem' }}>
+                  <button
+                    type="button"
+                    className="btn-saas btn-saas-ghost"
+                    onClick={() => setShowTicketForm(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-saas btn-saas-primary"
+                    disabled={isSubmittingTicket}
+                  >
+                    {isSubmittingTicket ? 'Creating...' : 'Submit Support Ticket'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
 
-              <div className="form-group">
-                <label className="form-label">Description & Troubleshooting Summary</label>
-                <textarea
-                  rows={3}
-                  className="form-textarea"
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="ticket-form-footer">
+          {/* 4. FIXED BOTTOM INPUT BAR */}
+          <div
+            style={{
+              padding: '0.75rem 1rem',
+              background: 'var(--bg-surface-raised)',
+              borderTop: '1px solid var(--border-default)',
+              flexShrink: 0,
+            }}
+          >
+            {attachedImageName && (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.2rem 0.5rem',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(59, 130, 246, 0.15)',
+                  color: 'var(--primary-300)',
+                  fontSize: '0.72rem',
+                  marginBottom: '0.4rem',
+                }}
+              >
+                <span>📎 {attachedImageName}</span>
                 <button
                   type="button"
-                  className="btn-secondary-sm"
-                  onClick={() => setShowTicketForm(false)}
-                  disabled={isSubmittingTicket}
+                  style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer' }}
+                  onClick={() => setAttachedImageName(null)}
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary-sm"
-                  disabled={isSubmittingTicket || !formIssueTitle.trim()}
-                >
-                  {isSubmittingTicket ? (
-                    <>
-                      <RefreshCw size={13} className="spin" />
-                      <span>Creating Ticket...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 size={13} />
-                      <span>Submit Support Ticket</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Live Ticket Created Banner Card */}
-        {createdTicketInfo && (
-          <div className="ticket-created-confirmation-card message-animate">
-            <div className="conf-top">
-              <CheckCircle2 size={22} style={{ color: 'var(--success-600)', flexShrink: 0 }} />
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span className="ticket-badge-mono" style={{ fontSize: '0.95rem' }}>
-                    {createdTicketInfo.ticket_number}
-                  </span>
-                  <span className="status-tag status-new">Queued for Dispatch</span>
-                </div>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginTop: '0.25rem' }}>
-                  {createdTicketInfo.title}
-                </h4>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
-                  Location: {createdTicketInfo.location} • Priority: {createdTicketInfo.priority}
-                </p>
-              </div>
-            </div>
-
-            {onViewTicket && (
-              <div style={{ marginTop: '0.85rem', display: 'flex', gap: '0.5rem' }}>
-                <button
-                  className="btn-primary-sm"
-                  onClick={() => onViewTicket(createdTicketInfo.id)}
-                >
-                  <span>View on Ticket Board</span>
-                  <ArrowUpRight size={13} />
+                  ✕
                 </button>
               </div>
             )}
-          </div>
-        )}
 
-        {errorMessage && (
-          <div className="chat-error-banner">
-            <AlertCircle size={16} />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Suggested Contextual Quick Reply Chips */}
-      {contextualChips.length > 0 && !isLoading && !showTicketForm && (
-        <div className="contextual-chips-bar">
-          <span className="contextual-chips-title">Quick Responses:</span>
-          <div className="contextual-chips-scroll">
-            {contextualChips.map((chip) => (
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept="image/*"
+                onChange={handleFileUpload}
+              />
               <button
-                key={chip.id}
-                className="contextual-chip"
-                onClick={() => sendMessage(chip.response)}
-                disabled={isLoading || !backendConnected}
+                type="button"
+                className="btn-saas-ghost"
+                style={{ padding: '0.5rem', color: 'var(--text-muted)' }}
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach screenshot or error log"
               >
-                <span>{chip.label}</span>
+                <Paperclip size={18} />
               </button>
-            ))}
+
+              <button
+                type="button"
+                className="btn-saas-ghost"
+                style={{ padding: '0.5rem', color: isRecordingVoice ? 'var(--danger)' : 'var(--text-muted)' }}
+                onClick={handleToggleVoice}
+                title={isRecordingVoice ? 'Stop recording' : 'Voice input simulation'}
+              >
+                {isRecordingVoice ? <MicOff size={18} /> : <Mic size={18} />}
+              </button>
+
+              <textarea
+                ref={textareaRef}
+                className="saas-input"
+                style={{
+                  minHeight: '40px',
+                  maxHeight: '120px',
+                  resize: 'none',
+                  borderRadius: '12px',
+                  padding: '0.55rem 0.85rem',
+                }}
+                placeholder="Ask CampusFix AI anything..."
+                value={inputValue}
+                onChange={handleTextareaChange}
+                onKeyDown={handleKeyDown}
+                rows={1}
+              />
+
+              <button
+                type="button"
+                className="btn-saas btn-saas-primary"
+                style={{ padding: '0.55rem 0.9rem', borderRadius: '12px' }}
+                disabled={isLoading || (!inputValue.trim() && !attachedImageName)}
+                onClick={handleSend}
+              >
+                <Send size={15} />
+              </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
-
-      {/* Input Composer Area */}
-      <div className="chat-input-wrapper">
-        {!backendConnected && (
-          <div className="backend-offline-banner">
-            <AlertCircle size={15} />
-            <span>API Server Offline. Ensure backend is running on port 8000.</span>
-          </div>
-        )}
-
-        {/* Attached file chip */}
-        {attachedImageName && (
-          <div className="attached-file-preview">
-            <ImageIcon size={14} />
-            <span>{attachedImageName}</span>
-            <button className="remove-attach-btn" onClick={() => setAttachedImageName(null)}>
-              <X size={12} />
-            </button>
-          </div>
-        )}
-
-        <input
-          type="file"
-          ref={fileInputRef}
-          accept="image/*,.png,.jpg,.jpeg,.log,.txt"
-          style={{ display: 'none' }}
-          onChange={handleFileUpload}
-        />
-
-        <form
-          className="chat-input-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            sendMessage();
-          }}
-        >
-          {/* Upload / Attachment button */}
-          <button
-            type="button"
-            className="chat-media-btn"
-            onClick={() => fileInputRef.current?.click()}
-            title="Attach screenshot or error log"
-          >
-            <Paperclip size={18} />
-          </button>
-
-          {/* Composer Textarea */}
-          <textarea
-            ref={textareaRef}
-            rows={1}
-            value={inputValue}
-            onChange={handleTextareaChange}
-            onKeyDown={handleKeyDown}
-            placeholder={isRecordingVoice ? 'Listening to speech...' : 'Describe your IT issue...'}
-            className="chat-textarea"
-            disabled={isLoading || !backendConnected}
-          />
-
-          {/* Voice Input Button */}
-          <button
-            type="button"
-            className={`chat-media-btn ${isRecordingVoice ? 'recording' : ''}`}
-            onClick={handleToggleVoice}
-            title={isRecordingVoice ? 'Stop recording voice' : 'Speak your issue (Voice Input)'}
-          >
-            {isRecordingVoice ? <MicOff size={18} /> : <Mic size={18} />}
-            {isRecordingVoice && <span className="rec-time">{voiceSeconds}s</span>}
-          </button>
-
-          {/* Send Button */}
-          <button
-            type="submit"
-            disabled={(!inputValue.trim() && !attachedImageName) || isLoading || !backendConnected}
-            className="chat-send-btn"
-            title="Send message (Enter)"
-            aria-label="Send message"
-          >
-            {isLoading ? <RefreshCw size={18} className="spin" /> : <Send size={18} />}
-          </button>
-        </form>
-
-        <div className="chat-hint-bar">
-          <span>Press <strong>Enter</strong> to send • <strong>Shift + Enter</strong> for a new line</span>
-          <span>• Powered by <strong>NVIDIA Nemotron 3 Ultra</strong></span>
-        </div>
-      </div>
     </div>
   );
 }

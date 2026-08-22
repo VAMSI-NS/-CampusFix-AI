@@ -5,6 +5,7 @@ export interface Message {
   timestamp: string;
   model?: string;
   attachmentName?: string;
+  actions?: AIActionButton[];
 }
 
 export interface ChatApiRequest {
