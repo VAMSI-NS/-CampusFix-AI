@@ -30,7 +30,7 @@ import AdminDashboard from './components/AdminDashboard';
 import HostReports from './components/HostReports';
 import AuthModal from './components/AuthModal';
 import { Ticket, TicketStatus, UserRole, CampusUser } from './types/chat';
-import { INITIAL_MOCK_TICKETS } from './data/mockData';
+import { getLocalTickets, saveLocalTickets } from './data/mockData';
 import './App.css';
 
 interface HealthData {
@@ -252,7 +252,7 @@ export default function App() {
     return (localStorage.getItem('campusfix_theme') as 'light' | 'dark') || 'dark';
   });
 
-  const [tickets, setTickets] = useState<Ticket[]>(() => INITIAL_MOCK_TICKETS);
+  const [tickets, setTickets] = useState<Ticket[]>(() => getLocalTickets());
   const [health, setHealth] = useState<HealthData | null>(null);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [latency, setLatency] = useState<number | null>(null);
@@ -349,13 +349,17 @@ export default function App() {
     try {
       const res = await fetch('/api/tickets');
       if (res.ok) {
-        const data: Ticket[] = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setTickets(data);
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data: Ticket[] = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setTickets(data);
+            saveLocalTickets(data);
+          }
         }
       }
-    } catch (err) {
-      console.error('Failed to load tickets in App (using default fallback tickets):', err);
+    } catch {
+      // Quietly use local storage tickets
     }
   }, []);
 
@@ -414,6 +418,7 @@ export default function App() {
 
   // Handle ticket status update
   const handleUpdateTicketStatus = async (ticketId: string, newStatus: TicketStatus) => {
+    let updated: Ticket | null = null;
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
@@ -424,12 +429,25 @@ export default function App() {
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
-        const updated: Ticket = await res.json();
-        setTickets((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          updated = await res.json();
+        }
       }
     } catch (err) {
-      console.error('Failed to update ticket status:', err);
+      console.warn('Backend ticket status update unavailable, updating local state:', err);
     }
+
+    setTickets((prev) => {
+      const updatedList = prev.map((t) => {
+        if (t.id === ticketId) {
+          return updated || { ...t, status: newStatus, updated_at: new Date().toISOString() };
+        }
+        return t;
+      });
+      saveLocalTickets(updatedList);
+      return updatedList;
+    });
   };
 
   const handleSelectTicketForResolver = (ticketId: string) => {

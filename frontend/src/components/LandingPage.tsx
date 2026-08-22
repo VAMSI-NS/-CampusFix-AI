@@ -19,6 +19,7 @@ import {
   Printer,
 } from 'lucide-react';
 import { Ticket } from '../types/chat';
+import { getLocalTickets } from '../data/mockData';
 
 interface LandingPageProps {
   onStartDiagnosis: (initialProblem?: string) => void;
@@ -141,15 +142,47 @@ export default function LandingPage({
     }
   };
 
-  const handleTrackTicket = (e: React.FormEvent) => {
+  const handleTrackTicket = async (e: React.FormEvent) => {
     e.preventDefault();
-    const query = trackTicketNumber.trim().toUpperCase();
+    const query = trackTicketNumber.trim().toLowerCase();
     if (!query) return;
 
-    const found = tickets.find(
-      (t) => t.ticket_number.toUpperCase() === query || t.id.toUpperCase() === query
+    // Search prop tickets and localStorage tickets
+    const localList = getLocalTickets();
+    const allKnown = [...tickets, ...localList.filter((lt) => !tickets.some((t) => t.id === lt.id))];
+
+    const found = allKnown.find(
+      (t) =>
+        t.ticket_number.toLowerCase() === query ||
+        t.id.toLowerCase() === query ||
+        t.ticket_number.toLowerCase().replace(/[^a-z0-9]/g, '') === query.replace(/[^a-z0-9]/g, '') ||
+        t.ticket_number.toLowerCase().includes(query) ||
+        t.id.toLowerCase().includes(query)
     );
-    setTrackedTicket(found || 'not_found');
+
+    if (found) {
+      setTrackedTicket(found);
+      return;
+    }
+
+    // Attempt backend query if possible
+    try {
+      const res = await fetch(`/api/tickets/${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const apiTicket: Ticket = await res.json();
+          if (apiTicket && apiTicket.ticket_number) {
+            setTrackedTicket(apiTicket);
+            return;
+          }
+        }
+      }
+    } catch {
+      // Backend query fallback
+    }
+
+    setTrackedTicket('not_found');
   };
 
   return (

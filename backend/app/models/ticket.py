@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Literal
 from datetime import datetime, timezone
 
@@ -79,10 +79,27 @@ class TicketResolveRequest(BaseModel):
     resolution_details: str
 
 
+def normalize_priority_str(v: str) -> str:
+    if not v:
+        return "Medium"
+    s = str(v).strip().replace(" Priority", "").replace(" priority", "").capitalize()
+    if s in ["Critical", "High", "Medium", "Low", "Urgent"]:
+        return s
+    if "crit" in s.lower():
+        return "Critical"
+    if "urg" in s.lower():
+        return "Urgent"
+    if "high" in s.lower():
+        return "High"
+    if "low" in s.lower():
+        return "Low"
+    return "Medium"
+
+
 class TicketCreate(BaseModel):
     title: str
-    category: TicketCategory = "Eduroam Wi-Fi"
-    priority: TicketPriority = "Medium"
+    category: str = "Eduroam Wi-Fi"
+    priority: str = "Medium"
     location: Optional[str] = "Main Campus"
     device: Optional[str] = "Windows 11"
     netid: str = "student.user"
@@ -93,22 +110,34 @@ class TicketCreate(BaseModel):
     ai_confidence: Optional[int] = 92
     chat_transcript: Optional[str] = None
 
+    @field_validator("priority", mode="before")
+    @classmethod
+    def clean_priority(cls, v):
+        return normalize_priority_str(v)
+
 
 class TicketUpdate(BaseModel):
     title: Optional[str] = None
-    status: Optional[TicketStatus] = None
-    priority: Optional[TicketPriority] = None
-    category: Optional[TicketCategory] = None
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    category: Optional[str] = None
     location: Optional[str] = None
     device: Optional[str] = None
     issue_summary: Optional[str] = None
     assigned_technician: Optional[str] = None
     ai_confidence: Optional[int] = None
-    diagnostic_stage: Optional[DiagnosticStage] = None
+    diagnostic_stage: Optional[str] = None
     diagnostic_progress: Optional[int] = None
     technician_note: Optional[str] = None
     resolution_details: Optional[str] = None
     escalation_info: Optional[EscalationDetails] = None
+
+    @field_validator("priority", mode="before")
+    @classmethod
+    def clean_priority(cls, v):
+        if v is None:
+            return v
+        return normalize_priority_str(v)
 
 
 class TicketResponse(BaseModel):

@@ -9,6 +9,7 @@ import {
   TicketCreatePayload,
   TicketUpdatePayload,
 } from '../types/chat';
+import { createClientMockTicket } from '../data/mockData';
 import ChatInterface from './ChatInterface';
 import {
   CheckCircle2,
@@ -309,6 +310,7 @@ export default function IncidentWorkspace({
       issue_summary: newDescription.trim().slice(0, 120),
     };
 
+    let created: Ticket | null = null;
     try {
       const res = await fetch('/api/tickets', {
         method: 'POST',
@@ -316,18 +318,26 @@ export default function IncidentWorkspace({
         body: JSON.stringify(payload),
       });
       if (res.ok) {
-        const created: Ticket = await res.json();
-        const updatedList = [created, ...tickets];
-        setLocalTickets(updatedList);
-        if (onTicketsUpdated) onTicketsUpdated(updatedList);
-        setActiveTicket(created);
-        setIsNewTicketModalOpen(false);
-        setNewTitle('');
-        setNewDescription('');
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          created = await res.json();
+        }
       }
     } catch (err) {
-      console.error('Failed to create ticket:', err);
+      console.warn('Backend ticket creation unreachable, using client creator:', err);
     }
+
+    if (!created) {
+      created = createClientMockTicket(payload);
+    }
+
+    const updatedList = [created, ...tickets.filter((t) => t.id !== created!.id)];
+    setLocalTickets(updatedList);
+    if (onTicketsUpdated) onTicketsUpdated(updatedList);
+    setActiveTicket(created);
+    setIsNewTicketModalOpen(false);
+    setNewTitle('');
+    setNewDescription('');
   };
 
   const copyTicketNumber = () => {

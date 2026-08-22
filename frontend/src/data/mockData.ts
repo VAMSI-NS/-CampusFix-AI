@@ -662,3 +662,173 @@ export const INITIAL_MOCK_PROBES: DiagnosticProbeResult[] = [
     timestamp: new Date().toISOString(),
   },
 ];
+
+// -------------------------------------------------------------
+// LOCALSTORAGE PERSISTENCE HELPERS (FOR RESILIENT OPERATION)
+// -------------------------------------------------------------
+
+export function getLocalTickets(): Ticket[] {
+  try {
+    const raw = localStorage.getItem('campusfix_tickets');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Error reading tickets from localStorage:', e);
+  }
+  return INITIAL_MOCK_TICKETS;
+}
+
+export function saveLocalTickets(tickets: Ticket[]): void {
+  try {
+    localStorage.setItem('campusfix_tickets', JSON.stringify(tickets));
+  } catch (e) {
+    console.error('Error saving tickets to localStorage:', e);
+  }
+}
+
+export function createClientMockTicket(data: {
+  title: string;
+  category: string;
+  priority: string;
+  location?: string;
+  device?: string;
+  netid?: string;
+  email?: string;
+  description: string;
+  issue_summary?: string;
+  chat_transcript?: string;
+}): Ticket {
+  const nowIso = new Date().toISOString();
+  const randNum = Math.floor(1000 + Math.random() * 9000);
+  const ticketNumber = `INC-2026-${randNum}`;
+  const ticketId = `ticket-${randNum}`;
+
+  const cleanPriority = (data.priority.replace(/ Priority$/i, '').trim() as any) || 'Medium';
+
+  const newTicket: Ticket = {
+    id: ticketId,
+    ticket_number: ticketNumber,
+    title: data.title.trim(),
+    category: (data.category as any) || 'Eduroam Wi-Fi',
+    priority: cleanPriority,
+    status: 'New',
+    location: data.location?.trim() || 'Main Campus Library',
+    device: data.device || 'Windows 11 / Campus Laptop',
+    netid: data.netid || 'student.user',
+    email: data.email || 'student@university.edu',
+    description: data.description.trim(),
+    issue_summary: data.issue_summary || data.description.trim().slice(0, 140),
+    assigned_technician: 'Jordan Smith (Dispatch Lead)',
+    ai_confidence: 94,
+    diagnostic_stage: 'Triage',
+    diagnostic_progress: 20,
+    actions_taken: [
+      {
+        id: `act-${Math.floor(1000 + Math.random() * 9000)}`,
+        timestamp: nowIso,
+        action: 'Incident ticket registered via CampusFix AI Portal',
+        result: `Category: ${data.category} | Initial Priority: ${cleanPriority}`,
+        actor: 'student',
+      },
+    ],
+    notes: [
+      {
+        id: `note-${Math.floor(100 + Math.random() * 900)}`,
+        author: 'CampusFix AI Intake System',
+        author_role: 'system',
+        text: `New incident logged for ${data.location || 'Main Campus'}. Preliminary classification: ${data.category}.`,
+        created_at: nowIso,
+      },
+    ],
+    chat_transcript: data.chat_transcript,
+    created_at: nowIso,
+    updated_at: nowIso,
+  };
+
+  const existing = getLocalTickets();
+  const updated = [newTicket, ...existing.filter((t) => t.id !== ticketId && t.ticket_number !== ticketNumber)];
+  saveLocalTickets(updated);
+  return newTicket;
+}
+
+export function getLocalTechnicians(): CampusUser[] {
+  try {
+    const raw = localStorage.getItem('campusfix_technicians');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Error reading technicians from localStorage:', e);
+  }
+  return INITIAL_MOCK_USERS;
+}
+
+export function saveLocalTechnicians(users: CampusUser[]): void {
+  try {
+    localStorage.setItem('campusfix_technicians', JSON.stringify(users));
+  } catch (e) {
+    console.error('Error saving technicians to localStorage:', e);
+  }
+}
+
+export function createClientMockTechnician(data: {
+  name: string;
+  username: string;
+  email: string;
+  specialization: TechnicianSpecialization;
+  department?: string;
+  phone?: string;
+  skills?: string[];
+}): CampusUser {
+  const currentList = getLocalTechnicians();
+  const existingNums: number[] = [];
+  currentList.forEach((u) => {
+    if (u.technician_id && u.technician_id.startsWith('TECH-')) {
+      const parts = u.technician_id.split('-');
+      const parsed = parseInt(parts[1], 10);
+      if (!isNaN(parsed)) existingNums.push(parsed);
+    }
+  });
+
+  const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 6;
+  const techId = `TECH-${String(nextNum).padStart(3, '0')}`;
+  const initials =
+    data.name
+      .trim()
+      .split(' ')
+      .filter(Boolean)
+      .map((n) => n[0].toUpperCase())
+      .join('')
+      .slice(0, 2) || 'TC';
+
+  const newTech: CampusUser = {
+    id: `user-tech-${Math.floor(1000 + Math.random() * 9000)}`,
+    technician_id: techId,
+    name: data.name.trim(),
+    username: data.username.trim().toLowerCase(),
+    email: data.email.trim().toLowerCase(),
+    netid: data.username.trim().toLowerCase(),
+    role: 'technician',
+    specialization: data.specialization,
+    department: data.department?.trim() || `${data.specialization} Operations`,
+    status: 'active',
+    is_active: true,
+    phone: data.phone?.trim() || '+1 (555) 019-' + Math.floor(1000 + Math.random() * 9000),
+    active_assignments_count: 0,
+    avatar_initials: initials,
+    skills: data.skills || [`${data.specialization} Operations`, 'Campus IT Support'],
+    created_at: new Date().toISOString(),
+  };
+
+  const updated = [...currentList, newTech];
+  saveLocalTechnicians(updated);
+  return newTech;
+}
+
