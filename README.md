@@ -1,9 +1,15 @@
 # CampusFix IT Platform — University Helpdesk & Incident Resolver
 
 > **Enterprise University IT Incident Management & Autonomous AI Diagnostic Specialist**
-> Powered by **NVIDIA Nemotron 3 Ultra** (`nvidia/nemotron-3-ultra-550b-a55b`) via OpenRouter
+> Powered by **NVIDIA Nemotron 3 Ultra** (`nvidia/nemotron-3-ultra-550b-a55b`) & **Neon PostgreSQL**
 
-CampusFix IT Platform is an enterprise-grade university IT service management system. It bridges interactive, step-by-step conversational diagnosis for students with Kanban incident triage, service health telemetry, curated knowledge base documentation, administrative operations, and executive SLA reporting.
+[![Live Demo](https://img.shields.io/badge/Live_Website-GitHub_Pages-22c55e?style=for-the-badge&logo=github)](https://vamsi-ns.github.io/-CampusFix-AI/)
+[![Vignan Satellite Map](https://img.shields.io/badge/Vignan_Map-Satellite_Geodata-3b82f6?style=for-the-badge&logo=googlemaps)](https://vamsi-ns.github.io/-CampusFix-AI/#/map)
+[![Repository](https://img.shields.io/badge/GitHub-Repository-8b5cf6?style=for-the-badge&logo=github)](https://github.com/VAMSI-NS/-CampusFix-AI)
+
+🌐 **Live Application URL**: [https://vamsi-ns.github.io/-CampusFix-AI/](https://vamsi-ns.github.io/-CampusFix-AI/)
+
+CampusFix IT Platform is an enterprise-grade university IT service management system. It bridges interactive, step-by-step conversational diagnosis for students with Kanban incident triage, verified high-resolution aerial satellite campus mapping, service health telemetry, curated knowledge base documentation, administrative operations, and executive SLA reporting.
 
 ---
 
