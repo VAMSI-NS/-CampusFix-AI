@@ -194,6 +194,124 @@ input, textarea, select {
   color: inherit;
 }
 
+/* ==========================================================================
+   SAAS FORM CONTROLS & BUTTON SYSTEM (LIGHT & DARK THEME COMPATIBLE)
+   ========================================================================== */
+.saas-input,
+input.saas-input,
+select.saas-input,
+textarea.saas-input {
+  width: 100%;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 0.65rem 0.95rem;
+  font-size: 0.88rem;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.saas-input::placeholder {
+  color: var(--text-muted);
+}
+
+.saas-input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--border-glow);
+}
+
+.saas-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* SaaS Button System */
+.btn-saas {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.15rem;
+  border-radius: var(--radius-md);
+  font-size: 0.86rem;
+  font-weight: 700;
+  font-family: var(--font-heading);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+.btn-saas-primary {
+  background: var(--primary-500);
+  color: var(--text-inverse);
+  box-shadow: 0 4px 14px -2px rgba(74, 222, 128, 0.35);
+}
+
+.btn-saas-primary:hover:not(:disabled) {
+  background: var(--primary-600);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px -2px rgba(74, 222, 128, 0.45);
+}
+
+.btn-saas-secondary {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.btn-saas-secondary:hover:not(:disabled) {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-focus);
+  color: var(--text-primary);
+}
+
+.btn-saas-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+}
+
+.btn-saas-ghost:hover:not(:disabled) {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+/* SaaS Modal Backdrop & Dialog System */
+.modal-backdrop-saas {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 11, 12, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1.25rem;
+  animation: fadeInBackdrop 0.2s ease-out;
+}
+
+[data-theme='light'] .modal-backdrop-saas {
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.modal-dialog-saas {
+  width: 100%;
+  max-width: 820px;
+  animation: modalScaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-xl);
+}
+
+@media (max-width: 768px) {
+  .modal-dialog-saas {
+    grid-template-columns: 1fr !important;
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+}
+
 /* Scrollbar Customization */
 ::-webkit-scrollbar {
   width: 6px;

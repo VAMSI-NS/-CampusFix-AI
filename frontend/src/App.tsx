@@ -616,11 +616,11 @@ export default function App() {
           ) : (
             <button
               className="btn-primary-sm"
-              onClick={() => handlePromptLogin('technician')}
+              onClick={() => handlePromptLogin(userRole || 'student')}
               style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', gap: '0.35rem' }}
             >
               <LogIn size={14} />
-              <span>Log In</span>
+              <span>Log In / Sign In</span>
             </button>
           )}
 
