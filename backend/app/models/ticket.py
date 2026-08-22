@@ -79,6 +79,11 @@ class TicketResolveRequest(BaseModel):
     resolution_details: str
 
 
+class TicketReassignRequest(BaseModel):
+    new_technician: str
+    reassignment_notes: Optional[str] = None
+
+
 def normalize_priority_str(v: str) -> str:
     if not v:
         return "Medium"

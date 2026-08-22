@@ -1011,6 +1011,10 @@ export default function App() {
                   onOpenInResolver={handleSelectTicketForResolver}
                   onUpdateTicketStatus={handleUpdateTicketStatus}
                   onNavigateToKB={() => navigateToTab('kb')}
+                  onResetData={() => {
+                    fetchTickets();
+                  }}
+                  onTicketsUpdated={(updated) => setTickets(updated)}
                 />
               ) : (
                 <div

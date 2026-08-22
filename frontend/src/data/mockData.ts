@@ -832,3 +832,17 @@ export function createClientMockTechnician(data: {
   return newTech;
 }
 
+export function resetLocalSystemData(): { tickets: Ticket[]; technicians: CampusUser[] } {
+  try {
+    localStorage.removeItem('campusfix_tickets');
+    localStorage.removeItem('campusfix_technicians');
+    localStorage.removeItem('campusfix_chat_history');
+  } catch (e) {
+    console.error('Error clearing localStorage on reset:', e);
+  }
+  return {
+    tickets: INITIAL_MOCK_TICKETS,
+    technicians: INITIAL_MOCK_USERS.filter((u) => u.role === 'technician' || u.role === 'host'),
+  };
+}
+

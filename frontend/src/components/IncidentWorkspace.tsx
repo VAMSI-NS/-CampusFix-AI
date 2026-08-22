@@ -9,7 +9,7 @@ import {
   TicketCreatePayload,
   TicketUpdatePayload,
 } from '../types/chat';
-import { createClientMockTicket } from '../data/mockData';
+import { createClientMockTicket, saveLocalTickets } from '../data/mockData';
 import ChatInterface from './ChatInterface';
 import {
   CheckCircle2,
@@ -99,6 +99,14 @@ export default function IncidentWorkspace({
   const [escalationNotes, setEscalationNotes] = useState('');
   const [isNewTicketModalOpen, setIsNewTicketModalOpen] = useState(false);
 
+  // Report to Host Modal State
+  const [isReportHostModalOpen, setIsReportHostModalOpen] = useState(false);
+  const [reportHostReason, setReportHostReason] = useState('');
+  const [reportHostNotes, setReportHostNotes] = useState('');
+
+  // Action log feedback state
+  const [actionSuccessFeedback, setActionSuccessFeedback] = useState(false);
+
   // New ticket form
   const [newTitle, setNewTitle] = useState('');
   const [newCategory, setNewCategory] = useState<TicketCategory>('Eduroam Wi-Fi');
@@ -165,6 +173,7 @@ export default function IncidentWorkspace({
 
   const handleUpdateTicket = async (patch: TicketUpdatePayload) => {
     if (!activeTicket) return;
+    let updated: Ticket | null = null;
     try {
       const res = await fetch(`/api/tickets/${activeTicket.id}`, {
         method: 'PATCH',
@@ -172,47 +181,89 @@ export default function IncidentWorkspace({
         body: JSON.stringify(patch),
       });
       if (res.ok) {
-        const updated: Ticket = await res.json();
-        setActiveTicket(updated);
-        const updatedList = tickets.map((t) => (t.id === updated.id ? updated : t));
-        setLocalTickets(updatedList);
-        if (onTicketsUpdated) onTicketsUpdated(updatedList);
-        if (onTicketChanged) onTicketChanged(updated);
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          updated = await res.json();
+        }
       }
     } catch (err) {
-      console.error('Failed to update ticket:', err);
+      console.warn('Backend ticket update unreachable, updating client state:', err);
     }
+
+    if (!updated) {
+      updated = {
+        ...activeTicket,
+        ...patch,
+        updated_at: new Date().toISOString(),
+      };
+    }
+
+    setActiveTicket(updated);
+    const updatedList = tickets.map((t) => (t.id === updated!.id ? updated! : t));
+    setLocalTickets(updatedList);
+    saveLocalTickets(updatedList);
+    if (onTicketsUpdated) onTicketsUpdated(updatedList);
+    if (onTicketChanged) onTicketChanged(updated);
   };
 
-  const handleAddAction = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddAction = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!activeTicket || !actionInput.trim()) return;
 
     setIsAddingAction(true);
+    const actText = actionInput.trim();
+    const actResult = actionResult.trim() || 'Diagnosis executed and recorded.';
+    let updated: Ticket | null = null;
+
     try {
       const res = await fetch(`/api/tickets/${activeTicket.id}/action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: actionInput.trim(),
-          result: actionResult.trim() || 'Diagnosis executed and recorded.',
+          action: actText,
+          result: actResult,
           actor: 'technician',
         }),
       });
       if (res.ok) {
-        const updated: Ticket = await res.json();
-        setActiveTicket(updated);
-        const updatedList = tickets.map((t) => (t.id === updated.id ? updated : t));
-        setLocalTickets(updatedList);
-        if (onTicketsUpdated) onTicketsUpdated(updatedList);
-        setActionInput('');
-        setActionResult('');
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          updated = await res.json();
+        }
       }
     } catch (err) {
-      console.error('Failed to add action log:', err);
-    } finally {
-      setIsAddingAction(false);
+      console.warn('Backend action log unreachable, applying client update:', err);
     }
+
+    if (!updated) {
+      const newAction = {
+        id: `act-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        action: actText,
+        result: actResult,
+        actor: 'technician' as const,
+      };
+      const nextProgress = Math.min(100, Math.max(activeTicket.diagnostic_progress || 0, 35) + 20);
+      updated = {
+        ...activeTicket,
+        actions_taken: [...(activeTicket.actions_taken || []), newAction],
+        diagnostic_progress: nextProgress,
+        updated_at: new Date().toISOString(),
+      };
+    }
+
+    setActiveTicket(updated);
+    const updatedList = tickets.map((t) => (t.id === updated!.id ? updated! : t));
+    setLocalTickets(updatedList);
+    saveLocalTickets(updatedList);
+    if (onTicketsUpdated) onTicketsUpdated(updatedList);
+    if (onTicketChanged) onTicketChanged(updated);
+
+    setActionInput('');
+    setActionResult('');
+    setIsAddingAction(false);
+    setActionSuccessFeedback(true);
+    setTimeout(() => setActionSuccessFeedback(false), 2500);
   };
 
   const handleAddTechNote = async (e: React.FormEvent) => {
@@ -224,6 +275,7 @@ export default function IncidentWorkspace({
 
   const handleResolveTicket = async () => {
     if (!activeTicket || !resolutionText.trim()) return;
+    let updated: Ticket | null = null;
     try {
       const res = await fetch(`/api/tickets/${activeTicket.id}/resolve`, {
         method: 'POST',
@@ -231,18 +283,45 @@ export default function IncidentWorkspace({
         body: JSON.stringify({ resolution_details: resolutionText.trim() }),
       });
       if (res.ok) {
-        const updated: Ticket = await res.json();
-        setActiveTicket(updated);
-        const updatedList = tickets.map((t) => (t.id === updated.id ? updated : t));
-        setLocalTickets(updatedList);
-        if (onTicketsUpdated) onTicketsUpdated(updatedList);
-        if (onTicketChanged) onTicketChanged(updated);
-        setIsResolveModalOpen(false);
-        setResolutionText('');
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          updated = await res.json();
+        }
       }
     } catch (err) {
-      console.error('Failed to resolve ticket:', err);
+      console.warn('Backend resolve unreachable, applying client update:', err);
     }
+
+    if (!updated) {
+      const nowIso = new Date().toISOString();
+      updated = {
+        ...activeTicket,
+        status: 'Resolved',
+        diagnostic_stage: 'Completed',
+        diagnostic_progress: 100,
+        resolution_details: resolutionText.trim(),
+        actions_taken: [
+          ...(activeTicket.actions_taken || []),
+          {
+            id: `act-${Date.now()}`,
+            timestamp: nowIso,
+            action: 'Incident resolved with verified remediation',
+            result: resolutionText.trim(),
+            actor: 'technician',
+          },
+        ],
+        updated_at: nowIso,
+      };
+    }
+
+    setActiveTicket(updated);
+    const updatedList = tickets.map((t) => (t.id === updated!.id ? updated! : t));
+    setLocalTickets(updatedList);
+    saveLocalTickets(updatedList);
+    if (onTicketsUpdated) onTicketsUpdated(updatedList);
+    if (onTicketChanged) onTicketChanged(updated);
+    setIsResolveModalOpen(false);
+    setResolutionText('');
   };
 
   const handleEscalateTicket = async () => {
@@ -270,6 +349,7 @@ export default function IncidentWorkspace({
       escalated_at: new Date().toISOString(),
     };
 
+    let updated: Ticket | null = null;
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -280,19 +360,134 @@ export default function IncidentWorkspace({
         body: JSON.stringify(escalationPayload),
       });
       if (res.ok) {
-        const updated: Ticket = await res.json();
-        setActiveTicket(updated);
-        const updatedList = tickets.map((t) => (t.id === updated.id ? updated : t));
-        setLocalTickets(updatedList);
-        if (onTicketsUpdated) onTicketsUpdated(updatedList);
-        if (onTicketChanged) onTicketChanged(updated);
-        setIsEscalateModalOpen(false);
-        setEscalationReason('');
-        setEscalationNotes('');
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          updated = await res.json();
+        }
       }
     } catch (err) {
-      console.error('Failed to escalate ticket:', err);
+      console.warn('Backend escalation unreachable, updating client state:', err);
     }
+
+    if (!updated) {
+      const nowIso = new Date().toISOString();
+      updated = {
+        ...activeTicket,
+        status: 'Escalated',
+        diagnostic_stage: 'Verification',
+        diagnostic_progress: 100,
+        escalation_info: escalationPayload,
+        actions_taken: [
+          ...(activeTicket.actions_taken || []),
+          {
+            id: `act-${Date.now()}`,
+            timestamp: nowIso,
+            action: `Incident escalated to ${escalationDepartment}`,
+            result: `Reason: ${escalationReason.trim()}`,
+            actor: 'technician',
+          },
+        ],
+        updated_at: nowIso,
+      };
+    }
+
+    setActiveTicket(updated);
+    const updatedList = tickets.map((t) => (t.id === updated!.id ? updated! : t));
+    setLocalTickets(updatedList);
+    saveLocalTickets(updatedList);
+    if (onTicketsUpdated) onTicketsUpdated(updatedList);
+    if (onTicketChanged) onTicketChanged(updated);
+    setIsEscalateModalOpen(false);
+    setEscalationReason('');
+    setEscalationNotes('');
+  };
+
+  const handleReportToHost = async () => {
+    if (!activeTicket) return;
+    const token = localStorage.getItem('campusfix_token');
+    const storedUserStr = localStorage.getItem('campusfix_user');
+    let originalTech = activeTicket.assigned_technician || 'CampusFix Technician';
+    try {
+      if (storedUserStr) {
+        const u = JSON.parse(storedUserStr);
+        if (u.name) originalTech = `${u.name}${u.technician_id ? ` (${u.technician_id})` : ''}`;
+      }
+    } catch {}
+
+    const escalationPayload: EscalationDetails = {
+      tier: 'Host Reassignment Queue',
+      department: 'Host / Admin',
+      reason: reportHostReason.trim() || 'Technician reported unable to resolve. Requesting Host reassignment.',
+      original_technician: originalTech,
+      target_specialization: activeTicket.category,
+      assigned_to: 'Host Dispatcher',
+      tech_bar_location: 'Campus IT Host Operations Command Center',
+      student_id_required: false,
+      notes: reportHostNotes.trim() || `Reported by ${originalTech} for reassignment to another technician.`,
+      escalated_at: new Date().toISOString(),
+    };
+
+    let updatedTicket: Ticket | null = null;
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/tickets/${activeTicket.id}/escalate`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(escalationPayload),
+      });
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          updatedTicket = await res.json();
+        }
+      }
+    } catch (err) {
+      console.warn('Backend escalation unreachable, using client state:', err);
+    }
+
+    if (!updatedTicket) {
+      const nowIso = new Date().toISOString();
+      updatedTicket = {
+        ...activeTicket,
+        status: 'Escalated',
+        diagnostic_stage: 'Verification',
+        diagnostic_progress: 100,
+        escalation_info: escalationPayload,
+        actions_taken: [
+          ...(activeTicket.actions_taken || []),
+          {
+            id: `act-${Date.now()}`,
+            timestamp: nowIso,
+            action: `Reported to Host for Reassignment by ${originalTech}`,
+            result: `Reason: ${escalationPayload.reason}`,
+            actor: 'technician',
+          },
+        ],
+        notes: [
+          ...(activeTicket.notes || []),
+          {
+            id: `note-${Date.now()}`,
+            author: originalTech,
+            author_role: 'technician',
+            text: `[Report to Host] ${escalationPayload.reason}. ${reportHostNotes.trim()}`,
+            created_at: nowIso,
+          },
+        ],
+        updated_at: nowIso,
+      };
+    }
+
+    setActiveTicket(updatedTicket);
+    const updatedList = tickets.map((t) => (t.id === updatedTicket!.id ? updatedTicket! : t));
+    setLocalTickets(updatedList);
+    saveLocalTickets(updatedList);
+    if (onTicketsUpdated) onTicketsUpdated(updatedList);
+    if (onTicketChanged) onTicketChanged(updatedTicket);
+    setIsReportHostModalOpen(false);
+    setReportHostReason('');
+    setReportHostNotes('');
   };
 
   const handleCreateNewTicket = async (e: React.FormEvent) => {
@@ -454,24 +649,62 @@ export default function IncidentWorkspace({
                 }
               }}
               onSuggestedAction={(action, result) => {
-                if (activeTicket) {
-                  fetch(`/api/tickets/${activeTicket.id}/action`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action, result, actor: 'ai_specialist' }),
+                if (!activeTicket) return;
+                const actResult = result || 'Diagnosis executed and recorded.';
+                fetch(`/api/tickets/${activeTicket.id}/action`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ action, result: actResult, actor: 'ai_specialist' }),
+                })
+                  .then((res) => (res.ok ? res.json() : null))
+                  .then((updated) => {
+                    let next = updated;
+                    if (!next) {
+                      const newAct = {
+                        id: `act-${Date.now()}`,
+                        timestamp: new Date().toISOString(),
+                        action,
+                        result: actResult,
+                        actor: 'ai_specialist' as const,
+                      };
+                      next = {
+                        ...activeTicket,
+                        actions_taken: [...(activeTicket.actions_taken || []), newAct],
+                        diagnostic_progress: Math.min(100, (activeTicket.diagnostic_progress || 40) + 15),
+                        updated_at: new Date().toISOString(),
+                      };
+                    }
+                    setActiveTicket(next);
+                    const updatedList = tickets.map((t) => (t.id === next.id ? next : t));
+                    setLocalTickets(updatedList);
+                    saveLocalTickets(updatedList);
+                    if (onTicketsUpdated) onTicketsUpdated(updatedList);
                   })
-                    .then((res) => res.json())
-                    .then((updated) => {
-                      setActiveTicket(updated);
-                      const updatedList = tickets.map((t) => (t.id === updated.id ? updated : t));
-                      setLocalTickets(updatedList);
-                      if (onTicketsUpdated) onTicketsUpdated(updatedList);
-                    });
-                }
+                  .catch(() => {
+                    const newAct = {
+                      id: `act-${Date.now()}`,
+                      timestamp: new Date().toISOString(),
+                      action,
+                      result: actResult,
+                      actor: 'ai_specialist' as const,
+                    };
+                    const next = {
+                      ...activeTicket,
+                      actions_taken: [...(activeTicket.actions_taken || []), newAct],
+                      diagnostic_progress: Math.min(100, (activeTicket.diagnostic_progress || 40) + 15),
+                      updated_at: new Date().toISOString(),
+                    };
+                    setActiveTicket(next);
+                    const updatedList = tickets.map((t) => (t.id === next.id ? next : t));
+                    setLocalTickets(updatedList);
+                    saveLocalTickets(updatedList);
+                    if (onTicketsUpdated) onTicketsUpdated(updatedList);
+                  });
               }}
               onTicketCreated={(newTicket) => {
                 const updatedList = [newTicket, ...tickets.filter((t) => t.id !== newTicket.id)];
                 setLocalTickets(updatedList);
+                saveLocalTickets(updatedList);
                 setActiveTicket(newTicket);
                 if (onTicketsUpdated) onTicketsUpdated(updatedList);
                 if (onTicketChanged) onTicketChanged(newTicket);
@@ -661,7 +894,7 @@ export default function IncidentWorkspace({
                 <p className="description-box">{activeTicket.description}</p>
               </div>
 
-              {/* Actions Taken Audit Trail */}
+              {/* Diagnostic Action Log Timeline */}
               <div className="dossier-section">
                 <div className="section-header-flex">
                   <h3 className="section-label">
@@ -712,9 +945,23 @@ export default function IncidentWorkspace({
                       type="submit"
                       className="btn-primary-sm"
                       disabled={!actionInput.trim() || isAddingAction}
+                      style={{
+                        background: actionSuccessFeedback ? 'var(--success-600, #16a34a)' : undefined,
+                        borderColor: actionSuccessFeedback ? 'var(--success-600, #16a34a)' : undefined,
+                        transition: 'all 0.2s ease',
+                      }}
                     >
-                      <Send size={13} />
-                      <span>Log Action</span>
+                      {actionSuccessFeedback ? (
+                        <>
+                          <Check size={13} />
+                          <span>Action Logged!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send size={13} />
+                          <span>Log Action</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </form>
@@ -761,8 +1008,8 @@ export default function IncidentWorkspace({
                 </form>
               </div>
 
-              {/* Resolution & Escalation Primary Action Buttons */}
-              <div className="dossier-action-footer">
+              {/* Resolution, Escalation, and Report to Host Action Buttons */}
+              <div className="dossier-action-footer" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.65rem' }}>
                 {activeTicket.status !== 'Resolved' && (
                   <button
                     className="btn-resolve"
@@ -792,6 +1039,29 @@ export default function IncidentWorkspace({
                     <span>Escalate to Tier-2 / Tech Bar</span>
                   </button>
                 )}
+
+                {/* Report to Host (Reassignment) Button */}
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{
+                    borderColor: 'var(--warning-600, #d97706)',
+                    color: 'var(--warning-500, #f59e0b)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                  }}
+                  onClick={() => {
+                    setReportHostReason(
+                      `Technician unable to resolve ${activeTicket.category} incident — Requesting Host reassignment to specialized engineer.`
+                    );
+                    setIsReportHostModalOpen(true);
+                  }}
+                  title="Report this incident to Host/Admin if unable to solve or outside current domain"
+                >
+                  <ShieldCheck size={15} />
+                  <span>Report to Host (Reassign)</span>
+                </button>
               </div>
             </div>
           ) : (
@@ -809,6 +1079,66 @@ export default function IncidentWorkspace({
           )}
         </div>
       </div>
+
+      {/* --- Report to Host (Reassign Request) Modal --- */}
+      {isReportHostModalOpen && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <ShieldCheck size={20} style={{ color: 'var(--warning-500)' }} />
+                <h3>Report to Host: {activeTicket?.ticket_number}</h3>
+              </div>
+              <button className="modal-close-btn" onClick={() => setIsReportHostModalOpen(false)}>
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <p className="modal-desc">
+                If you are unable to resolve this incident or lack the necessary system permissions / hardware replacement tools, report this to the <strong>Host Operations Command Center</strong> so the host administrator can reassign this incident to another available technician.
+              </p>
+
+              <div className="form-group">
+                <label className="form-label">Reason for Reporting to Host</label>
+                <textarea
+                  rows={3}
+                  className="form-textarea"
+                  value={reportHostReason}
+                  onChange={(e) => setReportHostReason(e.target.value)}
+                  placeholder="Describe why this cannot be completed by current technician..."
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Additional Dispatch & Handover Notes (Optional)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={reportHostNotes}
+                  onChange={(e) => setReportHostNotes(e.target.value)}
+                  placeholder="e.g. 'Tried driver reinstallation. Requires Tier-2 server admin credentials.'"
+                />
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setIsReportHostModalOpen(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                style={{ background: 'var(--warning-600, #d97706)', borderColor: 'var(--warning-600, #d97706)' }}
+                onClick={handleReportToHost}
+                disabled={!reportHostReason.trim()}
+              >
+                Confirm Report to Host
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- Resolve Modal --- */}
       {isResolveModalOpen && (

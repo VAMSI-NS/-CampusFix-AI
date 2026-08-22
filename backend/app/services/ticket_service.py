@@ -876,5 +876,67 @@ class TicketService:
 
         return ticket
 
+    def reassign_technician(
+        self,
+        ticket_id: str,
+        new_technician: str,
+        reassignment_notes: Optional[str] = None,
+        actor: str = "Host / Admin",
+    ) -> Optional[TicketResponse]:
+        ticket = self.get_ticket(ticket_id)
+        if not ticket:
+            return None
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        prev_technician = ticket.assigned_technician or "Unassigned"
+        ticket.assigned_technician = new_technician
+        ticket.status = "Diagnosing"
+        ticket.updated_at = now_iso
+
+        note_text = f"Technician reassigned from '{prev_technician}' to '{new_technician}' by {actor}."
+        if reassignment_notes:
+            note_text += f" Notes: {reassignment_notes.strip()}"
+
+        ticket.notes.append(
+            TicketNote(
+                id=f"note-{random.randint(1000, 9999)}",
+                author=actor,
+                author_role="admin" if "host" in actor.lower() or "admin" in actor.lower() else "technician",
+                text=note_text,
+                created_at=now_iso,
+            )
+        )
+
+        ticket.actions_taken.append(
+            ActionLogItem(
+                id=f"act-{random.randint(1000, 9999)}",
+                timestamp=now_iso,
+                action=f"Incident reassigned to {new_technician}",
+                result=f"Reassigned by {actor}. Status reset to Diagnosing. {reassignment_notes or ''}".strip(),
+                actor="technician",
+            )
+        )
+
+        if db.is_connected():
+            try:
+                self._save_ticket_to_db(ticket)
+            except Exception as e:
+                logger.error(f"Error reassigning ticket in DB: {e}")
+
+        return ticket
+
+    def reset_data(self) -> Dict[str, Any]:
+        """Resets ticket database to clean default initial state."""
+        self.__init__()
+        if db.is_connected():
+            try:
+                with db.get_cursor(commit=True) as cur:
+                    cur.execute("DELETE FROM tickets;")
+                    for t in self._tickets:
+                        self._save_ticket_to_db(t, cur=cur)
+            except Exception as e:
+                logger.error(f"Error resetting tickets in DB: {e}")
+        return {"status": "success", "message": "All tickets reset to clean state.", "total_tickets": len(self._tickets)}
+
 
 ticket_service = TicketService()

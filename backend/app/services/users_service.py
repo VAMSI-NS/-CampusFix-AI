@@ -687,5 +687,18 @@ class UsersService:
             return self._to_campus_user(user_in_db)
         return None
 
+    def reset_data(self) -> Dict[str, Any]:
+        """Resets users/technicians to clean initial state."""
+        self.__init__()
+        if db.is_connected():
+            try:
+                with db.get_cursor(commit=True) as cur:
+                    cur.execute("DELETE FROM users;")
+                    for u in self._users_db.values():
+                        self._save_user_to_db(u, cur=cur)
+            except Exception as e:
+                logger.error(f"Error resetting users in DB: {e}")
+        return {"status": "success", "message": "All users reset to clean state."}
+
 
 users_service = UsersService()

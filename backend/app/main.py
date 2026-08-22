@@ -14,6 +14,7 @@ from app.models.ticket import (
     TicketResponse,
     ActionLogCreate,
     TicketResolveRequest,
+    TicketReassignRequest,
     EscalationDetails,
 )
 from app.models.service_status import SystemStatusResponse
@@ -437,6 +438,33 @@ def escalate_ticket(ticket_id: str, escalation_info: EscalationDetails):
     return ticket
 
 
+@app.post(
+    "/api/tickets/{ticket_id}/reassign",
+    response_model=TicketResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Host / Admin reassigns a ticket to another technician",
+)
+def reassign_ticket(
+    ticket_id: str,
+    req: TicketReassignRequest,
+    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+):
+    """Reassigns an escalated or stuck ticket to a new active technician, resetting status to Diagnosing."""
+    actor_name = current_user.name if current_user else "Host / Admin"
+    ticket = ticket_service.reassign_technician(
+        ticket_id=ticket_id,
+        new_technician=req.new_technician,
+        reassignment_notes=req.reassignment_notes,
+        actor=actor_name,
+    )
+    if not ticket:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Incident ticket '{ticket_id}' not found.",
+        )
+    return ticket
+
+
 # --- Host Technician Management Endpoints (Strict RBAC Protected) ---
 
 
@@ -762,6 +790,24 @@ def run_diagnostics_probes():
 def get_database_overview(current_user: Optional[CampusUser] = Depends(get_current_user_optional)):
     """Returns table record counts, schema version, and storage telemetry."""
     return diagnostics_service.get_database_overview()
+
+
+@app.post(
+    "/api/admin/reset-data",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Reset system data (Purge tickets and restore clean fresh state)",
+)
+def reset_system_data(current_user: Optional[CampusUser] = Depends(get_current_user_optional)):
+    """Wipes all custom tickets and resets database to a fresh clean state."""
+    ticket_res = ticket_service.reset_data()
+    users_res = users_service.reset_data()
+    return {
+        "status": "success",
+        "message": "System data successfully purged and restored to fresh clean state.",
+        "tickets": ticket_res,
+        "users": users_res,
+    }
 
 
 # --- Single Page Application (SPA) Fallback Route ---

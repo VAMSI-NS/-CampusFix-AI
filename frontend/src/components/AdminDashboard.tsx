@@ -12,7 +12,9 @@ import {
   INITIAL_MOCK_PROBES,
   getLocalTechnicians,
   saveLocalTechnicians,
+  saveLocalTickets,
   createClientMockTechnician,
+  resetLocalSystemData,
 } from '../data/mockData';
 import {
   LayoutDashboard,
@@ -39,6 +41,8 @@ import {
   Activity,
   Download,
   Sparkles,
+  UserCheck,
+  Trash2,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -48,6 +52,8 @@ interface AdminDashboardProps {
   onOpenInResolver: (ticketId: string) => void;
   onUpdateTicketStatus?: (ticketId: string, newStatus: TicketStatus) => Promise<void>;
   onNavigateToKB?: () => void;
+  onResetData?: () => void;
+  onTicketsUpdated?: (tickets: Ticket[]) => void;
 }
 
 type AdminTab =
@@ -125,6 +131,8 @@ export default function AdminDashboard({
   authToken,
   onOpenInResolver,
   onUpdateTicketStatus,
+  onResetData,
+  onTicketsUpdated,
 }: AdminDashboardProps) {
   const isHost = currentUser?.role === 'host' || currentUser?.role === 'admin';
   const isTechnician = currentUser?.role === 'technician';
@@ -158,6 +166,17 @@ export default function AdminDashboard({
   const [isEditTechModalOpen, setIsEditTechModalOpen] = useState(false);
   const [isResetPwdModalOpen, setIsResetPwdModalOpen] = useState(false);
   const [selectedTech, setSelectedTech] = useState<CampusUser | null>(null);
+
+  // Reassignment Modal State
+  const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
+  const [reassignTicket, setReassignTicket] = useState<Ticket | null>(null);
+  const [reassignTechName, setReassignTechName] = useState('');
+  const [reassignNotes, setReassignNotes] = useState('');
+  const [isReassigning, setIsReassigning] = useState(false);
+
+  // System Data Reset Modal State
+  const [isResetDataModalOpen, setIsResetDataModalOpen] = useState(false);
+  const [isResettingData, setIsResettingData] = useState(false);
 
   // Form Fields for Add Technician
   const [newTechName, setNewTechName] = useState('');
@@ -586,6 +605,123 @@ export default function AdminDashboard({
     } catch (err) {
       setPwdChangeMsg({ type: 'error', text: err instanceof Error ? err.message : 'Password change failed.' });
     }
+  };
+
+  // Host Open Reassign Modal
+  const handleOpenReassign = (ticket: Ticket) => {
+    setReassignTicket(ticket);
+    const availableTechs = technicians.filter((u) => u.role === 'technician' && u.name !== ticket.assigned_technician);
+    const defaultTech = availableTechs.length > 0
+      ? `${availableTechs[0].name} (${availableTechs[0].specialization || 'Tech'})`
+      : 'Anand Sen (Network)';
+    setReassignTechName(defaultTech);
+    setReassignNotes(`Host reassigning from '${ticket.assigned_technician || 'Previous Tech'}' to specialized technician.`);
+    setIsReassignModalOpen(true);
+  };
+
+  // Host Submit Reassignment
+  const handleReassignSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reassignTicket || !reassignTechName) return;
+
+    setIsReassigning(true);
+    let updated: Ticket | null = null;
+    try {
+      const res = await fetch(`/api/tickets/${reassignTicket.id}/reassign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken || localStorage.getItem('campusfix_token')}`,
+        },
+        body: JSON.stringify({
+          new_technician: reassignTechName,
+          reassignment_notes: reassignNotes.trim() || undefined,
+        }),
+      });
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          updated = await res.json();
+        }
+      }
+    } catch (err) {
+      console.warn('Backend reassign unreachable, updating local state:', err);
+    }
+
+    if (!updated) {
+      const nowIso = new Date().toISOString();
+      const prevTech = reassignTicket.assigned_technician || 'Previous Tech';
+      updated = {
+        ...reassignTicket,
+        assigned_technician: reassignTechName,
+        status: 'Diagnosing',
+        actions_taken: [
+          ...(reassignTicket.actions_taken || []),
+          {
+            id: `act-${Date.now()}`,
+            timestamp: nowIso,
+            action: `Incident reassigned to ${reassignTechName}`,
+            result: `Reassigned by Host. Note: ${reassignNotes.trim() || 'Direct dispatch transfer.'}`,
+            actor: 'technician',
+          },
+        ],
+        notes: [
+          ...(reassignTicket.notes || []),
+          {
+            id: `note-${Date.now()}`,
+            author: currentUser?.name || 'Host Administrator',
+            author_role: 'system' as const,
+            text: `[Host Reassignment] Reassigned from '${prevTech}' to '${reassignTechName}'. Notes: ${reassignNotes.trim()}`,
+            created_at: nowIso,
+          },
+        ],
+        updated_at: nowIso,
+      };
+    }
+
+    const finalTicket: Ticket = updated;
+    const updatedList = tickets.map((t) => (t.id === finalTicket.id ? finalTicket : t));
+    saveLocalTickets(updatedList);
+    if (onTicketsUpdated) onTicketsUpdated(updatedList);
+    setIsReassignModalOpen(false);
+    setIsReassigning(false);
+    setActionNotice({
+      type: 'success',
+      text: `Successfully reassigned incident ${finalTicket.ticket_number} to ${reassignTechName}!`,
+    });
+    setTimeout(() => setActionNotice(null), 4000);
+  };
+
+  // Host System Data Reset (Clean Slate)
+  const handleSystemDataReset = async () => {
+    setIsResettingData(true);
+    try {
+      await fetch('/api/admin/reset-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken || localStorage.getItem('campusfix_token')}`,
+        },
+      }).catch((e) => console.warn('Backend reset call:', e));
+    } catch (e) {
+      console.warn('Backend reset:', e);
+    }
+
+    const resetState = resetLocalSystemData();
+    setTechnicians(resetState.technicians);
+    saveLocalTechnicians(resetState.technicians);
+    saveLocalTickets(resetState.tickets);
+    if (onTicketsUpdated) onTicketsUpdated(resetState.tickets);
+    if (onResetData) onResetData();
+
+    setIsResetDataModalOpen(false);
+    setIsResettingData(false);
+    setActionNotice({
+      type: 'success',
+      text: '✨ System data completely reset! Tickets and technicians restored to clean fresh slate.',
+    });
+    setTimeout(() => setActionNotice(null), 5000);
+    fetchDashboardData();
   };
 
   return (
@@ -1436,41 +1572,88 @@ export default function AdminDashboard({
                     </tr>
                   </thead>
                   <tbody>
-                    {escalatedTickets.map((t) => (
-                      <tr key={t.id}>
-                        <td><span className="ticket-badge-mono">{t.ticket_number}</span></td>
-                        <td>
-                          <strong>{t.title}</strong>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{t.category} • {t.location}</div>
-                        </td>
-                        <td>
-                          <span className="category-tag">
-                            {t.escalation_info?.target_specialization || t.escalation_info?.department || 'Tier-2 Engineering'}
-                          </span>
-                        </td>
-                        <td>
-                          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                            {t.escalation_info?.original_technician || t.assigned_technician || 'CampusFix Tech'}
-                          </span>
-                        </td>
-                        <td style={{ maxWidth: '280px', fontSize: '0.8rem' }}>
-                          {t.escalation_info?.reason || 'Hardware / Access Token escalation'}
-                        </td>
-                        <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {t.escalation_info?.escalated_at
-                            ? new Date(t.escalation_info.escalated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            : 'Recent'}
-                        </td>
-                        <td>
-                          <button
-                            className="btn-primary-sm"
-                            onClick={() => onOpenInResolver(t.id)}
-                          >
-                            Resolve / Review ↗
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {escalatedTickets.map((t) => {
+                      const isReportedToHost =
+                        t.escalation_info?.department === 'Host / Admin' ||
+                        t.escalation_info?.tier === 'Host Reassignment Queue' ||
+                        t.escalation_info?.assigned_to === 'Host Dispatcher';
+
+                      return (
+                        <tr key={t.id} style={{ background: isReportedToHost ? 'rgba(245, 158, 11, 0.06)' : undefined }}>
+                          <td>
+                            <span className="ticket-badge-mono">{t.ticket_number}</span>
+                            {isReportedToHost && (
+                              <div style={{ marginTop: '0.2rem' }}>
+                                <span
+                                  className="status-tag"
+                                  style={{
+                                    fontSize: '0.65rem',
+                                    padding: '0.15rem 0.4rem',
+                                    background: 'rgba(245, 158, 11, 0.2)',
+                                    color: '#fbbf24',
+                                    border: '1px solid rgba(245, 158, 11, 0.5)',
+                                  }}
+                                >
+                                  ⚠ Host Reassign
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <strong>{t.title}</strong>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{t.category} • {t.location}</div>
+                          </td>
+                          <td>
+                            <span className="category-tag">
+                              {t.escalation_info?.target_specialization || t.escalation_info?.department || 'Tier-2 Engineering'}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                              {t.escalation_info?.original_technician || t.assigned_technician || 'CampusFix Tech'}
+                            </span>
+                          </td>
+                          <td style={{ maxWidth: '280px', fontSize: '0.8rem' }}>
+                            {t.escalation_info?.reason || 'Hardware / Access Token escalation'}
+                          </td>
+                          <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            {t.escalation_info?.escalated_at
+                              ? new Date(t.escalation_info.escalated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                              : 'Recent'}
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                              {isHost && (
+                                <button
+                                  className="btn-secondary-sm"
+                                  style={{
+                                    padding: '0.25rem 0.55rem',
+                                    fontSize: '0.75rem',
+                                    borderColor: 'var(--warning-500, #f59e0b)',
+                                    color: 'var(--warning-400, #fbbf24)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.3rem',
+                                  }}
+                                  onClick={() => handleOpenReassign(t)}
+                                  title="Host: Reassign this incident to another technician"
+                                >
+                                  <UserCheck size={12} />
+                                  <span>Reassign</span>
+                                </button>
+                              )}
+                              <button
+                                className="btn-primary-sm"
+                                style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem' }}
+                                onClick={() => onOpenInResolver(t.id)}
+                              >
+                                Workbench ↗
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
@@ -1932,6 +2115,42 @@ export default function AdminDashboard({
                 </div>
               </div>
             </div>
+
+            {/* System Data Purge / Clean Slate Section */}
+            {isHost && (
+              <div
+                className="admin-table-card"
+                style={{
+                  padding: '1.5rem',
+                  marginTop: '1.5rem',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  background: 'linear-gradient(180deg, rgba(239, 68, 68, 0.06) 0%, var(--bg-surface) 100%)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                      <Trash2 size={18} style={{ color: '#ef4444' }} />
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, color: '#fca5a5' }}>
+                        System Data Reset & Fresh Slate
+                      </h3>
+                    </div>
+                    <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, maxWidth: '620px' }}>
+                      Purge all test incident tickets, reset custom technician accounts and clear telemetry caches to restore the platform to a completely clean, fresh initial state.
+                    </p>
+                  </div>
+
+                  <button
+                    className="btn-primary danger-btn"
+                    onClick={() => setIsResetDataModalOpen(true)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 1.25rem' }}
+                  >
+                    <Trash2 size={15} />
+                    <span>Reset System Data (Clean Slate)</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -2222,6 +2441,150 @@ export default function AdminDashboard({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: REASSIGN TECHNICIAN (Host Action)
+          ========================================================================= */}
+      {isReassignModalOpen && reassignTicket && (
+        <div className="modal-backdrop-overlay" onClick={() => setIsReassignModalOpen(false)}>
+          <div
+            className="auth-modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-surface, #1e293b)',
+              borderRadius: '16px',
+              padding: '1.75rem',
+              maxWidth: '520px',
+              width: '92%',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <UserCheck size={20} style={{ color: 'var(--warning-500)' }} />
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>
+                  Reassign Incident: {reassignTicket.ticket_number}
+                </h3>
+              </div>
+              <button onClick={() => setIsReassignModalOpen(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{reassignTicket.title}</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                Category: <strong>{reassignTicket.category}</strong> • Current Tech: <strong>{reassignTicket.assigned_technician || 'Unassigned'}</strong>
+              </div>
+              {reassignTicket.escalation_info && (
+                <div style={{ fontSize: '0.78rem', color: '#fbbf24', marginTop: '0.35rem' }}>
+                  Reported Reason: {reassignTicket.escalation_info.reason}
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={handleReassignSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Select New Assigned Technician</label>
+                <select
+                  className="form-select"
+                  value={reassignTechName}
+                  onChange={(e) => setReassignTechName(e.target.value)}
+                  required
+                >
+                  {technicians
+                    .filter((u) => u.role === 'technician')
+                    .map((u) => (
+                      <option key={u.id} value={`${u.name} (${u.specialization || 'Tech'})`}>
+                        {u.name} — [{u.specialization || 'General'}] ({u.active_assignments_count || 0} active tickets)
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Host Dispatch & Reassignment Instructions</label>
+                <textarea
+                  rows={3}
+                  className="form-textarea"
+                  value={reassignNotes}
+                  onChange={(e) => setReassignNotes(e.target.value)}
+                  placeholder="e.g. 'Transferred from Jordan to Anand for specialized physical hardware inspection.'"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button type="button" className="btn-secondary" onClick={() => setIsReassignModalOpen(false)}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  style={{ background: 'var(--warning-600, #d97706)', borderColor: 'var(--warning-600, #d97706)' }}
+                  disabled={isReassigning || !reassignTechName}
+                >
+                  <UserCheck size={14} />
+                  <span>{isReassigning ? 'Reassigning...' : 'Confirm Reassignment'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: RESET SYSTEM DATA (CLEAN SLATE)
+          ========================================================================= */}
+      {isResetDataModalOpen && (
+        <div className="modal-backdrop-overlay" onClick={() => setIsResetDataModalOpen(false)}>
+          <div
+            className="auth-modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-surface, #1e293b)',
+              borderRadius: '16px',
+              padding: '1.75rem',
+              maxWidth: '480px',
+              width: '92%',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Trash2 size={20} style={{ color: '#ef4444' }} />
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: '#fca5a5' }}>
+                  Clean Slate: Reset All Data
+                </h3>
+              </div>
+              <button onClick={() => setIsResetDataModalOpen(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <div style={{ padding: '0.85rem 1rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.25)', marginBottom: '1.25rem' }}>
+              <p style={{ fontSize: '0.85rem', color: '#fca5a5', margin: 0, lineHeight: 1.5 }}>
+                ⚠️ <strong>Warning:</strong> This will purge all active and closed tickets, reset custom technician accounts, clear chat history and diagnostic audit logs, and restore the initial clean baseline demonstration state.
+              </p>
+            </div>
+
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+              Are you sure you want to perform a factory reset? The application will look completely new.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button type="button" className="btn-secondary" onClick={() => setIsResetDataModalOpen(false)} disabled={isResettingData}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-primary danger-btn"
+                onClick={handleSystemDataReset}
+                disabled={isResettingData}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <Trash2 size={14} />
+                <span>{isResettingData ? 'Resetting System...' : 'Confirm Clean Slate Reset'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
