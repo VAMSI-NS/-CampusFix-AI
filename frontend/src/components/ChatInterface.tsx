@@ -392,10 +392,10 @@ export default function ChatInterface({
         display: 'flex',
         flexDirection: 'column',
         height: isMinimized ? '64px' : '100%',
-        background: 'var(--bg-surface)',
-        borderRadius: '20px',
-        border: '1px solid var(--border-strong)',
-        boxShadow: '0 24px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+        background: 'var(--bg-surface, #111111)',
+        borderRadius: '24px',
+        border: '1px solid var(--border-default, #27272A)',
+        boxShadow: '0 24px 48px rgba(0, 0, 0, 0.8), 0 0 32px rgba(74, 222, 128, 0.08)',
         overflow: 'hidden',
         position: 'relative',
         transition: 'height var(--transition-normal)',
@@ -404,60 +404,60 @@ export default function ChatInterface({
       {/* 1. CHATBOT HEADER */}
       <div
         style={{
-          padding: '0.85rem 1.25rem',
-          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%)',
-          borderBottom: '1px solid var(--border-default)',
+          padding: '1rem 1.35rem',
+          background: 'var(--bg-surface, #111111)',
+          borderBottom: '1px solid var(--border-default, #27272A)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexShrink: 0,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
           <div
             style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, var(--primary-600) 0%, var(--ai-cyan) 100%)',
+              width: '38px',
+              height: '38px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #4ADE80 0%, #16A34A 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#ffffff',
-              boxShadow: '0 0 12px var(--ai-glow)',
+              color: '#0B0B0C',
+              boxShadow: '0 0 16px rgba(74, 222, 128, 0.35)',
               flexShrink: 0,
             }}
           >
-            <Sparkles size={18} />
+            <Sparkles size={20} />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-              <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#ffffff' }}>
+              <h3 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 800, color: 'var(--text-primary, #F8FAFC)', fontFamily: 'var(--font-heading)' }}>
                 CampusFix AI Assistant ✨
               </h3>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.15rem' }}>
               <span
                 style={{
                   width: '7px',
                   height: '7px',
                   borderRadius: '50%',
-                  background: '#10b981',
-                  boxShadow: '0 0 6px #10b981',
+                  background: '#4ADE80',
+                  boxShadow: '0 0 8px #4ADE80',
                 }}
               />
-              <span style={{ fontSize: '0.72rem', color: '#34d399', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.74rem', color: '#4ADE80', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                 Online • Campus systems connected
               </span>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <button
             type="button"
             className="btn-saas-ghost"
-            style={{ padding: '0.35rem', color: 'var(--text-muted)' }}
+            style={{ padding: '0.4rem', color: 'var(--text-muted, #A1A1AA)', borderRadius: '8px' }}
             onClick={() => setIsMinimized(!isMinimized)}
             title={isMinimized ? 'Expand Chat' : 'Minimize'}
           >
@@ -467,7 +467,7 @@ export default function ChatInterface({
             <button
               type="button"
               className="btn-saas-ghost"
-              style={{ padding: '0.35rem', color: 'var(--text-muted)' }}
+              style={{ padding: '0.4rem', color: 'var(--text-muted, #A1A1AA)', borderRadius: '8px' }}
               onClick={onCloseModal}
               title="Close Chat"
             >
@@ -479,38 +479,50 @@ export default function ChatInterface({
 
       {!isMinimized && (
         <>
-          {/* 2. QUICK ACTIONS STRIP */}
+          {/* 2. SUGGESTION BUTTONS STRIP */}
           <div
             style={{
-              padding: '0.55rem 0.85rem',
-              background: 'rgba(11, 17, 29, 0.7)',
-              borderBottom: '1px solid var(--border-subtle)',
+              padding: '0.65rem 1rem',
+              background: 'rgba(11, 11, 12, 0.8)',
+              borderBottom: '1px solid var(--border-subtle, #27272A)',
               display: 'flex',
-              gap: '0.4rem',
+              gap: '0.5rem',
               overflowX: 'auto',
               flexShrink: 0,
             }}
           >
             {[
-              { id: 'report', label: '🎫 Report Issue' },
-              { id: 'find_ticket', label: '🔎 Find My Ticket' },
-              { id: 'map', label: '🗺️ Campus Map' },
-              { id: 'status', label: '📡 Service Status' },
-              { id: 'technician', label: '👨‍🔧 Technician Help' },
-              { id: 'analyze', label: '🤖 Analyze My Issue' },
+              { id: 'report', label: '🎫 Report an issue' },
+              { id: 'find_ticket', label: '🔎 Find my ticket' },
+              { id: 'map', label: '🗺️ Campus map' },
+              { id: 'technician', label: '🛠️ Technical help' },
+              { id: 'status', label: '📊 Check service status' },
+              { id: 'analyze', label: '🧑‍💻 Contact support' },
             ].map((qa) => (
               <button
                 key={qa.id}
                 type="button"
-                className="badge-saas badge-saas-neutral"
                 style={{
-                  fontSize: '0.72rem',
-                  padding: '0.3rem 0.65rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  padding: '0.35rem 0.75rem',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
-                  background: 'var(--bg-surface-raised)',
-                  border: '1px solid var(--border-default)',
+                  background: 'var(--bg-card, #18181B)',
+                  border: '1px solid var(--border-default, #27272A)',
+                  borderRadius: '9999px',
+                  color: 'var(--text-secondary, #A1A1AA)',
                   transition: 'all var(--transition-fast)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#4ADE80';
+                  e.currentTarget.style.color = '#F8FAFC';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-default, #27272A)';
+                  e.currentTarget.style.color = 'var(--text-secondary, #A1A1AA)';
+                  e.currentTarget.style.transform = 'translateY(0)';
                 }}
                 onClick={() => handleQuickAction(qa.id)}
               >
@@ -544,33 +556,34 @@ export default function ChatInterface({
                   {!isUser && (
                     <div
                       style={{
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '8px',
-                        background: 'linear-gradient(135deg, var(--primary-600) 0%, var(--ai-cyan) 100%)',
+                        width: '30px',
+                        height: '30px',
+                        borderRadius: '10px',
+                        background: 'linear-gradient(135deg, #4ADE80 0%, #16A34A 100%)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#ffffff',
+                        color: '#0B0B0C',
                         flexShrink: 0,
                         marginTop: '2px',
+                        boxShadow: '0 0 10px rgba(74, 222, 128, 0.25)',
                       }}
                     >
-                      <Sparkles size={14} />
+                      <Sparkles size={15} />
                     </div>
                   )}
 
                   <div
                     style={{
-                      maxWidth: '82%',
-                      padding: '0.85rem 1.1rem',
-                      borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                      background: isUser ? 'var(--primary-600)' : 'var(--bg-card)',
-                      border: isUser ? '1px solid var(--primary-500)' : '1px solid var(--border-default)',
-                      color: isUser ? '#ffffff' : 'var(--text-primary)',
-                      fontSize: '0.86rem',
-                      lineHeight: 1.5,
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                      maxWidth: '84%',
+                      padding: '0.9rem 1.2rem',
+                      borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                      background: isUser ? '#18181B' : '#111111',
+                      border: isUser ? '1px solid rgba(74, 222, 128, 0.4)' : '1px solid var(--border-default, #27272A)',
+                      color: isUser ? '#F8FAFC' : 'var(--text-primary, #F8FAFC)',
+                      fontSize: '0.88rem',
+                      lineHeight: 1.55,
+                      boxShadow: '0 4px 14px rgba(0, 0, 0, 0.4)',
                     }}
                   >
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -586,25 +599,39 @@ export default function ChatInterface({
                           gap: '0.45rem',
                           marginTop: '0.75rem',
                           paddingTop: '0.65rem',
-                          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                          borderTop: '1px solid var(--border-subtle, #27272A)',
                         }}
                       >
                         {m.actions.map((act) => (
                           <button
                             key={act.id}
                             type="button"
-                            className="btn-saas btn-saas-secondary"
                             style={{
-                              fontSize: '0.74rem',
-                              padding: '0.3rem 0.65rem',
-                              background: 'rgba(59, 130, 246, 0.15)',
-                              borderColor: 'rgba(59, 130, 246, 0.4)',
-                              color: '#ffffff',
+                              fontSize: '0.76rem',
+                              fontWeight: 700,
+                              padding: '0.35rem 0.75rem',
+                              borderRadius: '8px',
+                              background: 'rgba(74, 222, 128, 0.12)',
+                              border: '1px solid rgba(74, 222, 128, 0.35)',
+                              color: '#4ADE80',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              transition: 'all var(--transition-fast)',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = 'rgba(74, 222, 128, 0.22)';
+                              e.currentTarget.style.borderColor = '#4ADE80';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'rgba(74, 222, 128, 0.12)';
+                              e.currentTarget.style.borderColor = 'rgba(74, 222, 128, 0.35)';
                             }}
                             onClick={() => handleActionClick(act)}
                           >
                             <span>{act.label}</span>
-                            <ExternalLink size={11} />
+                            <ExternalLink size={12} />
                           </button>
                         ))}
                       </div>
@@ -616,8 +643,9 @@ export default function ChatInterface({
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         marginTop: '0.4rem',
-                        fontSize: '0.68rem',
-                        color: isUser ? 'rgba(255, 255, 255, 0.7)' : 'var(--text-muted)',
+                        fontSize: '0.7rem',
+                        color: 'var(--text-muted, #71717A)',
+                        fontFamily: 'var(--font-mono)',
                       }}
                     >
                       <span>{m.timestamp}</span>
@@ -634,7 +662,7 @@ export default function ChatInterface({
                           onClick={() => copyToClipboard(m.content, m.id)}
                           title="Copy response"
                         >
-                          {copiedId === m.id ? <Check size={12} /> : <Copy size={12} />}
+                          {copiedId === m.id ? <Check size={12} style={{ color: '#4ADE80' }} /> : <Copy size={12} />}
                         </button>
                       )}
                     </div>
@@ -644,22 +672,23 @@ export default function ChatInterface({
             })}
 
             {isLoading && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-muted, #71717A)', fontSize: '0.82rem' }}>
                 <div
                   style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '8px',
-                    background: 'var(--bg-surface-raised)',
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '10px',
+                    background: 'var(--bg-surface, #111111)',
+                    border: '1px solid var(--border-default, #27272A)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'var(--ai-cyan)',
+                    color: '#4ADE80',
                   }}
                 >
                   <RefreshCw size={14} className="spin-icon" />
                 </div>
-                <span>CampusFix AI is analyzing...</span>
+                <span>CampusFix AI is analyzing telemetry...</span>
               </div>
             )}
 
@@ -671,15 +700,15 @@ export default function ChatInterface({
             <div
               style={{
                 margin: '0 1rem 0.5rem',
-                background: 'var(--bg-surface-raised)',
-                border: '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-lg)',
+                background: 'var(--bg-card, #18181B)',
+                border: '1px solid var(--border-default, #27272A)',
+                borderRadius: '16px',
                 padding: '1rem',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: '#ffffff' }}>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: '#F8FAFC' }}>
                   🎫 Open Official Campus IT Support Ticket
                 </h4>
                 <button
@@ -744,6 +773,7 @@ export default function ChatInterface({
                     type="submit"
                     className="btn-saas btn-saas-primary"
                     disabled={isSubmittingTicket}
+                    style={{ background: '#4ADE80', color: '#0B0B0C', fontWeight: 800 }}
                   >
                     {isSubmittingTicket ? 'Creating...' : 'Submit Support Ticket'}
                   </button>
@@ -755,9 +785,9 @@ export default function ChatInterface({
           {/* 4. FIXED BOTTOM INPUT BAR */}
           <div
             style={{
-              padding: '0.75rem 1rem',
-              background: 'var(--bg-surface-raised)',
-              borderTop: '1px solid var(--border-default)',
+              padding: '0.85rem 1.15rem',
+              background: 'var(--bg-surface, #111111)',
+              borderTop: '1px solid var(--border-default, #27272A)',
               flexShrink: 0,
             }}
           >
@@ -768,11 +798,13 @@ export default function ChatInterface({
                   alignItems: 'center',
                   gap: '0.4rem',
                   padding: '0.2rem 0.5rem',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(59, 130, 246, 0.15)',
-                  color: 'var(--primary-300)',
+                  borderRadius: '6px',
+                  background: 'rgba(74, 222, 128, 0.15)',
+                  border: '1px solid rgba(74, 222, 128, 0.3)',
+                  color: '#4ADE80',
                   fontSize: '0.72rem',
                   marginBottom: '0.4rem',
+                  fontFamily: 'var(--font-mono)',
                 }}
               >
                 <span>📎 {attachedImageName}</span>
@@ -797,7 +829,7 @@ export default function ChatInterface({
               <button
                 type="button"
                 className="btn-saas-ghost"
-                style={{ padding: '0.5rem', color: 'var(--text-muted)' }}
+                style={{ padding: '0.55rem', color: 'var(--text-muted, #A1A1AA)', borderRadius: '10px' }}
                 onClick={() => fileInputRef.current?.click()}
                 title="Attach screenshot or error log"
               >
@@ -807,7 +839,7 @@ export default function ChatInterface({
               <button
                 type="button"
                 className="btn-saas-ghost"
-                style={{ padding: '0.5rem', color: isRecordingVoice ? 'var(--danger)' : 'var(--text-muted)' }}
+                style={{ padding: '0.55rem', color: isRecordingVoice ? 'var(--danger)' : 'var(--text-muted, #A1A1AA)', borderRadius: '10px' }}
                 onClick={handleToggleVoice}
                 title={isRecordingVoice ? 'Stop recording' : 'Voice input simulation'}
               >
@@ -818,11 +850,14 @@ export default function ChatInterface({
                 ref={textareaRef}
                 className="saas-input"
                 style={{
-                  minHeight: '40px',
+                  minHeight: '42px',
                   maxHeight: '120px',
                   resize: 'none',
                   borderRadius: '12px',
-                  padding: '0.55rem 0.85rem',
+                  padding: '0.6rem 0.9rem',
+                  background: 'var(--bg-card, #18181B)',
+                  border: '1px solid var(--border-default, #27272A)',
+                  color: '#F8FAFC',
                 }}
                 placeholder="Ask CampusFix AI anything..."
                 value={inputValue}
@@ -833,12 +868,24 @@ export default function ChatInterface({
 
               <button
                 type="button"
-                className="btn-saas btn-saas-primary"
-                style={{ padding: '0.55rem 0.9rem', borderRadius: '12px' }}
+                style={{
+                  padding: '0.6rem 1rem',
+                  borderRadius: '12px',
+                  background: '#4ADE80',
+                  color: '#0B0B0C',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 0 14px rgba(74, 222, 128, 0.35)',
+                  transition: 'all var(--transition-fast)',
+                }}
                 disabled={isLoading || (!inputValue.trim() && !attachedImageName)}
                 onClick={handleSend}
               >
-                <Send size={15} />
+                <Send size={16} />
               </button>
             </div>
           </div>
