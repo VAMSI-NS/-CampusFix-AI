@@ -430,3 +430,61 @@ export interface DiagnosticsReportResponse {
   run_timestamp: string;
   summary: string;
 }
+
+// --- AI Agent & Command Center Types ---
+
+export interface AIActionButton {
+  id: string;
+  action_type: 'open_ticket' | 'view_map' | 'assign_technician' | 'escalate_tier2' | 'mark_resolved' | 'report_to_host' | string;
+  label: string;
+  target_id?: string;
+  payload?: Record<string, unknown>;
+}
+
+export interface AIInsightItem {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  severity: 'info' | 'warning' | 'critical' | 'success';
+  recommended_action?: string;
+  action_target_id?: string;
+}
+
+export interface IncidentCluster {
+  location: string;
+  code: string;
+  active_count: number;
+  primary_category: string;
+  severity: string;
+  recommended_technician: string;
+}
+
+export interface AITechnicianWorkloadItem {
+  name: string;
+  role: string;
+  specialization: string;
+  active_tickets: number;
+  status: 'Optimal' | 'High Workload' | 'Available' | string;
+  recommended_queue: string[];
+}
+
+export interface AICommandCenterResponse {
+  overall_health: string;
+  autonomous_resolution_rate: number;
+  avg_triage_seconds: number;
+  total_active_incidents: number;
+  insights: AIInsightItem[];
+  incident_clusters: IncidentCluster[];
+  technician_workload: AITechnicianWorkloadItem[];
+  sla_risk_tickets: Array<{
+    ticket_number: string;
+    title: string;
+    priority: string;
+    location: string;
+    assigned_technician: string;
+    time_remaining: string;
+  }>;
+  system_recommendations: string[];
+  generated_at: string;
+}

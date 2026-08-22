@@ -7,7 +7,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
-from app.models.chat import ChatRequest, ChatResponse
+from app.models.chat import (
+    ChatRequest,
+    ChatResponse,
+    AICommandCenterResponse,
+    AIActionExecutionRequest,
+    AIActionExecutionResponse,
+)
 from app.models.ticket import (
     TicketCreate,
     TicketUpdate,
@@ -268,12 +274,15 @@ def get_specializations():
     "/api/chat",
     response_model=ChatResponse,
     status_code=status.HTTP_200_OK,
-    summary="Chat with CampusFix Autonomous IT Support Agent",
+    summary="Chat with CampusFix Autonomous IT Support & Operations Agent",
 )
-async def chat_with_agent(request: ChatRequest):
+async def chat_with_agent(
+    request: ChatRequest,
+    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+):
     """
-    Processes student IT support conversation and generates diagnostic/troubleshooting
-    responses powered by NVIDIA Nemotron 3 Ultra via OpenRouter.
+    Processes IT support conversation and generates role-aware diagnostic, operational,
+    and troubleshooting responses with actionable commands.
     """
     if not request.messages:
         raise HTTPException(
@@ -282,7 +291,11 @@ async def chat_with_agent(request: ChatRequest):
         )
 
     try:
-        response = await ai_service.generate_response(request.messages)
+        response = await ai_service.generate_response(
+            conversation=request.messages,
+            current_user=current_user,
+            context_ticket_id=request.context_ticket_id,
+        )
         return response
     except ValueError as e:
         raise HTTPException(
@@ -294,6 +307,54 @@ async def chat_with_agent(request: ChatRequest):
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"AI Service processing error: {str(e)}",
         )
+
+
+@app.get(
+    "/api/ai/command-center",
+    response_model=AICommandCenterResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve real-time AI Command Center telemetry and incident insights",
+)
+def get_ai_command_center(
+    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+):
+    """
+    Aggregates active AI incident correlations, root-cause recommendations,
+    technician workload routing matrix, and campus risk alerts.
+    """
+    return ai_service.get_command_center_data(current_user=current_user)
+
+
+@app.post(
+    "/api/ai/execute-action",
+    response_model=AIActionExecutionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Execute an authorized action via the CampusFix AI Agent",
+)
+def execute_ai_action(
+    payload: AIActionExecutionRequest,
+    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+):
+    """
+    Executes role-authorized actions requested through conversational or command center UI.
+    """
+    res = ai_service.execute_agent_action(
+        current_user=current_user,
+        action_type=payload.action_type,
+        ticket_id=payload.ticket_id,
+        parameters=payload.parameters,
+    )
+    if res.status == "forbidden":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=res.message,
+        )
+    elif res.status == "error":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=res.message,
+        )
+    return res
 
 
 # --- Incident / Ticket Management Endpoints ---

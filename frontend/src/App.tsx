@@ -31,6 +31,7 @@ import AdminDashboard from './components/AdminDashboard';
 import HostReports from './components/HostReports';
 import AuthModal from './components/AuthModal';
 import CampusMap from './components/CampusMap';
+import AICommandCenter from './components/AICommandCenter';
 import { Ticket, TicketStatus, UserRole, CampusUser } from './types/chat';
 import { getLocalTickets, saveLocalTickets } from './data/mockData';
 import './App.css';
@@ -56,7 +57,8 @@ type TabType =
   | 'kb'
   | 'diagnostics'
   | 'admin'
-  | 'reports';
+  | 'reports'
+  | 'command-center';
 
 function getRouteFromPath(pathname: string, hash: string): { tab: TabType | '404'; role?: UserRole } {
   let cleanPathname = (pathname.split('?')[0] || '').toLowerCase().trim();
@@ -175,8 +177,19 @@ function getRouteFromPath(pathname: string, hash: string): { tab: TabType | '404
     case '/sla':
     case '/analytics':
       return { tab: 'reports', role: 'host' };
+
+    case '/command-center':
+    case '/command':
+    case '/ai-command-center':
+    case '/ai-agent':
+    case '/agent':
+    case '/commandcenter':
+      return { tab: 'command-center' };
   }
 
+  if (firstSegment === '/command-center' || firstSegment === '/command' || firstSegment === '/ai-agent') {
+    return { tab: 'command-center' };
+  }
   if (firstSegment === '/map' || firstSegment === '/campus-map' || firstSegment === '/locations') {
     return { tab: 'map' };
   }
@@ -230,6 +243,8 @@ function getPathForTab(tab: TabType): string {
       return '/admin';
     case 'reports':
       return '/reports';
+    case 'command-center':
+      return '/command-center';
     default:
       return '/';
   }
@@ -695,6 +710,15 @@ export default function App() {
             </button>
 
             <button
+              className={`nav-tab-btn ${activeTab === 'command-center' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('command-center')}
+            >
+              <Sparkles size={15} style={{ color: '#818cf8' }} />
+              <span>AI Command Center</span>
+              <span className="tab-badge" style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#a5b4fc' }}>Agent</span>
+            </button>
+
+            <button
               className={`nav-tab-btn ${activeTab === 'map' && !is404 ? 'active' : ''}`}
               onClick={() => navigateToTab('map')}
             >
@@ -716,6 +740,15 @@ export default function App() {
               <span className="tab-badge" style={{ background: 'var(--primary-600)', color: '#fff' }}>
                 {currentUser.specialization || 'Tech'}
               </span>
+            </button>
+
+            <button
+              className={`nav-tab-btn ${activeTab === 'command-center' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('command-center')}
+            >
+              <Sparkles size={15} style={{ color: '#818cf8' }} />
+              <span>AI Command Center</span>
+              <span className="tab-badge" style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#a5b4fc' }}>Agent</span>
             </button>
 
             <button
@@ -785,6 +818,15 @@ export default function App() {
             </button>
 
             <button
+              className={`nav-tab-btn ${activeTab === 'command-center' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('command-center')}
+            >
+              <Sparkles size={15} style={{ color: '#818cf8' }} />
+              <span>AI Command Center</span>
+              <span className="tab-badge" style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#a5b4fc' }}>Agent</span>
+            </button>
+
+            <button
               className={`nav-tab-btn ${activeTab === 'tickets' && !is404 ? 'active' : ''}`}
               onClick={() => navigateToTab('tickets')}
             >
@@ -850,6 +892,15 @@ export default function App() {
         {/* 4. UNAUTHENTICATED PUBLIC VISITOR TABS */}
         {!currentUser && (
           <>
+            <button
+              className={`nav-tab-btn ${activeTab === 'command-center' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('command-center')}
+            >
+              <Sparkles size={15} style={{ color: '#818cf8' }} />
+              <span>AI Command Center</span>
+              <span className="tab-badge">AI Agent</span>
+            </button>
+
             <button
               className={`nav-tab-btn ${activeTab === 'resolver' && !is404 ? 'active' : ''}`}
               onClick={() => navigateToTab('resolver')}
@@ -1202,6 +1253,20 @@ export default function App() {
                   </div>
                 </div>
               )
+            )}
+
+            {activeTab === 'command-center' && (
+              <AICommandCenter
+                currentUser={currentUser}
+                tickets={tickets}
+                onOpenTicketInResolver={handleSelectTicketForResolver}
+                onNavigateToMap={(locCode) => {
+                  setMapInitialLocationId(locCode || null);
+                  navigateToTab('map');
+                }}
+                onUpdateTicketStatus={handleUpdateTicketStatus}
+                onRefreshTickets={fetchTickets}
+              />
             )}
           </>
         )}
