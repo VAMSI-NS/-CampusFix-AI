@@ -284,6 +284,7 @@ export default function App() {
   // Full workbench ticket state
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [resolverInitialQuery, setResolverInitialQuery] = useState<string | undefined>(undefined);
+  const [mapInitialLocationId, setMapInitialLocationId] = useState<string | null>(null);
 
   // Apply Theme to document root
   useEffect(() => {
@@ -1007,6 +1008,10 @@ export default function App() {
                 currentUser={currentUser}
                 onTicketsUpdated={(updated) => setTickets(updated)}
                 onSwitchToHistory={() => navigateToTab('history')}
+                onNavigateToMap={(locName) => {
+                  setMapInitialLocationId(locName || null);
+                  navigateToTab('map');
+                }}
               />
             )}
 
@@ -1042,6 +1047,7 @@ export default function App() {
               <CampusMap
                 currentUser={currentUser}
                 tickets={tickets}
+                initialSelectedLocationId={mapInitialLocationId}
                 onOpenTicketInResolver={handleSelectTicketForResolver}
                 onAskAiAboutLocation={(locName) => {
                   setResolverInitialQuery(`What is the current network status and active IT support operations at ${locName}?`);

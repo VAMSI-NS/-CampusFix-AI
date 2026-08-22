@@ -1168,6 +1168,40 @@ export const VIGNAN_CAMPUS_LOCATIONS: CampusLocation[] = [
     active_incident_count: 0,
     assigned_technicians: [],
   },
+  {
+    id: 'loc-sports-complex',
+    name: 'Vignan University Sports Complex & Athletics Stadium',
+    code: 'V-SPORTS',
+    category: 'Sports & Athletics',
+    latitude: 16.2312,
+    longitude: 80.5502,
+    description: 'Campus outdoor athletic stadium, cricket ground, floodlit basketball/volleyball courts, and gymnasium arena.',
+    facilities: ['Athletic Track & Cricket Pavilion', 'Indoor Badminton & Table Tennis Arena', 'Outdoor High-Density Wi-Fi 6 Mesh', 'Sports Directorate Office'],
+    wifi_network: 'Eduroam / Vignan-Sports-Outdoor',
+    active_tech_bar: false,
+    building_floor_count: 2,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+  },
+  {
+    id: 'loc-open-air-theatre',
+    name: 'Open Air Theatre (OAT) & Cultural Quadrangle',
+    code: 'OAT-QUAD',
+    category: 'Student Center',
+    latitude: 16.2332,
+    longitude: 80.5510,
+    description: 'Central campus amphitheater hosting university convocations, technical symposiums, hackathons, and cultural fests.',
+    facilities: ['Main Stage High-Capacity Event Wi-Fi APs', 'Sound & Lighting Control Booth', 'Open Seating Capacity (3000+)', 'Satellite Broadcast Node'],
+    wifi_network: 'Eduroam / Vignan-Events-5G',
+    active_tech_bar: false,
+    building_floor_count: 1,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+  },
 ];
 
 export function getClientCampusMapData(
@@ -1200,6 +1234,8 @@ export function getClientCampusMapData(
       if ((tLoc.includes('sac') || tLoc.includes('dining') || tLoc.includes('sangam')) && locLower.includes('sangam')) return true;
       if ((tLoc.includes('innovation') || tLoc.includes('v-hub')) && locLower.includes('innovation')) return true;
       if ((tLoc.includes('l-block') || tLoc.includes('bio') || tLoc.includes('pharmacy') || tLoc.includes('science')) && locLower.includes('l-block')) return true;
+      if ((tLoc.includes('sport') || tLoc.includes('ground') || tLoc.includes('stadium') || tLoc.includes('gym')) && locLower.includes('sports')) return true;
+      if ((tLoc.includes('oat') || tLoc.includes('theatre') || tLoc.includes('quadrangle') || tLoc.includes('stage')) && locLower.includes('open air')) return true;
 
       return false;
     });

@@ -22,6 +22,11 @@ import {
   Wrench,
   Search,
   Building,
+  Maximize2,
+  Minimize2,
+  Layers,
+  Globe,
+  Compass,
 } from 'lucide-react';
 
 interface CampusMapProps {
@@ -37,6 +42,8 @@ interface CampusMapProps {
 const VIGNAN_CENTER: [number, number] = [16.2334, 80.5508];
 const DEFAULT_ZOOM = 17;
 
+type MapLayerType = 'satellite' | 'street' | 'dark';
+
 export default function CampusMap({
   currentUser,
   tickets = [],
@@ -47,15 +54,19 @@ export default function CampusMap({
 }: CampusMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const markersGroupRef = useRef<L.LayerGroup | null>(null);
 
   const [mapData, setMapData] = useState<CampusMapDataResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedLocation, setSelectedLocation] = useState<CampusLocation | null>(null);
+  const [mapLayer, setMapLayer] = useState<MapLayerType>('satellite');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Filters
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [technicianFilter, setTechnicianFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [showMyAssignedOnly, setShowMyAssignedOnly] = useState(false);
 
@@ -101,6 +112,15 @@ export default function CampusMap({
     fetchMapData();
   }, [currentUser, tickets.length]);
 
+  // Extract unique technician names from tickets for Host filter
+  const allAssignedTechs = useMemo(() => {
+    const set = new Set<string>();
+    tickets.forEach((t) => {
+      if (t.assigned_technician) set.add(t.assigned_technician);
+    });
+    return Array.from(set);
+  }, [tickets]);
+
   // Filtered locations
   const filteredLocations = useMemo(() => {
     if (!mapData?.locations) return [];
@@ -122,6 +142,14 @@ export default function CampusMap({
         if (!matchName && !matchCode && !matchDesc) return false;
       }
 
+      // Technician Filter (Host view)
+      if (isHost && technicianFilter !== 'All') {
+        const hasTech = loc.assigned_technicians.some((t) =>
+          t.toLowerCase().includes(technicianFilter.toLowerCase())
+        );
+        if (!hasTech) return false;
+      }
+
       // My Assigned Only (for technicians)
       if (showMyAssignedOnly && isTechnician && currentUser?.name) {
         const hasMyTickets = loc.assigned_technicians.some((t) =>
@@ -132,7 +160,33 @@ export default function CampusMap({
 
       return true;
     });
-  }, [mapData, categoryFilter, statusFilter, searchQuery, showMyAssignedOnly, isTechnician, currentUser]);
+  }, [mapData, categoryFilter, statusFilter, searchQuery, technicianFilter, showMyAssignedOnly, isTechnician, isHost, currentUser]);
+
+  // Tile layer generator
+  const getTileLayer = (layerType: MapLayerType) => {
+    if (layerType === 'satellite') {
+      return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution:
+          '&copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics | Vignan University Vadlamudi Satellite Geodata',
+        maxZoom: 19,
+      });
+    } else if (layerType === 'dark') {
+      return L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a> | Vignan Infrastructure Map',
+        subdomains: 'abcd',
+        maxZoom: 20,
+      });
+    } else {
+      // street / voyager
+      return L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a> | Vignan University Map',
+        subdomains: 'abcd',
+        maxZoom: 20,
+      });
+    }
+  };
 
   // Initialize Leaflet Map
   useEffect(() => {
@@ -143,18 +197,14 @@ export default function CampusMap({
     const map = L.map(mapContainerRef.current, {
       center: VIGNAN_CENTER,
       zoom: DEFAULT_ZOOM,
-      minZoom: 15,
+      minZoom: 14,
       maxZoom: 19,
       zoomControl: false,
     });
 
-    // Dark-styled CARTO tiles
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a> | Vignan University Vadlamudi Campus',
-      subdomains: 'abcd',
-      maxZoom: 20,
-    }).addTo(map);
+    const initialTileLayer = getTileLayer(mapLayer);
+    initialTileLayer.addTo(map);
+    tileLayerRef.current = initialTileLayer;
 
     // Zoom control on top-right
     L.control.zoom({ position: 'topright' }).addTo(map);
@@ -165,8 +215,23 @@ export default function CampusMap({
     return () => {
       map.remove();
       mapInstanceRef.current = null;
+      tileLayerRef.current = null;
     };
   }, []);
+
+  // Update Tile Layer on mapLayer change
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+    }
+
+    const newLayer = getTileLayer(mapLayer);
+    newLayer.addTo(map);
+    tileLayerRef.current = newLayer;
+  }, [mapLayer]);
 
   // Update Markers on filteredLocations changes
   useEffect(() => {
@@ -205,9 +270,10 @@ export default function CampusMap({
       else if (loc.category === 'Data Center') iconEmoji = '🗄️';
       else if (loc.category === 'Student Center') iconEmoji = '☕';
       else if (loc.category === 'Library & Tech Bar') iconEmoji = '📚';
+      else if (loc.category === 'Sports & Athletics') iconEmoji = '⚽';
 
       const customHtml = `
-        <div class="campus-map-pin ${isSelected ? 'selected' : ''} ${hasOutage ? 'pulse-danger' : hasDegraded ? 'pulse-warn' : ''}" style="--pin-color: ${markerColor}; --pulse-color: ${pulseColor};">
+        <div class="campus-map-pin ${isSelected ? 'selected' : ''} ${hasOutage ? 'pulse-danger' : hasDegraded ? 'pulse-warn' : ''} ${mapLayer === 'satellite' ? 'on-satellite' : ''}" style="--pin-color: ${markerColor}; --pulse-color: ${pulseColor};">
           <div class="pin-inner">
             <span class="pin-icon">${iconEmoji}</span>
             ${loc.active_incident_count > 0 ? `<span class="pin-badge">${loc.active_incident_count}</span>` : ''}
@@ -219,8 +285,8 @@ export default function CampusMap({
       const customIcon = L.divIcon({
         html: customHtml,
         className: 'custom-leaflet-pin',
-        iconSize: [44, 44],
-        iconAnchor: [22, 22],
+        iconSize: [46, 46],
+        iconAnchor: [23, 23],
       });
 
       const marker = L.marker([loc.latitude, loc.longitude], { icon: customIcon });
@@ -236,12 +302,12 @@ export default function CampusMap({
           <div>Status: <span style="color: ${markerColor}; font-weight: 700;">${loc.service_status.toUpperCase()}</span></div>
           ${loc.active_incident_count > 0 ? `<div>Active Incidents: <strong>${loc.active_incident_count}</strong></div>` : '<div>All systems nominal</div>'}
         </div>`,
-        { direction: 'top', offset: [0, -18] }
+        { direction: 'top', offset: [0, -20] }
       );
 
       markersGroup.addLayer(marker);
     });
-  }, [filteredLocations, selectedLocation]);
+  }, [filteredLocations, selectedLocation, mapLayer]);
 
   // Center on campus
   const handleRecenter = () => {
@@ -278,40 +344,70 @@ export default function CampusMap({
       if ((tLoc.includes('sac') || tLoc.includes('dining') || tLoc.includes('sangam')) && locLower.includes('sangam')) return true;
       if ((tLoc.includes('innovation') || tLoc.includes('v-hub')) && locLower.includes('innovation')) return true;
       if ((tLoc.includes('l-block') || tLoc.includes('bio') || tLoc.includes('pharmacy')) && locLower.includes('l-block')) return true;
+      if ((tLoc.includes('sport') || tLoc.includes('ground') || tLoc.includes('stadium') || tLoc.includes('gym')) && locLower.includes('sports')) return true;
+      if ((tLoc.includes('oat') || tLoc.includes('theatre') || tLoc.includes('quadrangle')) && locLower.includes('open air')) return true;
 
       return false;
     });
   }, [selectedLocation, tickets]);
 
-  const categories = ['All', 'Academic', 'Administrative', 'Library & Tech Bar', 'Data Center', 'Hostel / Residential', 'Student Center'];
+  const categories = ['All', 'Academic', 'Administrative', 'Library & Tech Bar', 'Data Center', 'Hostel / Residential', 'Sports & Athletics', 'Student Center'];
 
   return (
-    <div className={`campus-map-wrapper ${isEmbedded ? 'embedded' : 'standalone'}`}>
+    <div className={`campus-map-wrapper ${isEmbedded ? 'embedded' : 'standalone'} ${isFullscreen ? 'fullscreen-mode' : ''}`}>
       {/* Top Header & Telemetry Bar */}
       <div className="campus-map-topbar">
         <div className="map-title-cluster">
           <div className="map-live-tag">
             <span className="live-radar-dot" />
-            <span>REAL VFSTR GEODATA</span>
+            <span>REAL VIGNAN UNIVERSITY SATELLITE GEODATA</span>
           </div>
           <h2 className="map-heading">
             Vignan University Interactive Campus Map
           </h2>
           <p className="map-subtitle">
-            Vadlamudi, Guntur District, Andhra Pradesh • 16.2334° N, 80.5508° E • Live Infrastructure & Incident Telemetry
+            Vadlamudi, Guntur District, Andhra Pradesh • 16.2334° N, 80.5508° E • High-Resolution Aerial Satellite & Infrastructure Grid
           </p>
         </div>
 
-        {/* Global Stats Counter Pills */}
+        {/* Global Stats Counter Pills & Layer Switcher */}
         <div className="map-stats-counters">
+          {/* Layer View Mode Switcher */}
+          <div className="map-layer-switcher" title="Toggle Satellite / Map Imagery">
+            <button
+              type="button"
+              className={`layer-toggle-btn ${mapLayer === 'satellite' ? 'active' : ''}`}
+              onClick={() => setMapLayer('satellite')}
+            >
+              <Globe size={13} />
+              <span>🛰️ Satellite</span>
+            </button>
+            <button
+              type="button"
+              className={`layer-toggle-btn ${mapLayer === 'street' ? 'active' : ''}`}
+              onClick={() => setMapLayer('street')}
+            >
+              <Layers size={13} />
+              <span>🗺️ Map</span>
+            </button>
+            <button
+              type="button"
+              className={`layer-toggle-btn ${mapLayer === 'dark' ? 'active' : ''}`}
+              onClick={() => setMapLayer('dark')}
+            >
+              <Compass size={13} />
+              <span>🌙 Dark</span>
+            </button>
+          </div>
+
           <div className="map-stat-chip">
             <Building size={14} style={{ color: '#60a5fa' }} />
-            <span><strong>{mapData?.total_locations || 10}</strong> Zones</span>
+            <span><strong>{mapData?.total_locations || 12}</strong> Verified Zones</span>
           </div>
 
           <div className="map-stat-chip">
             <CheckCircle2 size={14} style={{ color: '#34d399' }} />
-            <span><strong>{mapData?.operational_services_count || 8}</strong> Operational</span>
+            <span><strong>{mapData?.operational_services_count || 10}</strong> Nominal</span>
           </div>
 
           <div className={`map-stat-chip ${mapData && mapData.active_incidents_count > 0 ? 'warning' : ''}`}>
@@ -326,7 +422,7 @@ export default function CampusMap({
             title="Recenter Map on Vignan University Center"
           >
             <RotateCcw size={14} />
-            <span>Center Campus</span>
+            <span>Center</span>
           </button>
 
           <button
@@ -337,6 +433,18 @@ export default function CampusMap({
           >
             <RefreshCw size={14} className={isLoading ? 'spin-icon' : ''} />
           </button>
+
+          {!isEmbedded && (
+            <button
+              type="button"
+              className={`btn-map-control ${isFullscreen ? 'active-fs' : ''}`}
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen Map Mode'}
+            >
+              {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              <span>{isFullscreen ? 'Exit Full' : 'Fullscreen'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -347,7 +455,7 @@ export default function CampusMap({
           <input
             type="text"
             className="map-search-input"
-            placeholder="Search Vignan buildings, labs, hostels..."
+            placeholder="Search Vignan buildings, labs, hostels, sports..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -382,6 +490,23 @@ export default function CampusMap({
           <option value="OutagesOnly">Outages Only</option>
         </select>
 
+        {/* Host Technician Filter */}
+        {isHost && allAssignedTechs.length > 0 && (
+          <select
+            className="map-select-filter"
+            value={technicianFilter}
+            onChange={(e) => setTechnicianFilter(e.target.value)}
+            title="Filter map by assigned technician"
+          >
+            <option value="All">All Technicians</option>
+            {allAssignedTechs.map((tech) => (
+              <option key={tech} value={tech}>
+                👤 {tech}
+              </option>
+            ))}
+          </select>
+        )}
+
         {/* Technician Filter Toggle */}
         {isTechnician && (
           <label className="map-tech-toggle" title="Filter map to only show buildings with tickets assigned to me">
@@ -400,9 +525,17 @@ export default function CampusMap({
         {/* Leaflet DOM Node */}
         <div ref={mapContainerRef} className="leaflet-map-canvas" />
 
+        {/* Satellite Mode Watermark Badge */}
+        {mapLayer === 'satellite' && (
+          <div className="satellite-watermark-tag">
+            <Globe size={12} />
+            <span>Esri High-Res Satellite View (Vignan Vadlamudi)</span>
+          </div>
+        )}
+
         {/* Quick Location Ribbon on Map overlay */}
         <div className="campus-quick-ribbon">
-          {filteredLocations.slice(0, 6).map((loc) => (
+          {filteredLocations.slice(0, 8).map((loc) => (
             <button
               key={loc.id}
               type="button"

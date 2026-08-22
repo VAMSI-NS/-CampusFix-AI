@@ -198,6 +198,44 @@ VIGNAN_CAMPUS_LOCATIONS: List[Dict[str, Any]] = [
         "active_tech_bar": False,
         "building_floor_count": 4,
         "service_status": "operational"
+    },
+    {
+        "id": "loc-sports-complex",
+        "name": "Vignan University Sports Complex & Athletics Stadium",
+        "code": "V-SPORTS",
+        "category": "Sports & Athletics",
+        "latitude": 16.2312,
+        "longitude": 80.5502,
+        "description": "Campus outdoor athletic stadium, cricket ground, floodlit basketball/volleyball courts, and gymnasium arena.",
+        "facilities": [
+            "Athletic Track & Cricket Pavilion",
+            "Indoor Badminton & Table Tennis Arena",
+            "Outdoor High-Density Wi-Fi 6 Mesh",
+            "Sports Directorate Office"
+        ],
+        "wifi_network": "Eduroam / Vignan-Sports-Outdoor",
+        "active_tech_bar": False,
+        "building_floor_count": 2,
+        "service_status": "operational"
+    },
+    {
+        "id": "loc-open-air-theatre",
+        "name": "Open Air Theatre (OAT) & Cultural Quadrangle",
+        "code": "OAT-QUAD",
+        "category": "Student Center",
+        "latitude": 16.2332,
+        "longitude": 80.5510,
+        "description": "Central campus amphitheater hosting university convocations, technical symposiums, hackathons, and cultural fests.",
+        "facilities": [
+            "Main Stage High-Capacity Event Wi-Fi APs",
+            "Sound & Lighting Control Booth",
+            "Open Seating Capacity (3000+)",
+            "Satellite Broadcast Node"
+        ],
+        "wifi_network": "Eduroam / Vignan-Events-5G",
+        "active_tech_bar": False,
+        "building_floor_count": 1,
+        "service_status": "operational"
     }
 ]
 
@@ -234,6 +272,10 @@ class CampusMapService:
         if ("innovation" in t_lower or "v-hub" in t_lower) and "innovation" in name_lower:
             return True
         if ("l-block" in t_lower or "bio" in t_lower or "pharmacy" in t_lower or "science" in t_lower) and "l-block" in name_lower:
+            return True
+        if ("sport" in t_lower or "ground" in t_lower or "stadium" in t_lower or "gym" in t_lower) and "sports" in name_lower:
+            return True
+        if ("oat" in t_lower or "theatre" in t_lower or "quadrangle" in t_lower or "stage" in t_lower) and "open air" in name_lower:
             return True
 
         return False

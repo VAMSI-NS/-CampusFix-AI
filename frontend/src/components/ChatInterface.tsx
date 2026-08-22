@@ -23,6 +23,7 @@ import {
   Ticket as TicketIcon,
   ArrowUpRight,
   ShieldAlert,
+  MapPin,
 } from 'lucide-react';
 import { Message, ChatApiResponse, DiagnosticStage, Ticket, TicketCategory, TicketPriority } from '../types/chat';
 import { createClientMockTicket } from '../data/mockData';
@@ -38,6 +39,7 @@ interface ChatInterfaceProps {
   onCloseModal?: () => void;
   onTicketCreated?: (ticket: Ticket) => void;
   onViewTicket?: (ticketId: string) => void;
+  onViewLocationOnMap?: (locationNameOrCode: string) => void;
 }
 
 // 3 Compact Suggestions
@@ -103,6 +105,7 @@ export default function ChatInterface({
   onCloseModal,
   onTicketCreated,
   onViewTicket,
+  onViewLocationOnMap,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([INITIAL_GREETING]);
   const [inputValue, setInputValue] = useState('');
@@ -516,10 +519,18 @@ export default function ChatInterface({
         simulatedReply = `### 🔐 Duo 2FA Verification Help\n\n1. Open the **Duo Mobile** app directly and pull down to refresh any pending push requests.\n2. Check that **Focus / Do Not Disturb** mode isn't blocking notifications.\n3. If you changed phones, visit the **Main Library 1st Floor Tech Bar** with your student photo ID for an instant bypass passcode.\n\n*Let me know if you would like to open an escalation ticket.*`;
       } else if (lower.includes('canvas') || lower.includes('sso') || lower.includes('login')) {
         simulatedReply = `### 🎓 Canvas LMS Access Troubleshooting\n\n1. Open an **Incognito / Private window** and try logging in at \`https://canvas.university.edu\`.\n2. Clear browser cookies and cache for the campus domain.\n3. Check the **Service Status** tab to confirm Single Sign-On (SSO) is operational.\n\n*Did the private window allow you to sign in?*`;
-      } else if (lower.includes('print') || lower.includes('papercut')) {
-        simulatedReply = `### 🖨️ Campus Printing (PaperCut) Guide\n\n1. Verify your document is saved as a **PDF** before uploading to \`print.university.edu\`.\n2. Confirm your student print balance is active.\n3. Swipe your campus card at any release station within 2 hours of sending the job (NTR Central Library 1st Floor or U-Block).\n\n*If the printer terminal is stalled, I can open a maintenance ticket for you.*`;
-      } else if (lower.includes('map') || lower.includes('vignan') || lower.includes('building') || lower.includes('library') || lower.includes('u-block') || lower.includes('hostel') || lower.includes('location') || lower.includes('where')) {
-        simulatedReply = `### 🗺️ Vignan University (Vadlamudi) Campus & Facility Directory\n\nI have verified telemetry across all 10 Vignan University Vadlamudi campus zones (16.2334° N, 80.5508° E):\n\n* **NTR Vignan Central Library (NTR-LIB):** 1st Floor IT Walkup Tech Bar is **Active** for live walk-in student diagnostics.\n* **U-Block / Mahaveer Block (U-BLK):** CSE & IT Labs with AI/ML computing clusters.\n* **H-Block / Aryabhata Block (H-BLK):** ECE & EEE Robotics & Embedded Systems.\n* **Priyamvada Boys Hostel & Sarojini Girls Hostel:** High-density dorm ResNet active.\n* **Central Computing Center (CCC-DC):** Campus 10Gbps fiber backbone & Shibboleth SSO.\n\n*You can inspect live glowing building markers and active incidents on the **Campus Map** tab!*`;
+      } else if (lower.includes('network problem') || lower.includes('active network') || lower.includes('outage') || lower.includes('network issue')) {
+        simulatedReply = `### ⚠️ Active Campus Network Telemetry\n\nI scanned all 12 Vignan University Vadlamudi campus infrastructure nodes:\n\n1. **U-Block / Mahaveer Block (U-BLK):** High 802.1X certificate handshake delays reported on Wi-Fi 6 AP cluster.\n2. **Priyamvada Boys Hostel (PBH-DORM):** ResNet uplink port queue stall detected on Switch Stack Alpha.\n3. **CCC Campus Data Center (CCC-DC):** 10Gbps fiber core backbone is **Nominal** (0% packet loss).\n\n👉 Click **[🗺️ View on Map: U-Block]** or **[🗺️ View on Map: Priyamvada Hostel]** to inspect live glowing building markers.`;
+      } else if (lower.includes('assigned tickets on the map') || lower.includes('my assigned') || lower.includes('my tickets on map')) {
+        simulatedReply = `### 📍 My Assigned Incidents on Vignan Campus Map\n\nFiltering visible incidents assigned to your technician identity:\n\n* **INC-2026-8941:** Eduroam Certificate Loop at **U-Block / Mahaveer Block** [Diagnosing]\n* **INC-2026-8920:** Duo 2FA Push Timeout at **Priyamvada Boys Hostel** [Escalated]\n\n👉 Click **[🗺️ View on Map: U-Block]** or **[📋 Open Ticket: INC-2026-8941]** to open directly.`;
+      } else if (lower.includes('most incidents') || lower.includes('incident cluster') || lower.includes('campus area has the most')) {
+        simulatedReply = `### 🏢 Highest Incident Density Cluster\n\n* **Top Hotspot:** **U-Block / Mahaveer Block (CSE & IT Labs)** currently has the highest incident density with **2 active tickets** related to Eduroam 802.1X authentication.\n* **Secondary Area:** **Priyamvada Boys Hostel** with 1 escalated authentication ticket.\n\n👉 Click **[🗺️ View on Map: U-Block]** to jump directly to this building cluster.`;
+      } else if (lower.includes('highest-priority') || lower.includes('highest priority') || lower.includes('critical ticket') || lower.includes('open the highest')) {
+        simulatedReply = `### 🚨 Highest-Priority Incident Detected\n\n* **Ticket:** **INC-2026-8920**\n* **Title:** Duo 2FA Push Notification Timeout after iOS Upgrade\n* **Priority:** **HIGH / URGENT** (Midterm submission deadline in 2 hours)\n* **Location:** Priyamvada Boys Hostel, Rm 112\n\n👉 Click **[📋 Open Ticket: INC-2026-8920]** or **[🗺️ View on Map: Priyamvada Hostel]** to take immediate diagnostic action.`;
+      } else if (lower.includes('show this incident') || lower.includes('incident on the map') || lower.includes('show on map')) {
+        simulatedReply = `### 🗺️ Incident Location Located\n\nLocated incident **${activeTicketNumber || 'INC-2026-8941'}** on the Vignan University Campus Map:\n\n* **Building:** **U-Block / Mahaveer Block (CSE & IT Labs)**\n* **Coordinates:** 16.2345° N, 80.5512° E\n* **Status:** Diagnosing • Tier-1 Support\n\n👉 Click **[🗺️ View on Map: U-Block]** or **[📋 Open Ticket: ${activeTicketNumber || 'INC-2026-8941'}]**.`;
+      } else if (lower.includes('map') || lower.includes('vignan') || lower.includes('building') || lower.includes('library') || lower.includes('u-block') || lower.includes('hostel') || lower.includes('sports') || lower.includes('location') || lower.includes('where')) {
+        simulatedReply = `### 🗺️ Vignan University (Vadlamudi) Campus Directory\n\nI have verified telemetry across all 12 Vignan University Vadlamudi campus zones (16.2334° N, 80.5508° E):\n\n* **NTR Vignan Central Library (NTR-LIB):** 1st Floor IT Walkup Tech Bar is **Active** for live walk-in student diagnostics.\n* **U-Block / Mahaveer Block (U-BLK):** CSE & IT Labs with AI/ML computing clusters.\n* **H-Block / Aryabhata Block (H-BLK):** ECE & EEE Robotics & Embedded Systems.\n* **Vignan Sports Complex (V-SPORTS):** Outdoor Athletic Stadium & Floodlit Courts.\n* **Open Air Theatre (OAT-QUAD):** Central Amphitheater & Event Wi-Fi.\n* **Priyamvada Boys & Sarojini Girls Hostels:** High-density dorm ResNet active.\n* **Central Computing Center (CCC-DC):** Campus 10Gbps fiber backbone & Shibboleth SSO.\n\n👉 Click **[🗺️ View on Map: NTR Library]** or **[🗺️ View on Map: U-Block]** to view live aerial satellite imagery!`;
       } else {
         simulatedReply = `### 🛠️ CampusFix IT Diagnostic Assistant\n\nI have registered your report: **"${messageText.slice(0, 75)}"**.\n\n1. Confirm your device is authenticated with your campus NetID.\n2. Ensure your operating system and network settings meet university security policies.\n3. If connected off-campus, verify whether GlobalProtect VPN is required.\n\n*If the problem persists, click "Create Support Ticket" below.*`;
       }
@@ -674,6 +685,44 @@ export default function ChatInterface({
                   {message.content}
                 </ReactMarkdown>
               </div>
+
+              {/* Action Buttons for AI Map & Ticket recommendations */}
+              {message.role === 'assistant' && (
+                <div className="message-interactive-actions-bar" style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                  {(message.content.includes('View on Map') || message.content.includes('U-Block') || message.content.includes('Library') || message.content.includes('Hostel')) && onViewLocationOnMap && (
+                    <button
+                      type="button"
+                      className="btn-secondary-sm"
+                      style={{ padding: '0.3rem 0.65rem', fontSize: '0.74rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(99, 102, 241, 0.15)', borderColor: 'rgba(99, 102, 241, 0.35)', color: '#a5b4fc' }}
+                      onClick={() => {
+                        if (message.content.includes('Library')) onViewLocationOnMap('NTR-LIB');
+                        else if (message.content.includes('Priyamvada')) onViewLocationOnMap('PBH-DORM');
+                        else if (message.content.includes('Sports')) onViewLocationOnMap('V-SPORTS');
+                        else onViewLocationOnMap('U-BLK');
+                      }}
+                    >
+                      <MapPin size={12} />
+                      <span>🗺️ View on Satellite Map</span>
+                    </button>
+                  )}
+
+                  {(message.content.includes('INC-2026') || message.content.includes('Open Ticket')) && onViewTicket && (
+                    <button
+                      type="button"
+                      className="btn-secondary-sm"
+                      style={{ padding: '0.3rem 0.65rem', fontSize: '0.74rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(59, 130, 246, 0.15)', borderColor: 'rgba(59, 130, 246, 0.35)', color: '#93c5fd' }}
+                      onClick={() => {
+                        const match = message.content.match(/INC-2026-\d{4}/);
+                        if (match) onViewTicket(match[0]);
+                        else onViewTicket('INC-2026-8941');
+                      }}
+                    >
+                      <TicketIcon size={12} />
+                      <span>📋 Open Ticket</span>
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* 3 Compact Quick Suggestions on initial empty welcome message */}
               {message.id === 'welcome-it-specialist' && messages.length === 1 && (

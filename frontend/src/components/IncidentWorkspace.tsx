@@ -50,6 +50,7 @@ interface IncidentWorkspaceProps {
   onTicketsUpdated?: (tickets: Ticket[]) => void;
   onTicketChanged?: (ticket: Ticket) => void;
   onSwitchToHistory?: () => void;
+  onNavigateToMap?: (locationNameOrCode?: string) => void;
 }
 
 const CATEGORIES: TicketCategory[] = [
@@ -90,6 +91,7 @@ export default function IncidentWorkspace({
   onTicketsUpdated,
   onTicketChanged,
   onSwitchToHistory,
+  onNavigateToMap,
 }: IncidentWorkspaceProps) {
   const [localTickets, setLocalTickets] = useState<Ticket[]>(parentTickets || []);
   const tickets = parentTickets && parentTickets.length > 0 ? parentTickets : localTickets;
@@ -860,6 +862,9 @@ export default function IncidentWorkspace({
                 const match = tickets.find((t) => t.id === ticketId || t.ticket_number === ticketId);
                 if (match) setActiveTicket(match);
               }}
+              onViewLocationOnMap={(locName) => {
+                if (onNavigateToMap) onNavigateToMap(locName);
+              }}
             />
           </div>
         </div>
@@ -1074,10 +1079,24 @@ export default function IncidentWorkspace({
                   <span className="detail-key">Email:</span>
                   <span className="detail-val">{activeTicket.email}</span>
                 </div>
-                <div className="detail-item">
-                  <MapPin size={14} className="detail-icon" />
-                  <span className="detail-key">Location:</span>
-                  <span className="detail-val">{activeTicket.location}</span>
+                <div className="detail-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <MapPin size={14} className="detail-icon" />
+                    <span className="detail-key">Location:</span>
+                    <span className="detail-val">{activeTicket.location}</span>
+                  </div>
+                  {onNavigateToMap && activeTicket.location && (
+                    <button
+                      type="button"
+                      className="btn-secondary-sm"
+                      style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                      onClick={() => onNavigateToMap(activeTicket.location)}
+                      title="View this incident location on Satellite Campus Map"
+                    >
+                      <MapPin size={11} />
+                      <span>Map</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
