@@ -45,6 +45,22 @@ export default function AuthModal({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const handleRoleTabChange = (role: UserRole) => {
+    setSelectedRole(role);
+    setErrorMsg(null);
+    if (role === 'host' || role === 'admin') {
+      setUsername('VAMSI');
+      setPassword('vamsi@123');
+    } else if (role === 'technician') {
+      setUsername('ramu');
+      setPassword('ramu@123');
+      setSpecialization('Network');
+    } else {
+      setUsername('student');
+      setPassword('student@123');
+    }
+  };
+
   // Sync initial role
   useEffect(() => {
     if (initialRole) {
@@ -71,24 +87,6 @@ export default function AuthModal({
       document.body.style.overflow = originalOverflow;
     };
   }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  const handleRoleTabChange = (role: UserRole) => {
-    setSelectedRole(role);
-    setErrorMsg(null);
-    if (role === 'host' || role === 'admin') {
-      setUsername('VAMSI');
-      setPassword('vamsi@123');
-    } else if (role === 'technician') {
-      setUsername('ramu');
-      setPassword('ramu@123');
-      setSpecialization('Network');
-    } else {
-      setUsername('student');
-      setPassword('student@123');
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,6 +143,8 @@ export default function AuthModal({
       setIsLoading(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="modal-backdrop-saas" onClick={onClose}>
