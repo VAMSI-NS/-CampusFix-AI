@@ -70,8 +70,14 @@ function getRouteFromPath(pathname: string, hash: string): { tab: TabType | '404
     cleanPathname = '/' + cleanPathname;
   }
 
-  const raw = (cleanHash.startsWith('#/') ? cleanHash.slice(1) : cleanHash.startsWith('#') ? cleanHash.slice(1) : cleanPathname)
-    .replace(/\/+$/, '') || '/';
+  let raw = cleanHash
+    ? cleanHash.replace(/^#\/?/, '/')
+    : cleanPathname;
+
+  raw = raw.replace(/\/+$/, '') || '/';
+  if (!raw.startsWith('/')) {
+    raw = '/' + raw;
+  }
 
   const firstSegment = '/' + (raw.split('/')[1] || '');
 
@@ -79,6 +85,7 @@ function getRouteFromPath(pathname: string, hash: string): { tab: TabType | '404
     case '':
     case '/':
     case '/index.html':
+    case '/index.htm':
     case '/index':
     case '/home':
     case '/landing':
