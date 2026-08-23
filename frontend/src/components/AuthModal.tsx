@@ -111,36 +111,43 @@ export default function AuthModal({
       });
 
       if (res.ok) {
-        const data: LoginResponse = await res.json();
-        localStorage.setItem('campusfix_token', data.token);
-        localStorage.setItem('campusfix_user', JSON.stringify(data.user));
-        onLoginSuccess(data.token, data.user);
-        onClose();
-        return;
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          const data: LoginResponse = await res.json();
+          localStorage.setItem('campusfix_token', data.token);
+          localStorage.setItem('campusfix_user', JSON.stringify(data.user));
+          onLoginSuccess(data.token, data.user);
+          onClose();
+          return;
+        }
       } else {
-        const errJson = await res.json().catch(() => ({}));
-        setErrorMsg(errJson.detail || 'Authentication failed. Please verify your credentials.');
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('application/json') && res.status !== 404) {
+          const errJson = await res.json().catch(() => ({}));
+          setErrorMsg(errJson.detail || 'Authentication failed. Please verify your credentials.');
+          return;
+        }
       }
     } catch {
-      // Offline fallback
-      const mockResult = authenticateClientMockUser(
-        username.trim(),
-        password.trim(),
-        selectedRole === 'admin' ? 'host' : selectedRole,
-        selectedRole === 'technician' ? specialization : undefined
-      );
+      // Backend unavailable, fallback to client authentication
+    }
 
-      if (mockResult) {
-        localStorage.setItem('campusfix_token', mockResult.token);
-        localStorage.setItem('campusfix_user', JSON.stringify(mockResult.user));
-        onLoginSuccess(mockResult.token, mockResult.user);
-        onClose();
-        return;
-      } else {
-        setErrorMsg('Invalid credentials. Please click one of the quick 1-click profiles below.');
-      }
-    } finally {
-      setIsLoading(false);
+    // Client-side authentication fallback (for GitHub Pages / Offline mode)
+    const mockResult = authenticateClientMockUser(
+      username.trim(),
+      password.trim(),
+      selectedRole === 'admin' ? 'host' : selectedRole,
+      selectedRole === 'technician' ? specialization : undefined
+    );
+
+    if (mockResult) {
+      localStorage.setItem('campusfix_token', mockResult.token);
+      localStorage.setItem('campusfix_user', JSON.stringify(mockResult.user));
+      onLoginSuccess(mockResult.token, mockResult.user);
+      onClose();
+      return;
+    } else {
+      setErrorMsg('Invalid credentials. Please click one of the quick 1-click profiles below.');
     }
   };
 
