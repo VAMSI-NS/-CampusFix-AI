@@ -12,6 +12,8 @@ import {
   TicketAIAnalysisResponse,
   CampusLocation,
   CampusMapDataResponse,
+  MapAuditEntry,
+  HostAITask,
 } from '../types/chat';
 
 export const INITIAL_MOCK_TICKETS: Ticket[] = [
@@ -311,11 +313,39 @@ export const INITIAL_MOCK_USERS: CampusUser[] = [
 
 export function authenticateClientMockUser(
   username: string,
-  _password: string,
-  role: UserRole,
+  password?: string,
+  role: UserRole = 'student',
   specialization?: TechnicianSpecialization
 ): LoginResponse | null {
-  const cleanU = username.trim().toLowerCase();
+  const cleanU = (username || '').trim().toLowerCase();
+  const cleanP = (password || '').trim();
+
+  // Basic validation: username and password cannot be empty
+  if (!cleanU || !cleanP) return null;
+
+  // Pre-seed demo accounts with their authorized passwords
+  const validCredentials: Record<string, { pass: string; role: UserRole; name: string }> = {
+    vamsi: { pass: 'vamsi@123', role: 'host', name: 'VAMSI' },
+    admin: { pass: 'vamsi@123', role: 'host', name: 'VAMSI' },
+    ramu: { pass: 'ramu@123', role: 'technician', name: 'Ramu Kumar' },
+    sarah: { pass: 'sarah@123', role: 'technician', name: 'Sarah Jenkins' },
+    dave: { pass: 'dave@123', role: 'technician', name: 'Dave Miller' },
+    alex: { pass: 'alex@123', role: 'technician', name: 'Alex Wong' },
+    priya: { pass: 'priya@123', role: 'technician', name: 'Priya Sharma' },
+    student: { pass: 'student@123', role: 'student', name: 'Student User' },
+    marcus: { pass: 'student@123', role: 'student', name: 'Marcus Chen' },
+  };
+
+  const matchedCred = validCredentials[cleanU];
+  if (matchedCred) {
+    if (matchedCred.pass !== cleanP) {
+      return null; // Password mismatch
+    }
+  } else {
+    // For other custom created accounts: require at least 3 character password
+    if (cleanP.length < 3) return null;
+  }
+
   const allUsers = getLocalTechnicians();
 
   // Search across existing persisted local technicians and mock users
@@ -999,8 +1029,62 @@ export function resetLocalSystemData(): { tickets: Ticket[]; technicians: Campus
 
 export const VIGNAN_CAMPUS_LOCATIONS: CampusLocation[] = [
   {
+    id: 'loc-a-block',
+    name: 'A Block',
+    code: 'A-BLK',
+    category: 'Administrative & Academic',
+    latitude: 16.2338,
+    longitude: 80.5505,
+    description: 'Central administrative headquarters housing the Registrar\'s Office, Finance Office, Central Instrumentation Center, Mechanical Workshop, and Vignan Health Center.',
+    facilities: ['Registrar\'s Office', 'Finance Office & Admin', 'Central Instrumentation Center', 'Mechanical Workshop'],
+    wifi_network: 'Eduroam / Vignan-Admin-5G',
+    active_tech_bar: false,
+    building_floor_count: 4,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+    verification_status: 'verified',
+  },
+  {
+    id: 'loc-h-block',
+    name: 'H Block',
+    code: 'H-BLK',
+    category: 'Academic Block',
+    latitude: 16.2336,
+    longitude: 80.5501,
+    description: 'Engineering and sciences academic wing situated along H Block Road adjacent to the Cadence VLSI Research Facility.',
+    facilities: ['Electronics Core Labs', 'Embedded Systems Wing', 'Faculty Cabins'],
+    wifi_network: 'Eduroam / Vignan-HBlock-Wi-Fi6',
+    active_tech_bar: false,
+    building_floor_count: 4,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+    verification_status: 'verified',
+  },
+  {
+    id: 'loc-n-block',
+    name: 'N Block',
+    code: 'N-BLK',
+    category: 'Academic Block',
+    latitude: 16.2333,
+    longitude: 80.5513,
+    description: 'Central multi-wing courtyard academic block housing core undergraduate lecture theaters, department computing suites, and administrative coordination rooms.',
+    facilities: ['Undergraduate Lecture Theaters', 'Department Computer Centers', 'Seminar Rooms'],
+    wifi_network: 'Eduroam / Vignan-NBlock-Wi-Fi6',
+    active_tech_bar: false,
+    building_floor_count: 5,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+    verification_status: 'verified',
+  },
+  {
     id: 'loc-u-block',
-    name: 'U-Block (Main Academic Block)',
+    name: 'U Block',
     code: 'U-BLK',
     category: 'Academic Block',
     latitude: 16.2346,
@@ -1017,33 +1101,15 @@ export const VIGNAN_CAMPUS_LOCATIONS: CampusLocation[] = [
     verification_status: 'verified',
   },
   {
-    id: 'loc-ntr-library',
-    name: 'NTR-Vignan Library',
-    code: 'NTR-LIB',
-    category: 'Library',
-    latitude: 16.2335,
-    longitude: 80.5498,
-    description: 'Distinctive octagonal central university library featuring the 1st Floor IT Walkup Tech Bar, Digital Knowledge Center, PaperCut student print release station, and reading commons.',
-    facilities: ['1st Floor IT Walkup Tech Bar', 'Digital Knowledge Resource Center', 'PaperCut Student Print Release Hub', 'Silent Research Commons'],
-    wifi_network: 'Eduroam / Vignan-Library-Mesh',
-    active_tech_bar: true,
-    building_floor_count: 4,
-    service_status: 'operational',
-    active_ticket_ids: [],
-    active_incident_count: 0,
-    assigned_technicians: [],
-    verification_status: 'verified',
-  },
-  {
-    id: 'loc-a-block',
-    name: 'A-Block Vignan University (Admin & Labs)',
-    code: 'A-BLK',
-    category: 'Administrative & Academic',
-    latitude: 16.2338,
-    longitude: 80.5505,
-    description: 'Central administrative headquarters housing the Registrar\'s Office, Finance Office, Central Instrumentation Center, Mechanical Workshop, and Vignan Health Center.',
-    facilities: ['Registrar\'s Office', 'Finance Office & Admin', 'Central Instrumentation Center', 'Vignan Health Center', 'Mechanical Workshop'],
-    wifi_network: 'Eduroam / Vignan-Admin-5G',
+    id: 'loc-p-block',
+    name: 'P Block',
+    code: 'P-BLK',
+    category: 'Academic Block',
+    latitude: 16.2339,
+    longitude: 80.5509,
+    description: 'Postgraduate and applied engineering research complex with advanced robotics, computational fluid dynamics, and mechatronics laboratories.',
+    facilities: ['Robotics & Automation Lab', 'PG Research Center', 'Computational Modeling Suite'],
+    wifi_network: 'Eduroam / Vignan-PBlock-Wi-Fi6',
     active_tech_bar: false,
     building_floor_count: 4,
     service_status: 'operational',
@@ -1054,7 +1120,7 @@ export const VIGNAN_CAMPUS_LOCATIONS: CampusLocation[] = [
   },
   {
     id: 'loc-visvesvaraya-block',
-    name: 'Visvesvaraya Block & Open-Air Amphitheater',
+    name: 'Visvesvaraya Block',
     code: 'VISV-BLK',
     category: 'Academic Block',
     latitude: 16.2325,
@@ -1071,17 +1137,89 @@ export const VIGNAN_CAMPUS_LOCATIONS: CampusLocation[] = [
     verification_status: 'verified',
   },
   {
-    id: 'loc-guest-house',
-    name: 'VFSTR Guest House',
-    code: 'VFSTR-GH',
-    category: 'Guest House & Residential',
-    latitude: 16.2355,
-    longitude: 80.5510,
-    description: 'Executive university guest house featuring faculty suites, visiting dignitary residences, and seminar conference meeting rooms situated within lush greenery.',
-    facilities: ['Executive Guest Suites', 'Visiting Faculty Accommodation', 'Guest Wi-Fi High-Speed Network', 'Conference Lounge'],
-    wifi_network: 'Eduroam / Vignan-Guest-Mesh',
+    id: 'loc-ntr-library',
+    name: 'N.T.R. Vignan Library',
+    code: 'NTR-LIB',
+    category: 'Library',
+    latitude: 16.2335,
+    longitude: 80.5498,
+    description: 'Distinctive octagonal central university library featuring the 1st Floor IT Walkup Tech Bar, Digital Knowledge Center, PaperCut student print release station, and reading commons.',
+    facilities: ['1st Floor IT Walkup Tech Bar', 'Digital Knowledge Resource Center', 'PaperCut Student Print Release Hub', 'Silent Research Commons'],
+    wifi_network: 'Eduroam / Vignan-Library-Mesh',
+    active_tech_bar: true,
+    building_floor_count: 4,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+    verification_status: 'verified',
+  },
+  {
+    id: 'loc-lara-library',
+    name: 'Vignan\'s LARA Library',
+    code: 'LARA-LIB',
+    category: 'Library',
+    latitude: 16.2319,
+    longitude: 80.5539,
+    description: 'Central library wing for the LARA Engineering complex with e-journals, collaborative study carrels, and digital catalog kiosks.',
+    facilities: ['Digital Reference Desk', 'E-Journals Terminal', 'Study Lounges'],
+    wifi_network: 'Eduroam / Vignan-LARA-Lib',
     active_tech_bar: false,
     building_floor_count: 3,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+    verification_status: 'verified',
+  },
+  {
+    id: 'loc-lara-institute',
+    name: 'Vignan\'s LARA Institute of Technology & Science',
+    code: 'LARA-ITS',
+    category: 'Academic Block',
+    latitude: 16.2315,
+    longitude: 80.5535,
+    description: 'Engineering institute campus block featuring the LARA Old Block, advanced engineering workshops, and department computational facilities.',
+    facilities: ['Vignan\'s LARA Old Block', 'Engineering Computing Labs', 'Electronics Workshop'],
+    wifi_network: 'Eduroam / Vignan-LARA-Net',
+    active_tech_bar: false,
+    building_floor_count: 4,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+    verification_status: 'verified',
+  },
+  {
+    id: 'loc-vfstr-main',
+    name: 'Vignan Foundation for Science, Technology and Research',
+    code: 'VFSTR',
+    category: 'Administrative & Academic',
+    latitude: 16.2342,
+    longitude: 80.5514,
+    description: 'University Administration and Deanery offices managing campus academic standards, governance, and institutional technology programs.',
+    facilities: ['Vice Chancellor\'s Secretariat', 'Deans\' Conference Boardroom', 'IT Policy & Infrastructure Directorate'],
+    wifi_network: 'Eduroam / Vignan-HQ-5G',
+    active_tech_bar: false,
+    building_floor_count: 4,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+    verification_status: 'verified',
+  },
+  {
+    id: 'loc-health-center',
+    name: 'Vignan Health Center',
+    code: 'VHC',
+    category: 'Administrative & Academic',
+    latitude: 16.2329,
+    longitude: 80.5506,
+    description: 'Campus Medical and Wellness Center providing 24/7 student outpatient care, emergency triage, pharmacy dispensary, and biometric health record kiosks.',
+    facilities: ['24/7 Outpatient Clinic', 'Pharmacy Dispensary', 'Emergency First Aid Station'],
+    wifi_network: 'Eduroam / Vignan-Health-Net',
+    active_tech_bar: false,
+    building_floor_count: 2,
     service_status: 'operational',
     active_ticket_ids: [],
     active_incident_count: 0,
@@ -1107,15 +1245,15 @@ export const VIGNAN_CAMPUS_LOCATIONS: CampusLocation[] = [
     verification_status: 'verified',
   },
   {
-    id: 'loc-textile-dept',
-    name: 'Textile Department',
-    code: 'TEX-DEPT',
+    id: 'loc-cadence-lab',
+    name: 'Cadence Lab',
+    code: 'CAD-LAB',
     category: 'Academic & Laboratory',
-    latitude: 16.2328,
-    longitude: 80.5492,
-    description: 'Department of Textile Technology containing specialized fabric testing laboratories, weaving and knitting workshops, and material characterization equipment.',
-    facilities: ['Fabric Testing & Quality Labs', 'Textile Weaving Workshop', 'Dyeing & Processing Unit'],
-    wifi_network: 'Eduroam / Vignan-Textile-Lab',
+    latitude: 16.2334,
+    longitude: 80.5503,
+    description: 'Advanced VLSI and Semiconductor Design Laboratory sponsored by Cadence Design Systems with high-end EDA workstations.',
+    facilities: ['Cadence EDA Workstations', 'VLSI Design Suites', 'FPGA Prototyping Benches'],
+    wifi_network: 'Eduroam / Vignan-VLSI-Lab',
     active_tech_bar: false,
     building_floor_count: 2,
     service_status: 'operational',
@@ -1125,17 +1263,35 @@ export const VIGNAN_CAMPUS_LOCATIONS: CampusLocation[] = [
     verification_status: 'verified',
   },
   {
-    id: 'loc-lara-institute',
-    name: 'Vignan\'s LARA Institute of Technology & Science',
-    code: 'LARA-ITS',
-    category: 'Academic Block',
-    latitude: 16.2315,
-    longitude: 80.5535,
-    description: 'Engineering institute campus block featuring the LARA Old Block, LARA Central Library, advanced engineering workshops, and department computational facilities.',
-    facilities: ['Vignan\'s LARA Old Block', 'Vignan\'s LARA Library', 'Engineering Computing Labs', 'Electronics Workshop'],
-    wifi_network: 'Eduroam / Vignan-LARA-Net',
+    id: 'loc-convocation-hall',
+    name: 'Vignan Convocation Hall',
+    code: 'V-CONV',
+    category: 'Administrative & Academic',
+    latitude: 16.2351,
+    longitude: 80.5518,
+    description: 'State-of-the-art air-conditioned auditorium and convocation convention center seating 3,000 guests with ultra-high-density Wi-Fi 6E infrastructure.',
+    facilities: ['3000-Seat Auditorium', 'Acoustic Soundstage', 'High-Density Wi-Fi 6E Cluster'],
+    wifi_network: 'Eduroam / Vignan-Auditorium-Wi-Fi6',
     active_tech_bar: false,
-    building_floor_count: 4,
+    building_floor_count: 3,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+    verification_status: 'verified',
+  },
+  {
+    id: 'loc-guest-house',
+    name: 'VFSTR Guest House',
+    code: 'VFSTR-GH',
+    category: 'Guest House & Residential',
+    latitude: 16.2355,
+    longitude: 80.5510,
+    description: 'Executive university guest house featuring faculty suites, visiting dignitary residences, and seminar conference meeting rooms situated within lush greenery.',
+    facilities: ['Executive Guest Suites', 'Visiting Faculty Accommodation', 'Guest Wi-Fi High-Speed Network', 'Conference Lounge'],
+    wifi_network: 'Eduroam / Vignan-Guest-Mesh',
+    active_tech_bar: false,
+    building_floor_count: 3,
     service_status: 'operational',
     active_ticket_ids: [],
     active_incident_count: 0,
@@ -1160,7 +1316,175 @@ export const VIGNAN_CAMPUS_LOCATIONS: CampusLocation[] = [
     assigned_technicians: [],
     verification_status: 'verified',
   },
+  {
+    id: 'loc-textile-dept',
+    name: 'Textile Department',
+    code: 'TEX-DEPT',
+    category: 'Academic & Laboratory',
+    latitude: 16.2328,
+    longitude: 80.5492,
+    description: 'Department of Textile Technology containing specialized fabric testing laboratories, weaving and knitting workshops, and material characterization equipment.',
+    facilities: ['Fabric Testing & Quality Labs', 'Textile Weaving Workshop', 'Dyeing & Processing Unit'],
+    wifi_network: 'Eduroam / Vignan-Textile-Lab',
+    active_tech_bar: false,
+    building_floor_count: 2,
+    service_status: 'operational',
+    active_ticket_ids: [],
+    active_incident_count: 0,
+    assigned_technicians: [],
+    verification_status: 'verified',
+  },
 ];
+
+// --- Persistent Campus Map Local Storage Helpers ---
+
+export function getLocalCampusLocations(): CampusLocation[] {
+  try {
+    const raw = localStorage.getItem('campusfix_locations');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.error('Error reading campus locations from localStorage:', e);
+  }
+  return VIGNAN_CAMPUS_LOCATIONS;
+}
+
+export function saveLocalCampusLocations(locations: CampusLocation[]): void {
+  try {
+    localStorage.setItem('campusfix_locations', JSON.stringify(locations));
+  } catch (e) {
+    console.error('Error saving campus locations to localStorage:', e);
+  }
+}
+
+export function getLocalMapLockState(): boolean {
+  try {
+    const raw = localStorage.getItem('campusfix_map_locked');
+    if (raw !== null) {
+      return JSON.parse(raw) === true;
+    }
+  } catch (e) {
+    console.error('Error reading map lock state:', e);
+  }
+  return true; // Default locked to preserve approved campus layout
+}
+
+export function saveLocalMapLockState(isLocked: boolean): void {
+  try {
+    localStorage.setItem('campusfix_map_locked', JSON.stringify(isLocked));
+  } catch (e) {
+    console.error('Error saving map lock state:', e);
+  }
+}
+
+export function getLocalMapAuditLog(): MapAuditEntry[] {
+  try {
+    const raw = localStorage.getItem('campusfix_map_audit_log');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.error('Error reading map audit log:', e);
+  }
+  return [
+    {
+      id: 'audit-init',
+      timestamp: new Date(Date.now() - 3600000).toISOString(),
+      actor: 'system',
+      action: 'lock',
+      details: 'Initial verified Vignan University campus block names and satellite geodata calibrated and locked.',
+    },
+  ];
+}
+
+export function saveLocalMapAuditLog(logs: MapAuditEntry[]): void {
+  try {
+    localStorage.setItem('campusfix_map_audit_log', JSON.stringify(logs.slice(0, 100)));
+  } catch (e) {
+    console.error('Error saving map audit log:', e);
+  }
+}
+
+export function addMapAuditEntry(entry: Omit<MapAuditEntry, 'id' | 'timestamp'>): MapAuditEntry {
+  const newEntry: MapAuditEntry = {
+    ...entry,
+    id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    timestamp: new Date().toISOString(),
+  };
+  const logs = [newEntry, ...getLocalMapAuditLog()];
+  saveLocalMapAuditLog(logs);
+  return newEntry;
+}
+
+export function resetCampusMapToDefault(): CampusLocation[] {
+  try {
+    localStorage.removeItem('campusfix_locations');
+    saveLocalMapLockState(true);
+    addMapAuditEntry({
+      actor: 'host',
+      action: 'reset',
+      details: 'Reset all campus blocks and map labels to the approved default layout.',
+    });
+  } catch (e) {
+    console.error('Error resetting campus map:', e);
+  }
+  return VIGNAN_CAMPUS_LOCATIONS;
+}
+
+// --- Host Assigned AI Tasks Storage Helpers ---
+
+export function getLocalAITasks(): HostAITask[] {
+  try {
+    const raw = localStorage.getItem('campusfix_host_ai_tasks');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.error('Error reading AI tasks from localStorage:', e);
+  }
+  return [
+    {
+      id: 'task-ai-1',
+      title: 'Correct Campus Block Names & Verify Geodata Alignment',
+      description: 'Audit all campus buildings against official Vignan University master plan and align satellite pin coordinates.',
+      status: 'completed',
+      progress_percentage: 100,
+      locations_affected: ['A Block', 'H Block', 'N Block', 'U Block', 'P Block', 'Visvesvaraya Block', 'N.T.R. Vignan Library'],
+      changes_made: [
+        'Verified A Block, H Block, and Cadence Lab along H Block Road',
+        'Aligned N Block central courtyard pin coordinates',
+        'Standardized U Block and Vignan Convocation Hall along U Block Road',
+        'Mapped Visvesvaraya Block and Open-Air Amphitheater',
+      ],
+      created_at: new Date(Date.now() - 7200000).toISOString(),
+      completed_at: new Date(Date.now() - 3600000).toISOString(),
+      assigned_by: 'Host (VAMSI)',
+    },
+  ];
+}
+
+export function saveLocalAITasks(tasks: HostAITask[]): void {
+  try {
+    localStorage.setItem('campusfix_host_ai_tasks', JSON.stringify(tasks));
+  } catch (e) {
+    console.error('Error saving AI tasks to localStorage:', e);
+  }
+}
+
+export function addHostAITask(task: Omit<HostAITask, 'id' | 'created_at'>): HostAITask {
+  const newTask: HostAITask = {
+    ...task,
+    id: `task-ai-${Date.now()}`,
+    created_at: new Date().toISOString(),
+  };
+  const tasks = [newTask, ...getLocalAITasks()];
+  saveLocalAITasks(tasks);
+  return newTask;
+}
 
 export function getClientCampusMapData(
   currentUser?: CampusUser | null,
@@ -1170,9 +1494,13 @@ export function getClientCampusMapData(
   const isTechnician = currentUser && currentUser.role === 'technician';
   const userName = currentUser?.name?.toLowerCase();
 
+  const currentLocations = getLocalCampusLocations();
+  const isLocked = getLocalMapLockState();
+  const auditLog = getLocalMapAuditLog();
+
   let activeTotal = 0;
 
-  const enrichedLocations = VIGNAN_CAMPUS_LOCATIONS.map((loc) => {
+  const enrichedLocations = currentLocations.map((loc) => {
     const locLower = loc.name.toLowerCase();
     const codeLower = loc.code.toLowerCase();
 
@@ -1243,6 +1571,8 @@ export function getClientCampusMapData(
     total_locations: enrichedLocations.length,
     active_incidents_count: activeTotal,
     operational_services_count: operationalCount,
+    is_locked: isLocked,
+    audit_log: auditLog,
   };
 }
 

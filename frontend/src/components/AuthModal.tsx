@@ -99,55 +99,72 @@ export default function AuthModal({
     setErrorMsg(null);
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: username.trim(),
-          password: password.trim(),
-          role: selectedRole === 'admin' ? 'host' : selectedRole,
-          specialization: selectedRole === 'technician' ? specialization : undefined,
-        }),
-      });
+      // Fast timeout on backend call to prevent hanging indefinitely on "Authenticating..."
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
 
-      if (res.ok) {
-        const ct = res.headers.get('content-type') || '';
-        if (ct.includes('application/json')) {
-          const data: LoginResponse = await res.json();
-          localStorage.setItem('campusfix_token', data.token);
-          localStorage.setItem('campusfix_user', JSON.stringify(data.user));
-          onLoginSuccess(data.token, data.user);
-          onClose();
-          return;
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            username: username.trim(),
+            password: password.trim(),
+            role: selectedRole === 'admin' ? 'host' : selectedRole,
+            specialization: selectedRole === 'technician' ? specialization : undefined,
+          }),
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const ct = res.headers.get('content-type') || '';
+          if (ct.includes('application/json')) {
+            const data: LoginResponse = await res.json();
+            localStorage.setItem('campusfix_token', data.token);
+            localStorage.setItem('campusfix_user', JSON.stringify(data.user));
+            setIsLoading(false);
+            onLoginSuccess(data.token, data.user);
+            onClose();
+            return;
+          }
+        } else {
+          const ct = res.headers.get('content-type') || '';
+          if (ct.includes('application/json') && res.status !== 404) {
+            const errJson = await res.json().catch(() => ({}));
+            setIsLoading(false);
+            setErrorMsg(errJson.detail || 'Authentication failed. Please verify your credentials.');
+            return;
+          }
         }
+      } catch {
+        // Backend unavailable, network offline, or timed out — proceed to local client auth
+      }
+
+      // Client-side authentication fallback (for GitHub Pages / Offline / fast demo mode)
+      const mockResult = authenticateClientMockUser(
+        username.trim(),
+        password.trim(),
+        selectedRole === 'admin' ? 'host' : selectedRole,
+        selectedRole === 'technician' ? specialization : undefined
+      );
+
+      if (mockResult) {
+        localStorage.setItem('campusfix_token', mockResult.token);
+        localStorage.setItem('campusfix_user', JSON.stringify(mockResult.user));
+        setIsLoading(false);
+        onLoginSuccess(mockResult.token, mockResult.user);
+        onClose();
+        return;
       } else {
-        const ct = res.headers.get('content-type') || '';
-        if (ct.includes('application/json') && res.status !== 404) {
-          const errJson = await res.json().catch(() => ({}));
-          setErrorMsg(errJson.detail || 'Authentication failed. Please verify your credentials.');
-          return;
-        }
+        setIsLoading(false);
+        setErrorMsg('Authentication failed. Please verify your credentials.');
       }
     } catch {
-      // Backend unavailable, fallback to client authentication
-    }
-
-    // Client-side authentication fallback (for GitHub Pages / Offline mode)
-    const mockResult = authenticateClientMockUser(
-      username.trim(),
-      password.trim(),
-      selectedRole === 'admin' ? 'host' : selectedRole,
-      selectedRole === 'technician' ? specialization : undefined
-    );
-
-    if (mockResult) {
-      localStorage.setItem('campusfix_token', mockResult.token);
-      localStorage.setItem('campusfix_user', JSON.stringify(mockResult.user));
-      onLoginSuccess(mockResult.token, mockResult.user);
-      onClose();
-      return;
-    } else {
-      setErrorMsg('Invalid credentials. Please click one of the quick 1-click profiles below.');
+      setIsLoading(false);
+      setErrorMsg('Authentication failed. Please verify your credentials.');
+    } finally {
+      setIsLoading(false);
     }
   };
 

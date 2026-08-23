@@ -239,6 +239,33 @@ export interface CampusLocation {
   verification_status?: 'verified' | 'unmapped';
 }
 
+export interface MapAuditEntry {
+  id: string;
+  timestamp: string;
+  actor: 'host' | 'ai_assistant' | 'system';
+  action: 'rename' | 'add' | 'remove' | 'move' | 'lock' | 'unlock' | 'batch_correct' | 'reset';
+  target_id?: string;
+  target_name?: string;
+  details: string;
+  previous_value?: string;
+  new_value?: string;
+}
+
+export interface HostAITask {
+  id: string;
+  title: string;
+  description: string;
+  status: 'pending' | 'running' | 'reviewing' | 'applied' | 'completed';
+  progress_percentage: number;
+  locations_affected: string[];
+  changes_made: string[];
+  created_at: string;
+  completed_at?: string;
+  assigned_by: string;
+  requires_confirmation?: boolean;
+  confirmation_prompt?: string;
+}
+
 export interface CampusMapDataResponse {
   campus_name: string;
   location_name: string;
@@ -249,6 +276,8 @@ export interface CampusMapDataResponse {
   total_locations: number;
   active_incidents_count: number;
   operational_services_count: number;
+  is_locked?: boolean;
+  audit_log?: MapAuditEntry[];
 }
 
 // --- Knowledge Base Types ---
