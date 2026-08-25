@@ -32,7 +32,11 @@ export default function StudentDashboard({
   const [searchQuery, setSearchQuery] = useState('');
 
   const myTickets = tickets.filter(
-    (t) => currentUser && (t.netid === currentUser.netid || t.email === currentUser.email)
+    (t) =>
+      currentUser &&
+      (t.netid?.toLowerCase() === currentUser.netid?.toLowerCase() ||
+        (currentUser.roll_number && t.netid?.toLowerCase() === currentUser.roll_number.toLowerCase()) ||
+        t.email?.toLowerCase() === currentUser.email?.toLowerCase())
   );
 
   const activeRequests = myTickets.length > 0 ? myTickets : tickets.slice(0, 3);
@@ -83,7 +87,7 @@ export default function StudentDashboard({
           </div>
 
           <h1 style={{ fontSize: '2.2rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.03em', marginBottom: '0.5rem' }}>
-            How can we help you today, {currentUser?.name?.split(' ')[0] || 'Student'}?
+            Welcome, {currentUser?.name || 'Student'} {currentUser?.roll_number ? `(${currentUser.roll_number})` : ''}
           </h1>
           <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', marginBottom: '1.75rem' }}>
             Instant AI diagnostics, ticket tracking, and verified Vignan University campus support.

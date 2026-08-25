@@ -323,88 +323,156 @@ export function authenticateClientMockUser(
   // Basic validation: username and password cannot be empty
   if (!cleanU || !cleanP) return null;
 
-  // Pre-seed demo accounts with their authorized passwords
-  const validCredentials: Record<string, { pass: string; role: UserRole; name: string }> = {
-    vamsi: { pass: 'vamsi@123', role: 'host', name: 'VAMSI' },
-    admin: { pass: 'vamsi@123', role: 'host', name: 'VAMSI' },
-    ramu: { pass: 'ramu@123', role: 'technician', name: 'Ramu Kumar' },
-    sarah: { pass: 'sarah@123', role: 'technician', name: 'Sarah Jenkins' },
-    dave: { pass: 'dave@123', role: 'technician', name: 'Dave Miller' },
-    alex: { pass: 'alex@123', role: 'technician', name: 'Alex Wong' },
-    priya: { pass: 'priya@123', role: 'technician', name: 'Priya Sharma' },
-    student: { pass: 'student@123', role: 'student', name: 'Student User' },
-    marcus: { pass: 'student@123', role: 'student', name: 'Marcus Chen' },
-  };
-
-  const matchedCred = validCredentials[cleanU];
-  if (matchedCred) {
-    if (matchedCred.pass !== cleanP) {
-      return null; // Password mismatch
-    }
-  } else {
-    // For other custom created accounts: require at least 3 character password
-    if (cleanP.length < 3) return null;
-  }
-
   const allUsers = getLocalTechnicians();
 
-  // Search across existing persisted local technicians and mock users
+  // Search across existing persisted local technicians and mock users by explicit username/netid/id
   let user = allUsers.find(
     (u) =>
       u.username?.toLowerCase() === cleanU ||
       u.netid?.toLowerCase() === cleanU ||
-      u.name.toLowerCase() === cleanU ||
-      (u.role === role && specialization && u.specialization === specialization)
+      u.id?.toLowerCase() === cleanU ||
+      u.name.toLowerCase() === cleanU
   );
 
   if (!user) {
-    if (role === 'host' || cleanU.includes('vamsi') || cleanU.includes('admin')) {
-      user = INITIAL_MOCK_USERS[0];
-    } else if (role === 'technician') {
-      const spec = specialization || 'Network';
-      const cleanName = username.trim().length > 1 ? username.trim() : `${spec} Technician`;
-      const initials = cleanName
-        .split(' ')
-        .filter(Boolean)
-        .map((p) => p[0].toUpperCase())
-        .join('')
-        .slice(0, 2) || 'TC';
+    // Create new identity matching the typed username
+    const cleanName = username.trim().length > 1
+      ? username.trim().charAt(0).toUpperCase() + username.trim().slice(1)
+      : (role === 'host' ? 'Host Administrator' : 'Campus Staff');
+    const initials = cleanName
+      .split(' ')
+      .filter(Boolean)
+      .map((p) => p[0].toUpperCase())
+      .join('')
+      .slice(0, 2) || (role === 'host' ? 'HA' : 'ST');
 
-      user = {
-        id: `user-tech-${Date.now()}`,
-        technician_id: `TECH-${Math.floor(100 + Math.random() * 900)}`,
-        name: cleanName,
-        username: cleanU || cleanName.toLowerCase().replace(/\s+/g, '.'),
-        email: `${cleanU || cleanName.toLowerCase().replace(/\s+/g, '.')}@university.edu`,
-        netid: cleanU || cleanName.toLowerCase().replace(/\s+/g, '.'),
-        role: 'technician',
-        specialization: spec,
-        department: `${spec} Engineering & Operations`,
-        status: 'active',
-        is_active: true,
-        phone: `+1 (555) 01${Math.floor(10 + Math.random() * 90)}-${Math.floor(1000 + Math.random() * 9000)}`,
-        active_assignments_count: 1,
-        avatar_initials: initials,
-        skills: [`${spec} Operations`, 'Campus IT Support', 'Live Triage'],
-        created_at: new Date().toISOString(),
-      };
+    const spec = specialization || (role === 'technician' ? 'Network' : undefined);
 
-      // Save dynamically into local technician storage
-      saveLocalTechnicians([...allUsers, user]);
-    } else {
-      user = INITIAL_MOCK_USERS[INITIAL_MOCK_USERS.length - 1];
-    }
+    user = {
+      id: `user-${role}-${cleanU.replace(/[^a-z0-9]/g, '-') || Date.now()}`,
+      technician_id: role === 'technician' ? `TECH-${Math.floor(100 + Math.random() * 900)}` : undefined,
+      name: cleanName,
+      username: cleanU,
+      email: `${cleanU}@campusfix.edu`,
+      netid: cleanU,
+      role: role === 'host' ? 'host' : role === 'technician' ? 'technician' : 'student',
+      specialization: spec,
+      department: role === 'host' ? 'Campus IT Operations & Governance' : `${spec || 'IT'} Services`,
+      status: 'active',
+      is_active: true,
+      phone: `+1 (555) 01${Math.floor(10 + Math.random() * 90)}-${Math.floor(1000 + Math.random() * 9000)}`,
+      active_assignments_count: 0,
+      avatar_initials: initials,
+      skills: spec ? [`${spec} Operations`, 'Campus IT Support'] : ['System Governance'],
+      created_at: new Date().toISOString(),
+      authenticated: true,
+    };
+
+    saveLocalTechnicians([...allUsers, user]);
   }
 
   return {
+    authenticated: true,
     token: `demo-jwt-token-${user.id}-${Date.now()}`,
     token_type: 'Bearer',
     user: {
       ...user,
-      role: role === 'host' ? 'host' : role === 'technician' ? 'technician' : 'student',
-      specialization: role === 'technician' ? (user.specialization || specialization || 'Network') : user.specialization,
+      role: role === 'host' ? 'host' : role === 'technician' ? 'technician' : user.role,
+      specialization: role === 'technician' ? (specialization || user.specialization || 'Network') : user.specialization,
+      authenticated: true,
     },
     expires_in: 86400,
+  };
+}
+
+export function sendClientStudentOTP(name: string, rollNumber: string, phone: string) {
+  const cleanRoll = rollNumber.trim().toUpperCase();
+  const cleanPhone = phone.trim();
+  const generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  // Store in session storage for verification matching
+  sessionStorage.setItem(`campusfix_otp_${cleanPhone}`, JSON.stringify({
+    name: name.trim(),
+    roll_number: cleanRoll,
+    phone: cleanPhone,
+    otp: generatedOTP,
+    expires_at: Date.now() + 300000, // 5 min
+    attempts: 0,
+  }));
+
+  return {
+    status: 'success',
+    message: `Verification OTP generated for ${cleanPhone}.`,
+    phone: cleanPhone,
+    roll_number: cleanRoll,
+    expires_in_seconds: 300,
+    cooldown_seconds: 30,
+    dev_mode: true,
+    dev_otp: generatedOTP,
+  };
+}
+
+export function verifyClientStudentOTP(phone: string, rollNumber: string, otp: string): LoginResponse | { error: string } {
+  const cleanPhone = phone.trim();
+  const cleanRoll = rollNumber.trim().toUpperCase();
+  const cleanOTP = otp.trim();
+
+  const recordStr = sessionStorage.getItem(`campusfix_otp_${cleanPhone}`);
+  if (!recordStr) {
+    return { error: 'No OTP request found. Please request a new OTP.' };
+  }
+
+  const record = JSON.parse(recordStr);
+  if (Date.now() > record.expires_at) {
+    sessionStorage.removeItem(`campusfix_otp_${cleanPhone}`);
+    return { error: 'Verification OTP has expired. Please request a new OTP.' };
+  }
+
+  if (record.attempts >= 5) {
+    sessionStorage.removeItem(`campusfix_otp_${cleanPhone}`);
+    return { error: 'Too many incorrect attempts. Please request a new OTP.' };
+  }
+
+  if (record.otp !== cleanOTP) {
+    record.attempts += 1;
+    sessionStorage.setItem(`campusfix_otp_${cleanPhone}`, JSON.stringify(record));
+    return { error: `Invalid OTP code. ${5 - record.attempts} attempts remaining.` };
+  }
+
+  sessionStorage.removeItem(`campusfix_otp_${cleanPhone}`);
+
+  const initials = record.name
+    .split(' ')
+    .filter(Boolean)
+    .map((p: string) => p[0].toUpperCase())
+    .join('')
+    .slice(0, 2) || 'ST';
+
+  const user: CampusUser = {
+    id: `user-stu-${cleanRoll.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+    name: record.name,
+    username: cleanRoll.toLowerCase(),
+    email: `${cleanRoll.toLowerCase()}@university.edu`,
+    netid: cleanRoll.toLowerCase(),
+    roll_number: cleanRoll,
+    role: 'student',
+    department: 'Student Computing & Helpdesk',
+    status: 'active',
+    is_active: true,
+    phone: cleanPhone,
+    active_assignments_count: 0,
+    avatar_initials: initials,
+    skills: ['Student User'],
+    created_at: new Date().toISOString(),
+    authenticated: true,
+  };
+
+  return {
+    authenticated: true,
+    token: `demo-jwt-token-${user.id}-${Date.now()}`,
+    token_type: 'Bearer',
+    user,
+    expires_in: 604800,
   };
 }
 

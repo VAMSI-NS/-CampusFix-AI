@@ -402,7 +402,7 @@ export default function AdminDashboard({
     setNewTechName('');
     setNewTechUsername('');
     setNewTechEmail('');
-    setNewTechPassword('tech@123');
+    setNewTechPassword('');
     setNewTechSpec('Network');
     setNewTechDept('Network & Wireless Engineering');
     setNewTechPhone('');
@@ -521,7 +521,7 @@ export default function AdminDashboard({
 
   const handleOpenResetPwd = (tech: CampusUser) => {
     setSelectedTech(tech);
-    setResetNewPassword('NewPass@123');
+    setResetNewPassword('');
     setIsResetPwdModalOpen(true);
   };
 
@@ -2095,7 +2095,7 @@ export default function AdminDashboard({
                       className="form-input"
                       value={currentHostPwd}
                       onChange={(e) => setCurrentHostPwd(e.target.value)}
-                      placeholder="e.g. vamsi@123"
+                      placeholder="Enter current password"
                       required
                     />
                   </div>

@@ -20,6 +20,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import LandingPage from './components/LandingPage';
+import StudentDashboard from './components/StudentDashboard';
 import IncidentWorkspace from './components/IncidentWorkspace';
 import ChatInterface from './components/ChatInterface';
 import TicketHistory from './components/TicketHistory';
@@ -1048,12 +1049,27 @@ export default function App() {
         ) : (
           <>
             {activeTab === 'landing' && (
-              <LandingPage
-                onStartDiagnosis={handleStartDiagnosis}
-                onNavigateTab={(tab) => navigateToTab(tab)}
-                tickets={tickets}
-                onOpenChatModal={handleOpenChatModal}
-              />
+              currentUser && userRole === 'student' ? (
+                <StudentDashboard
+                  currentUser={currentUser}
+                  tickets={tickets}
+                  onStartDiagnosis={handleStartDiagnosis}
+                  onOpenTicket={(tId) => handleSelectTicketForResolver(tId)}
+                  onNavigateToTab={(tab) => navigateToTab(tab)}
+                  onNavigateToMap={(loc) => {
+                    setMapInitialLocationId(loc || null);
+                    navigateToTab('map');
+                  }}
+                />
+              ) : (
+                <LandingPage
+                  onStartDiagnosis={handleStartDiagnosis}
+                  onNavigateTab={(tab) => navigateToTab(tab)}
+                  tickets={tickets}
+                  onOpenChatModal={handleOpenChatModal}
+                  onPromptLogin={handlePromptLogin}
+                />
+              )
             )}
 
             {activeTab === 'resolver' && (

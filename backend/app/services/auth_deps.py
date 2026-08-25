@@ -24,9 +24,14 @@ async def get_current_user_optional(
     if not user:
         return None
 
-    # If the token has a specific session specialization, attach it
+    # Attach token claims if present
+    updates = {}
     if payload.get("specialization"):
-        user = user.model_copy(update={"specialization": payload.get("specialization")})
+        updates["specialization"] = payload.get("specialization")
+    if payload.get("roll_number"):
+        updates["roll_number"] = payload.get("roll_number")
+    if updates:
+        user = user.model_copy(update=updates)
 
     return user
 
@@ -66,8 +71,13 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    updates = {}
     if payload.get("specialization"):
-        user = user.model_copy(update={"specialization": payload.get("specialization")})
+        updates["specialization"] = payload.get("specialization")
+    if payload.get("roll_number"):
+        updates["roll_number"] = payload.get("roll_number")
+    if updates:
+        user = user.model_copy(update=updates)
 
     return user
 

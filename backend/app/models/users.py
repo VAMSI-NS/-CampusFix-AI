@@ -57,7 +57,6 @@ def normalize_specialization(spec: Optional[str]) -> Optional[str]:
     return spec.strip()
 
 
-
 class CampusUser(BaseModel):
     id: str
     technician_id: Optional[str] = None
@@ -65,6 +64,7 @@ class CampusUser(BaseModel):
     username: str
     email: str
     netid: str
+    roll_number: Optional[str] = None
     role: UserRole
     specialization: Optional[str] = None
     department: str
@@ -75,11 +75,12 @@ class CampusUser(BaseModel):
     avatar_initials: str
     skills: List[str] = []
     created_at: Optional[str] = None
+    authenticated: bool = True
 
 
 class UserInDB(CampusUser):
-    password_hash: str
-    password_salt: str
+    password_hash: Optional[str] = None
+    password_salt: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
@@ -90,10 +91,45 @@ class LoginRequest(BaseModel):
 
 
 class LoginResponse(BaseModel):
+    authenticated: bool = True
     token: str
     token_type: str = "Bearer"
     user: CampusUser
     expires_in: int = 604800  # 7 days in seconds
+
+
+# --- Student OTP Authentication Models ---
+
+
+class StudentSendOTPRequest(BaseModel):
+    name: str
+    roll_number: str
+    phone: str
+
+
+class StudentSendOTPResponse(BaseModel):
+    status: str = "success"
+    message: str
+    phone: str
+    roll_number: str
+    expires_in_seconds: int = 300
+    cooldown_seconds: int = 30
+    dev_mode: bool = True
+    dev_otp: Optional[str] = None
+
+
+class StudentVerifyOTPRequest(BaseModel):
+    phone: str
+    roll_number: str
+    otp: str
+
+
+class StudentResendOTPRequest(BaseModel):
+    phone: str
+    roll_number: Optional[str] = None
+
+
+# --- Admin & Technician Models ---
 
 
 class UserUpdateRequest(BaseModel):

@@ -278,6 +278,7 @@ class UsersService:
             username=row["username"],
             email=row["email"],
             netid=row.get("netid", row["username"]),
+            roll_number=row.get("roll_number"),
             role=row["role"],
             specialization=row.get("specialization"),
             department=row["department"],
@@ -288,8 +289,8 @@ class UsersService:
             avatar_initials=row.get("avatar_initials", "U"),
             skills=skills,
             created_at=str(row.get("created_at") or datetime.now(timezone.utc).isoformat()),
-            password_hash=row["password_hash"],
-            password_salt=row["password_salt"],
+            password_hash=row.get("password_hash"),
+            password_salt=row.get("password_salt"),
         )
 
     def _to_campus_user(self, user_in_db: UserInDB) -> CampusUser:
@@ -300,6 +301,7 @@ class UsersService:
             username=user_in_db.username,
             email=user_in_db.email,
             netid=user_in_db.netid,
+            roll_number=user_in_db.roll_number,
             role=user_in_db.role,
             specialization=user_in_db.specialization,
             department=user_in_db.department,
@@ -310,6 +312,7 @@ class UsersService:
             avatar_initials=user_in_db.avatar_initials,
             skills=user_in_db.skills,
             created_at=user_in_db.created_at,
+            authenticated=True,
         )
 
     def find_user_by_username_or_id(self, identifier: str) -> Optional[UserInDB]:
@@ -344,11 +347,60 @@ class UsersService:
                 u.id.lower() == clean_id
                 or u.username.lower() == clean_id
                 or u.netid.lower() == clean_id
+                or (u.roll_number and u.roll_number.lower() == clean_id)
                 or u.email.lower() == clean_id
                 or (u.technician_id and u.technician_id.lower() == clean_id)
             ):
                 return u
         return None
+
+    def get_or_create_student(self, name: str, roll_number: str, phone: str) -> CampusUser:
+        """Retrieves or registers an authenticated student account by roll number."""
+        clean_roll = roll_number.strip().upper()
+        clean_name = name.strip()
+        clean_phone = phone.strip()
+
+        # Check existing by roll number or username
+        for u in self._users_db.values():
+            if u.role == "student" and (
+                (u.roll_number and u.roll_number.upper() == clean_roll)
+                or u.username.upper() == clean_roll
+                or (u.phone and u.phone == clean_phone)
+            ):
+                # Update name/phone if changed
+                u.name = clean_name
+                u.roll_number = clean_roll
+                u.phone = clean_phone
+                return self._to_campus_user(u)
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        initials = "".join([part[0].upper() for part in clean_name.split() if part])[:2] or "ST"
+        new_id = f"user-stu-{clean_roll.lower().replace(' ', '-')}"
+        email = f"{clean_roll.lower()}@university.edu"
+
+        stu_user = UserInDB(
+            id=new_id,
+            technician_id=None,
+            name=clean_name,
+            username=clean_roll.lower(),
+            email=email,
+            netid=clean_roll.lower(),
+            roll_number=clean_roll,
+            role="student",
+            specialization=None,
+            department="Student Computing & Campus IT Services",
+            status="active",
+            is_active=True,
+            phone=clean_phone,
+            active_assignments_count=0,
+            avatar_initials=initials,
+            skills=["Student User"],
+            created_at=now_iso,
+            password_hash=None,
+            password_salt=None,
+        )
+        self._users_db[new_id] = stu_user
+        return self._to_campus_user(stu_user)
 
     def authenticate(
         self,

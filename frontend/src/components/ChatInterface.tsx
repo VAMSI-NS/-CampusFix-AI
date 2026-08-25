@@ -418,13 +418,13 @@ export default function ChatInterface({
             style={{
               width: '38px',
               height: '38px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #4ADE80 0%, #16A34A 100%)',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--primary-gradient)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#0B0B0C',
-              boxShadow: '0 0 16px rgba(74, 222, 128, 0.35)',
+              color: 'var(--text-inverse)',
+              boxShadow: '0 0 16px rgba(34, 211, 238, 0.35)',
               flexShrink: 0,
             }}
           >
@@ -432,7 +432,7 @@ export default function ChatInterface({
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 800, color: 'var(--text-primary, #F8FAFC)', fontFamily: 'var(--font-heading)' }}>
+              <h3 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 800, color: 'var(--text-primary, #F9FAFB)', fontFamily: 'var(--font-heading)' }}>
                 CampusFix AI Assistant ✨
               </h3>
             </div>
@@ -442,11 +442,11 @@ export default function ChatInterface({
                   width: '7px',
                   height: '7px',
                   borderRadius: '50%',
-                  background: '#4ADE80',
-                  boxShadow: '0 0 8px #4ADE80',
+                  background: 'var(--primary-500)',
+                  boxShadow: '0 0 8px var(--primary-500)',
                 }}
               />
-              <span style={{ fontSize: '0.74rem', color: '#4ADE80', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: '0.74rem', color: 'var(--primary-500)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                 Online • Campus systems connected
               </span>
             </div>
@@ -515,13 +515,13 @@ export default function ChatInterface({
                   transition: 'all var(--transition-fast)',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = '#4ADE80';
-                  e.currentTarget.style.color = '#F8FAFC';
+                  e.currentTarget.style.borderColor = 'var(--primary-500)';
+                  e.currentTarget.style.color = 'var(--text-primary, #F9FAFB)';
                   e.currentTarget.style.transform = 'translateY(-1px)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border-default, #27272A)';
-                  e.currentTarget.style.color = 'var(--text-secondary, #A1A1AA)';
+                  e.currentTarget.style.borderColor = 'var(--border-default)';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
                   e.currentTarget.style.transform = 'translateY(0)';
                 }}
                 onClick={() => handleQuickAction(qa.id)}
@@ -558,15 +558,15 @@ export default function ChatInterface({
                       style={{
                         width: '30px',
                         height: '30px',
-                        borderRadius: '10px',
-                        background: 'linear-gradient(135deg, #4ADE80 0%, #16A34A 100%)',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--primary-gradient)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#0B0B0C',
+                        color: 'var(--text-inverse)',
                         flexShrink: 0,
                         marginTop: '2px',
-                        boxShadow: '0 0 10px rgba(74, 222, 128, 0.25)',
+                        boxShadow: '0 0 10px rgba(34, 211, 238, 0.25)',
                       }}
                     >
                       <Sparkles size={15} />
@@ -578,9 +578,9 @@ export default function ChatInterface({
                       maxWidth: '84%',
                       padding: '0.9rem 1.2rem',
                       borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                      background: isUser ? '#18181B' : '#111111',
-                      border: isUser ? '1px solid rgba(74, 222, 128, 0.4)' : '1px solid var(--border-default, #27272A)',
-                      color: isUser ? '#F8FAFC' : 'var(--text-primary, #F8FAFC)',
+                      background: isUser ? 'var(--primary-gradient)' : 'var(--bg-card)',
+                      border: isUser ? '1px solid rgba(34, 211, 238, 0.3)' : '1px solid var(--border-default)',
+                      color: isUser ? 'var(--text-inverse)' : 'var(--text-primary)',
                       fontSize: '0.88rem',
                       lineHeight: 1.55,
                       boxShadow: '0 4px 14px rgba(0, 0, 0, 0.4)',
@@ -599,7 +599,7 @@ export default function ChatInterface({
                           gap: '0.45rem',
                           marginTop: '0.75rem',
                           paddingTop: '0.65rem',
-                          borderTop: '1px solid var(--border-subtle, #27272A)',
+                          borderTop: '1px solid var(--border-subtle)',
                         }}
                       >
                         {m.actions.map((act) => (
@@ -610,10 +610,10 @@ export default function ChatInterface({
                               fontSize: '0.76rem',
                               fontWeight: 700,
                               padding: '0.35rem 0.75rem',
-                              borderRadius: '8px',
-                              background: 'rgba(74, 222, 128, 0.12)',
-                              border: '1px solid rgba(74, 222, 128, 0.35)',
-                              color: '#4ADE80',
+                              borderRadius: 'var(--radius-sm)',
+                              background: 'rgba(34, 211, 238, 0.12)',
+                              border: '1px solid rgba(34, 211, 238, 0.35)',
+                              color: 'var(--primary-500)',
                               cursor: 'pointer',
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -621,12 +621,12 @@ export default function ChatInterface({
                               transition: 'all var(--transition-fast)',
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.background = 'rgba(74, 222, 128, 0.22)';
-                              e.currentTarget.style.borderColor = '#4ADE80';
+                              e.currentTarget.style.background = 'rgba(34, 211, 238, 0.22)';
+                              e.currentTarget.style.borderColor = 'var(--primary-500)';
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.background = 'rgba(74, 222, 128, 0.12)';
-                              e.currentTarget.style.borderColor = 'rgba(74, 222, 128, 0.35)';
+                              e.currentTarget.style.background = 'rgba(34, 211, 238, 0.12)';
+                              e.currentTarget.style.borderColor = 'rgba(34, 211, 238, 0.35)';
                             }}
                             onClick={() => handleActionClick(act)}
                           >
@@ -662,7 +662,7 @@ export default function ChatInterface({
                           onClick={() => copyToClipboard(m.content, m.id)}
                           title="Copy response"
                         >
-                          {copiedId === m.id ? <Check size={12} style={{ color: '#4ADE80' }} /> : <Copy size={12} />}
+                          {copiedId === m.id ? <Check size={12} style={{ color: 'var(--primary-500)' }} /> : <Copy size={12} />}
                         </button>
                       )}
                     </div>
@@ -672,18 +672,18 @@ export default function ChatInterface({
             })}
 
             {isLoading && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-muted, #71717A)', fontSize: '0.82rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
                 <div
                   style={{
                     width: '30px',
                     height: '30px',
-                    borderRadius: '10px',
-                    background: 'var(--bg-surface, #111111)',
-                    border: '1px solid var(--border-default, #27272A)',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-default)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#4ADE80',
+                    color: 'var(--primary-500)',
                   }}
                 >
                   <RefreshCw size={14} className="spin-icon" />
@@ -700,15 +700,15 @@ export default function ChatInterface({
             <div
               style={{
                 margin: '0 1rem 0.5rem',
-                background: 'var(--bg-card, #18181B)',
-                border: '1px solid var(--border-default, #27272A)',
-                borderRadius: '16px',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-md)',
                 padding: '1rem',
                 boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: '#F8FAFC' }}>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                   🎫 Open Official Campus IT Support Ticket
                 </h4>
                 <button
@@ -773,7 +773,7 @@ export default function ChatInterface({
                     type="submit"
                     className="btn-saas btn-saas-primary"
                     disabled={isSubmittingTicket}
-                    style={{ background: '#4ADE80', color: '#0B0B0C', fontWeight: 800 }}
+                    style={{ background: 'var(--primary-gradient)', color: 'var(--text-inverse)', fontWeight: 800 }}
                   >
                     {isSubmittingTicket ? 'Creating...' : 'Submit Support Ticket'}
                   </button>
@@ -786,8 +786,8 @@ export default function ChatInterface({
           <div
             style={{
               padding: '0.85rem 1.15rem',
-              background: 'var(--bg-surface, #111111)',
-              borderTop: '1px solid var(--border-default, #27272A)',
+              background: 'var(--bg-surface)',
+              borderTop: '1px solid var(--border-default)',
               flexShrink: 0,
             }}
           >
@@ -799,9 +799,9 @@ export default function ChatInterface({
                   gap: '0.4rem',
                   padding: '0.2rem 0.5rem',
                   borderRadius: '6px',
-                  background: 'rgba(74, 222, 128, 0.15)',
-                  border: '1px solid rgba(74, 222, 128, 0.3)',
-                  color: '#4ADE80',
+                  background: 'rgba(34, 211, 238, 0.15)',
+                  border: '1px solid rgba(34, 211, 238, 0.3)',
+                  color: 'var(--primary-500)',
                   fontSize: '0.72rem',
                   marginBottom: '0.4rem',
                   fontFamily: 'var(--font-mono)',
@@ -829,7 +829,7 @@ export default function ChatInterface({
               <button
                 type="button"
                 className="btn-saas-ghost"
-                style={{ padding: '0.55rem', color: 'var(--text-muted, #A1A1AA)', borderRadius: '10px' }}
+                style={{ padding: '0.55rem', color: 'var(--text-muted)', borderRadius: '10px' }}
                 onClick={() => fileInputRef.current?.click()}
                 title="Attach screenshot or error log"
               >
@@ -839,7 +839,7 @@ export default function ChatInterface({
               <button
                 type="button"
                 className="btn-saas-ghost"
-                style={{ padding: '0.55rem', color: isRecordingVoice ? 'var(--danger)' : 'var(--text-muted, #A1A1AA)', borderRadius: '10px' }}
+                style={{ padding: '0.55rem', color: isRecordingVoice ? 'var(--danger-500)' : 'var(--text-muted)', borderRadius: '10px' }}
                 onClick={handleToggleVoice}
                 title={isRecordingVoice ? 'Stop recording' : 'Voice input simulation'}
               >
@@ -853,11 +853,11 @@ export default function ChatInterface({
                   minHeight: '42px',
                   maxHeight: '120px',
                   resize: 'none',
-                  borderRadius: '12px',
+                  borderRadius: 'var(--radius-md)',
                   padding: '0.6rem 0.9rem',
-                  background: 'var(--bg-card, #18181B)',
-                  border: '1px solid var(--border-default, #27272A)',
-                  color: '#F8FAFC',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-default)',
+                  color: 'var(--text-primary)',
                 }}
                 placeholder="Ask CampusFix AI anything..."
                 value={inputValue}
@@ -870,16 +870,16 @@ export default function ChatInterface({
                 type="button"
                 style={{
                   padding: '0.6rem 1rem',
-                  borderRadius: '12px',
-                  background: '#4ADE80',
-                  color: '#0B0B0C',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--primary-gradient)',
+                  color: 'var(--text-inverse)',
                   border: 'none',
                   cursor: 'pointer',
                   fontWeight: 800,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 0 14px rgba(74, 222, 128, 0.35)',
+                  boxShadow: '0 0 14px rgba(34, 211, 238, 0.35)',
                   transition: 'all var(--transition-fast)',
                 }}
                 disabled={isLoading || (!inputValue.trim() && !attachedImageName)}

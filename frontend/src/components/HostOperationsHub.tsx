@@ -10,6 +10,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { CampusUser, Ticket, TicketStatus } from '../types/chat';
+import { getLocalTechnicians } from '../data/mockData';
 
 interface HostOperationsHubProps {
   currentUser?: CampusUser | null;
@@ -356,10 +357,13 @@ export default function HostOperationsHub({
                         defaultValue=""
                       >
                         <option value="" disabled>Reassign</option>
-                        <option value="Ramu">Ramu (Network)</option>
-                        <option value="Vamsi">Vamsi (Identity)</option>
-                        <option value="Karthik">Karthik (Hardware)</option>
-                        <option value="Priya">Priya (Support)</option>
+                        {getLocalTechnicians()
+                          .filter((tech) => tech.role === 'technician')
+                          .map((tech) => (
+                            <option key={tech.id} value={tech.name}>
+                              {tech.name} ({tech.specialization || 'IT'})
+                            </option>
+                          ))}
                       </select>
                     </div>
                   </td>
@@ -408,36 +412,42 @@ export default function HostOperationsHub({
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
-          {[
-            { name: 'Ramu Kumar', spec: 'Network Infrastructure', active: 2, status: 'Optimal', rating: '98.5%' },
-            { name: 'Sarah Jenkins', spec: 'Identity & Access (2FA/SSO)', active: 1, status: 'Available', rating: '99.1%' },
-            { name: 'Dave Miller', spec: 'Hardware & Lab Computing', active: 1, status: 'Optimal', rating: '97.2%' },
-            { name: 'Priya Sharma', spec: 'General IT Tech Bar Walkup', active: 1, status: 'Available', rating: '99.4%' },
-          ].map((tech, idx) => (
-            <div
-              key={idx}
-              style={{
-                background: 'var(--bg-surface-raised)',
-                border: '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-md)',
-                padding: '1rem',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                <strong style={{ fontSize: '0.92rem', color: '#ffffff' }}>👤 {tech.name}</strong>
-                <span className="badge-saas badge-saas-success" style={{ fontSize: '0.65rem' }}>
-                  {tech.status}
-                </span>
-              </div>
-              <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                Specialization: <strong>{tech.spec}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                <span>Active Cases: <strong>{tech.active}</strong></span>
-                <span>SLA Compliance: <strong style={{ color: 'var(--success)' }}>{tech.rating}</strong></span>
-              </div>
-            </div>
-          ))}
+          {getLocalTechnicians()
+            .filter((tech) => tech.role === 'technician')
+            .map((tech) => {
+              const activeCount = tickets.filter(
+                (t) =>
+                  t.status !== 'Resolved' &&
+                  t.status !== 'Closed' &&
+                  t.assigned_technician?.toLowerCase().includes(tech.name.toLowerCase())
+              ).length;
+
+              return (
+                <div
+                  key={tech.id}
+                  style={{
+                    background: 'var(--bg-surface-raised)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '1rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                    <strong style={{ fontSize: '0.92rem', color: '#ffffff' }}>👤 {tech.name}</strong>
+                    <span className="badge-saas badge-saas-success" style={{ fontSize: '0.65rem' }}>
+                      {tech.is_active !== false ? 'Active' : 'Offline'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                    Specialization: <strong>{tech.specialization || 'IT Services'}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                    <span>Active Cases: <strong>{activeCount}</strong></span>
+                    <span>SLA Compliance: <strong style={{ color: 'var(--success)' }}>98.5%</strong></span>
+                  </div>
+                </div>
+              );
+            })}
         </div>
       </div>
     </div>

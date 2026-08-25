@@ -4,21 +4,21 @@ import {
   ArrowRight,
   Search,
   Zap,
-  BookOpen,
   Ticket as TicketIcon,
   Wifi,
   KeyRound,
   Laptop,
-  Radio,
   Clock,
   ShieldCheck,
-  ChevronRight,
-  Cpu,
-  Layers,
   ArrowUpRight,
   Printer,
+  GraduationCap,
+  Wrench,
+  ShieldAlert,
+  LogIn,
+  CheckCircle2,
 } from 'lucide-react';
-import { Ticket } from '../types/chat';
+import { Ticket, UserRole } from '../types/chat';
 import { getLocalTickets } from '../data/mockData';
 
 interface LandingPageProps {
@@ -26,6 +26,7 @@ interface LandingPageProps {
   onNavigateTab: (tab: 'resolver' | 'history' | 'tickets' | 'status' | 'kb' | 'diagnostics' | 'admin' | 'reports') => void;
   tickets: Ticket[];
   onOpenChatModal: (initialProblem?: string) => void;
+  onPromptLogin?: (role: UserRole) => void;
 }
 
 // 3 Core Quick Suggestions
@@ -47,60 +48,6 @@ const POPULAR_ISSUES = [
   },
 ];
 
-// 3-Step "How It Works" Flow
-const HOW_IT_WORKS_STEPS = [
-  {
-    step: '01',
-    title: 'Describe the Symptom',
-    description: 'Enter your issue in plain language or attach a screenshot. No technical jargon required.',
-    icon: Search,
-  },
-  {
-    step: '02',
-    title: 'Autonomous Diagnosis',
-    description: 'NVIDIA Nemotron 3 Ultra analyzes device configuration, SSO logs, and campus network telemetry.',
-    icon: Cpu,
-  },
-  {
-    step: '03',
-    title: 'Verified Fix or Escalation',
-    description: 'Receive verified step-by-step instructions or an instant ticket routing directly to the campus Tech Bar.',
-    icon: ShieldCheck,
-  },
-];
-
-// Key Capabilities
-const FEATURES = [
-  {
-    id: 'ai-diagnosis',
-    icon: Sparkles,
-    title: 'AI Problem Diagnosis',
-    description: 'Conversational troubleshooting powered by NVIDIA Nemotron 3 Ultra to isolate root causes in seconds.',
-    tab: 'resolver' as const,
-  },
-  {
-    id: 'incident-tracking',
-    icon: TicketIcon,
-    title: 'Incident Tracking & Kanban',
-    description: 'Live Kanban boards and automated audit logs with seamless escalation to in-person campus Tech Bars.',
-    tab: 'tickets' as const,
-  },
-  {
-    id: 'service-status',
-    icon: Radio,
-    title: 'Campus Service Status',
-    description: 'Real-time telemetry and student-friendly status for Wi-Fi, Canvas LMS, printing, and authentication.',
-    tab: 'status' as const,
-  },
-  {
-    id: 'help-center',
-    icon: BookOpen,
-    title: 'Smart Help Center',
-    description: 'Instant search across step-by-step guides for Eduroam setup, MFA recovery, and campus printing.',
-    tab: 'kb' as const,
-  },
-];
-
 // Live Campus Status Preview Items
 const STATUS_PREVIEW = [
   { name: 'Campus Wi-Fi (Eduroam)', status: 'Operational', desc: 'Wi-Fi active across all campus buildings', icon: Wifi },
@@ -113,6 +60,7 @@ export default function LandingPage({
   onNavigateTab,
   tickets,
   onOpenChatModal,
+  onPromptLogin,
 }: LandingPageProps) {
   const [searchProblem, setSearchProblem] = useState('');
   const [trackTicketNumber, setTrackTicketNumber] = useState('');
@@ -165,7 +113,6 @@ export default function LandingPage({
       return;
     }
 
-    // Attempt backend query if possible
     try {
       const res = await fetch(`/api/tickets/${encodeURIComponent(query)}`);
       if (res.ok) {
@@ -179,10 +126,16 @@ export default function LandingPage({
         }
       }
     } catch {
-      // Backend query fallback
+      // Quiet fallback
     }
 
     setTrackedTicket('not_found');
+  };
+
+  const handleRoleSignIn = (role: UserRole) => {
+    if (onPromptLogin) {
+      onPromptLogin(role);
+    }
   };
 
   return (
@@ -195,25 +148,343 @@ export default function LandingPage({
       </div>
 
       {/* =========================================================================
-          1. HERO SECTION
+          1. HERO HEADER: WELCOME TO CAMPUSFIX.AI PORTAL
           ========================================================================= */}
       <section className="landing-hero hero-cinematic-reveal">
         <div className="hero-badge reveal-item" style={{ animationDelay: '100ms' }}>
-          <Sparkles size={14} className="hero-sparkle" />
-          <span>AI-Powered University Help Desk</span>
+          <ShieldAlert size={14} className="hero-sparkle" />
+          <span>CampusFix.AI Portal</span>
           <span className="hero-badge-sub">Nemotron 3 Ultra</span>
         </div>
 
         <h1 className="hero-title reveal-item" style={{ animationDelay: '250ms' }}>
-          Resolve campus IT issues <span className="hero-gradient-text">faster.</span>
+          Welcome to <span className="hero-gradient-text">CampusFix.AI Portal</span>
         </h1>
 
-        <p className="hero-subtitle reveal-item" style={{ animationDelay: '400ms' }}>
-          CampusFix AI diagnoses common technology problems and helps students get them resolved with step-by-step guidance.
+        <p className="hero-subtitle reveal-item" style={{ animationDelay: '400ms', fontSize: '1.15rem', maxWidth: '780px' }}>
+          Enterprise Campus IT Operations & Incident Intelligence
         </p>
 
-        {/* Large Problem Search / Input Bar */}
-        <div className="hero-search-wrapper reveal-item" style={{ animationDelay: '550ms' }}>
+        <p style={{ color: 'var(--text-secondary, #94a3b8)', fontSize: '0.92rem', marginTop: '-0.5rem', marginBottom: '2.5rem' }}>
+          Select your portal below to sign in or access authorized campus diagnostic services.
+        </p>
+
+        {/* =========================================================================
+            2. THREE PORTAL CARDS: STUDENT, STAFF, HOST
+            ========================================================================= */}
+        <div
+          className="portal-roles-grid reveal-item"
+          style={{
+            animationDelay: '550ms',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gap: '1.5rem',
+            width: '100%',
+            maxWidth: '1120px',
+            margin: '0 auto 3rem',
+            textAlign: 'left',
+          }}
+        >
+          {/* Card 1: Student Portal */}
+          <div
+            className="portal-role-card student-card"
+            style={{
+              background: 'var(--bg-surface, #18181b)',
+              border: '1px solid var(--border-default, #27272a)',
+              borderRadius: '20px',
+              padding: '2rem 1.75rem',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              position: 'relative',
+              overflow: 'hidden',
+              boxShadow: '0 12px 30px rgba(0,0,0,0.3)',
+              transition: 'all 0.3s ease',
+            }}
+          >
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'linear-gradient(90deg, #10b981, #06b6d4)' }} />
+            
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                <div
+                  style={{
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '12px',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#10b981',
+                  }}
+                >
+                  <GraduationCap size={24} />
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    padding: '0.25rem 0.65rem',
+                    borderRadius: '20px',
+                    background: 'rgba(16, 185, 129, 0.12)',
+                    color: '#10b981',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                  }}
+                >
+                  Student Portal
+                </span>
+              </div>
+
+              <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary, #f8fafc)', marginBottom: '0.5rem' }}>
+                Student Help Desk
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.55, marginBottom: '1.25rem' }}>
+                Instant AI problem diagnosis, ticket tracking, Eduroam/Canvas recovery, and mobile OTP authentication.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
+                  <CheckCircle2 size={14} style={{ color: '#10b981', flexShrink: 0 }} />
+                  <span>Name + Roll Number + OTP sign-in</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
+                  <CheckCircle2 size={14} style={{ color: '#10b981', flexShrink: 0 }} />
+                  <span>Interactive AI diagnostic workbench</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
+                  <CheckCircle2 size={14} style={{ color: '#10b981', flexShrink: 0 }} />
+                  <span>Live ticket status & Tech Bar dispatch</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              className="btn-primary"
+              onClick={() => handleRoleSignIn('student')}
+              style={{
+                width: '100%',
+                padding: '0.85rem',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                fontWeight: 800,
+                fontSize: '0.9rem',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                color: '#ffffff',
+                border: 'none',
+                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                cursor: 'pointer',
+              }}
+            >
+              <LogIn size={16} />
+              <span>Student Sign In / Login</span>
+            </button>
+          </div>
+
+          {/* Card 2: Staff / Technician Hub */}
+          <div
+            className="portal-role-card staff-card"
+            style={{
+              background: 'var(--bg-surface, #18181b)',
+              border: '1px solid var(--border-default, #27272a)',
+              borderRadius: '20px',
+              padding: '2rem 1.75rem',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              position: 'relative',
+              overflow: 'hidden',
+              boxShadow: '0 12px 30px rgba(0,0,0,0.3)',
+              transition: 'all 0.3s ease',
+            }}
+          >
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'linear-gradient(90deg, #3b82f6, #6366f1)' }} />
+
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                <div
+                  style={{
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '12px',
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#60a5fa',
+                  }}
+                >
+                  <Wrench size={24} />
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    padding: '0.25rem 0.65rem',
+                    borderRadius: '20px',
+                    background: 'rgba(59, 130, 246, 0.12)',
+                    color: '#60a5fa',
+                    border: '1px solid rgba(59, 130, 246, 0.25)',
+                  }}
+                >
+                  Staff Portal
+                </span>
+              </div>
+
+              <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary, #f8fafc)', marginBottom: '0.5rem' }}>
+                Staff / Technician Hub
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.55, marginBottom: '1.25rem' }}>
+                Assigned incident queues, telemetry health probes, specialization triage, and Tier-2 engineering escalations.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
+                  <CheckCircle2 size={14} style={{ color: '#60a5fa', flexShrink: 0 }} />
+                  <span>Username + Password + Domain Specialization</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
+                  <CheckCircle2 size={14} style={{ color: '#60a5fa', flexShrink: 0 }} />
+                  <span>Specialization-scoped incident queue</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
+                  <CheckCircle2 size={14} style={{ color: '#60a5fa', flexShrink: 0 }} />
+                  <span>Audit action logging & resolution sign-off</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              className="btn-primary"
+              onClick={() => handleRoleSignIn('technician')}
+              style={{
+                width: '100%',
+                padding: '0.85rem',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                fontWeight: 800,
+                fontSize: '0.9rem',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                color: '#ffffff',
+                border: 'none',
+                boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)',
+                cursor: 'pointer',
+              }}
+            >
+              <LogIn size={16} />
+              <span>Staff Sign In / Login</span>
+            </button>
+          </div>
+
+          {/* Card 3: Host / Administrator */}
+          <div
+            className="portal-role-card host-card"
+            style={{
+              background: 'var(--bg-surface, #18181b)',
+              border: '1px solid var(--border-default, #27272a)',
+              borderRadius: '20px',
+              padding: '2rem 1.75rem',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              position: 'relative',
+              overflow: 'hidden',
+              boxShadow: '0 12px 30px rgba(0,0,0,0.3)',
+              transition: 'all 0.3s ease',
+            }}
+          >
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'linear-gradient(90deg, #f59e0b, #d97706)' }} />
+
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                <div
+                  style={{
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '12px',
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fbbf24',
+                  }}
+                >
+                  <ShieldCheck size={24} />
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    padding: '0.25rem 0.65rem',
+                    borderRadius: '20px',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    color: '#fbbf24',
+                    border: '1px solid rgba(245, 158, 11, 0.25)',
+                  }}
+                >
+                  Host Portal
+                </span>
+              </div>
+
+              <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary, #f8fafc)', marginBottom: '0.5rem' }}>
+                Host Operations Hub
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.55, marginBottom: '1.25rem' }}>
+                Executive IT governance, SLA audit reports, technician workload allocation, and campus satellite telemetry.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
+                  <CheckCircle2 size={14} style={{ color: '#fbbf24', flexShrink: 0 }} />
+                  <span>Executive Host / Admin credentials</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
+                  <CheckCircle2 size={14} style={{ color: '#fbbf24', flexShrink: 0 }} />
+                  <span>SLA compliance & capacity analytics</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
+                  <CheckCircle2 size={14} style={{ color: '#fbbf24', flexShrink: 0 }} />
+                  <span>Technician roster provisioning & role control</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              className="btn-primary"
+              onClick={() => handleRoleSignIn('host')}
+              style={{
+                width: '100%',
+                padding: '0.85rem',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                fontWeight: 800,
+                fontSize: '0.9rem',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: '#ffffff',
+                border: 'none',
+                boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)',
+                cursor: 'pointer',
+              }}
+            >
+              <LogIn size={16} />
+              <span>Host Sign In / Login</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Quick Problem Search / Input Bar */}
+        <div className="hero-search-wrapper reveal-item" style={{ animationDelay: '700ms' }}>
           <form className="hero-search-form" onSubmit={handleSearchSubmit}>
             <div className="search-icon-wrap">
               <Search size={18} />
@@ -258,13 +529,13 @@ export default function LandingPage({
         </div>
 
         {/* Primary & Secondary Action Buttons */}
-        <div className="hero-actions-row reveal-item" style={{ animationDelay: '700ms' }}>
+        <div className="hero-actions-row reveal-item" style={{ animationDelay: '850ms' }}>
           <button
             className="btn-hero-cta"
             onClick={() => onOpenChatModal()}
           >
             <Sparkles size={16} />
-            <span>Start Diagnosis</span>
+            <span>Start AI Diagnosis</span>
           </button>
 
           <button
@@ -272,15 +543,15 @@ export default function LandingPage({
             onClick={() => setIsTrackModalOpen(true)}
           >
             <TicketIcon size={16} />
-            <span>Track Ticket</span>
+            <span>Track Incident Ticket</span>
           </button>
         </div>
       </section>
 
       {/* =========================================================================
-          2. LIVE AI RESOLUTION TELEMETRY STATS
+          3. LIVE AI RESOLUTION TELEMETRY STATS
           ========================================================================= */}
-      <section className="landing-stats-section reveal-item" style={{ animationDelay: '850ms' }}>
+      <section className="landing-stats-section reveal-item" style={{ animationDelay: '950ms' }}>
         <div className="stat-card">
           <div className="stat-value-row">
             <span className="stat-number">{statResolutionRate}%</span>
@@ -310,76 +581,7 @@ export default function LandingPage({
       </section>
 
       {/* =========================================================================
-          3. HOW IT WORKS (3-Step Continuous Flow)
-          ========================================================================= */}
-      <section className="how-it-works-section">
-        <div className="section-header-center">
-          <div className="section-badge">
-            <Layers size={13} />
-            <span>Intelligent Resolution Workflow</span>
-          </div>
-          <h2 className="section-title">How CampusFix Works</h2>
-          <p className="section-subtitle">From plain-language symptom intake to verified resolution in three simple steps</p>
-        </div>
-
-        <div className="workflow-steps-grid">
-          {HOW_IT_WORKS_STEPS.map((st) => {
-            const IconComp = st.icon;
-            return (
-              <div key={st.step} className="workflow-step-card">
-                <div className="step-number-tag">{st.step}</div>
-                <div className="step-icon-box">
-                  <IconComp size={20} />
-                </div>
-                <h3 className="step-title">{st.title}</h3>
-                <p className="step-desc">{st.description}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* =========================================================================
-          4. KEY CAPABILITIES
-          ========================================================================= */}
-      <section className="landing-features-section">
-        <div className="section-header-center">
-          <h2 className="section-title">Built for University Computing</h2>
-          <p className="section-subtitle">Everything you need to troubleshoot, resolve, and escalate IT incidents</p>
-        </div>
-
-        <div className="features-grid">
-          {FEATURES.map((feat) => {
-            const IconComp = feat.icon;
-            return (
-              <div
-                key={feat.id}
-                className="feature-card"
-                onClick={() => {
-                  if (feat.id === 'ai-diagnosis') {
-                    onOpenChatModal();
-                  } else {
-                    onNavigateTab(feat.tab);
-                  }
-                }}
-              >
-                <div className="feature-icon-box">
-                  <IconComp size={22} />
-                </div>
-                <h3 className="feature-title">{feat.title}</h3>
-                <p className="feature-desc">{feat.description}</p>
-                <span className="feature-link">
-                  <span>Explore</span>
-                  <ChevronRight size={14} />
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* =========================================================================
-          5. LIVE CAMPUS SERVICE STATUS SNAPSHOT
+          4. LIVE CAMPUS SERVICE STATUS SNAPSHOT
           ========================================================================= */}
       <section className="campus-status-snapshot-section">
         <div className="snapshot-card">
@@ -421,31 +623,6 @@ export default function LandingPage({
                 </div>
               );
             })}
-          </div>
-        </div>
-      </section>
-
-      {/* =========================================================================
-          6. BOTTOM CALL TO ACTION BANNER
-          ========================================================================= */}
-      <section className="landing-cta-banner">
-        <div className="cta-banner-content">
-          <div className="cta-sparkle-icon">
-            <Sparkles size={24} />
-          </div>
-          <h2 className="cta-headline">Ready to fix your campus tech issue?</h2>
-          <p className="cta-subtext">
-            Start a diagnostic session with our AI Specialist or check ticket status in seconds.
-          </p>
-          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '0.75rem' }}>
-            <button className="btn-hero-cta" onClick={() => onOpenChatModal()}>
-              <Sparkles size={16} />
-              <span>Start Diagnosis Now</span>
-            </button>
-            <button className="btn-hero-secondary" onClick={() => onNavigateTab('kb')}>
-              <BookOpen size={16} />
-              <span>Browse Help Guides</span>
-            </button>
           </div>
         </div>
       </section>

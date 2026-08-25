@@ -61,6 +61,7 @@ class AuthService:
             "sub": user.id,
             "username": user.username,
             "netid": user.netid,
+            "roll_number": user.roll_number,
             "name": user.name,
             "role": user.role,
             "technician_id": user.technician_id,

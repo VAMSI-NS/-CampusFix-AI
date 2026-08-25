@@ -416,6 +416,7 @@ export interface CampusUser {
   username?: string;
   email: string;
   netid: string;
+  roll_number?: string;
   role: UserRole;
   specialization?: string;
   department: string;
@@ -426,13 +427,26 @@ export interface CampusUser {
   avatar_initials: string;
   skills: string[];
   created_at?: string;
+  authenticated?: boolean;
 }
 
 export interface LoginResponse {
+  authenticated?: boolean;
   token: string;
   token_type: string;
   user: CampusUser;
   expires_in: number;
+}
+
+export interface StudentSendOTPResponse {
+  status: string;
+  message: string;
+  phone: string;
+  roll_number: string;
+  expires_in_seconds: number;
+  cooldown_seconds: number;
+  dev_mode: boolean;
+  dev_otp?: string;
 }
 
 // --- Diagnostics & Probes Types ---
