@@ -1386,60 +1386,86 @@ export default function IncidentWorkspace({
                 </form>
               </div>
 
-              {/* Resolution, Escalation, and Report to Host Action Buttons */}
+              {/* Resolution, Escalation, and Report to Host Action Buttons (Restricted to Technicians & Host) */}
               <div className="dossier-action-footer" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.65rem' }}>
-                {activeTicket.status !== 'Resolved' && (
-                  <button
-                    className="btn-resolve"
-                    onClick={() => {
-                      setResolutionText(
-                        `Applied fix for ${activeTicket.category}. Diagnostic tests verified normal operation.`
-                      );
-                      setIsResolveModalOpen(true);
+                {(currentUser?.role === 'technician' || currentUser?.role === 'admin' || currentUser?.role === 'host') ? (
+                  <>
+                    {activeTicket.status !== 'Resolved' && (
+                      <button
+                        className="btn-resolve"
+                        onClick={() => {
+                          setResolutionText(
+                            `Applied fix for ${activeTicket.category}. Diagnostic tests verified normal operation.`
+                          );
+                          setIsResolveModalOpen(true);
+                        }}
+                      >
+                        <CheckCircle2 size={16} />
+                        <span>Mark as Resolved</span>
+                      </button>
+                    )}
+
+                    {activeTicket.status !== 'Escalated' && (
+                      <button
+                        className="btn-escalate"
+                        onClick={() => {
+                          setEscalationReason(
+                            `Requires physical hardware inspection or Tier-2 directory privileges for ${activeTicket.category}.`
+                          );
+                          setIsEscalateModalOpen(true);
+                        }}
+                      >
+                        <AlertTriangle size={16} />
+                        <span>Escalate to Tier-2 / Tech Bar</span>
+                      </button>
+                    )}
+
+                    {/* Report to Host (Reassignment) Button */}
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{
+                        borderColor: 'var(--warning-600, #d97706)',
+                        color: 'var(--warning-500, #f59e0b)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                      }}
+                      onClick={() => {
+                        setReportHostReason(
+                          `Technician unable to resolve ${activeTicket.category} incident — Requesting Host reassignment to specialized engineer.`
+                        );
+                        setIsReportHostModalOpen(true);
+                      }}
+                      title="Report this incident to Host/Admin if unable to solve or outside current domain"
+                    >
+                      <ShieldCheck size={15} />
+                      <span>Report to Host (Reassign)</span>
+                    </button>
+                  </>
+                ) : (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      padding: '0.65rem 1rem',
+                      background: 'rgba(59, 130, 246, 0.08)',
+                      border: '1px solid rgba(59, 130, 246, 0.25)',
+                      borderRadius: '10px',
+                      color: '#93c5fd',
+                      fontSize: '0.82rem',
+                      width: '100%',
                     }}
                   >
-                    <CheckCircle2 size={16} />
-                    <span>Mark as Resolved</span>
-                  </button>
+                    <ShieldCheck size={16} style={{ color: '#60a5fa', flexShrink: 0 }} />
+                    <span>
+                      {activeTicket.status === 'Resolved'
+                        ? '✅ This complaint has been formally resolved by authorized Campus IT Technicians.'
+                        : '🔒 Incident under active diagnostic review. Only authorized technicians and host administrators have permission to mark incidents as resolved.'}
+                    </span>
+                  </div>
                 )}
-
-                {activeTicket.status !== 'Escalated' && (
-                  <button
-                    className="btn-escalate"
-                    onClick={() => {
-                      setEscalationReason(
-                        `Requires physical hardware inspection or Tier-2 directory privileges for ${activeTicket.category}.`
-                      );
-                      setIsEscalateModalOpen(true);
-                    }}
-                  >
-                    <AlertTriangle size={16} />
-                    <span>Escalate to Tier-2 / Tech Bar</span>
-                  </button>
-                )}
-
-                {/* Report to Host (Reassignment) Button */}
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  style={{
-                    borderColor: 'var(--warning-600, #d97706)',
-                    color: 'var(--warning-500, #f59e0b)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                  }}
-                  onClick={() => {
-                    setReportHostReason(
-                      `Technician unable to resolve ${activeTicket.category} incident — Requesting Host reassignment to specialized engineer.`
-                    );
-                    setIsReportHostModalOpen(true);
-                  }}
-                  title="Report this incident to Host/Admin if unable to solve or outside current domain"
-                >
-                  <ShieldCheck size={15} />
-                  <span>Report to Host (Reassign)</span>
-                </button>
               </div>
             </div>
           ) : (

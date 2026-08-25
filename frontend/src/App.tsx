@@ -360,9 +360,19 @@ export default function App() {
     };
   }, []);
 
-  // Programmatic tab navigation with URL history push
+  // Programmatic tab navigation with URL history push and authentication guards
   const navigateToTab = useCallback((tab: TabType) => {
-    // Check permission guards
+    // Compulsory login guard: require authentication to access ticket creation, incident resolver, admin, or host hubs
+    if (!currentUser || !authToken) {
+      if (tab !== 'landing' && tab !== 'status' && tab !== 'kb' && tab !== 'map') {
+        const targetRole: UserRole = tab === 'reports' ? 'host' : tab === 'admin' ? 'technician' : 'student';
+        setAuthModalRole(targetRole);
+        setIsAuthModalOpen(true);
+        return;
+      }
+    }
+
+    // Role permission guards
     if (tab === 'admin' && userRole !== 'admin' && userRole !== 'technician' && userRole !== 'host') {
       setAuthModalRole('technician');
       setIsAuthModalOpen(true);
@@ -383,7 +393,7 @@ export default function App() {
     } else if (window.location.pathname !== targetPath) {
       window.history.pushState(null, '', targetPath);
     }
-  }, [userRole]);
+  }, [currentUser, authToken, userRole]);
 
   // Fetch tickets
   const fetchTickets = useCallback(async () => {
@@ -1060,6 +1070,7 @@ export default function App() {
                     setMapInitialLocationId(loc || null);
                     navigateToTab('map');
                   }}
+                  onTicketsUpdated={(updated) => setTickets(updated)}
                 />
               ) : (
                 <LandingPage
