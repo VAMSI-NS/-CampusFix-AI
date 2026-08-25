@@ -347,6 +347,24 @@ export default function App() {
         setIs404(true);
       } else {
         setIs404(false);
+        const storedUser = localStorage.getItem('campusfix_user');
+        const storedToken = localStorage.getItem('campusfix_token');
+
+        // Security Enforcement: Unauthenticated visitors cannot directly open protected feature routes
+        if (!storedUser || !storedToken) {
+          if (match.tab !== 'landing') {
+            setActiveTab('landing');
+            const targetRole: UserRole =
+              match.tab === 'reports' || match.tab === 'command-center'
+                ? 'host'
+                : match.tab === 'admin'
+                ? 'technician'
+                : 'student';
+            setAuthModalRole(targetRole);
+            setIsAuthModalOpen(true);
+            return;
+          }
+        }
         setActiveTab(match.tab);
       }
     };
@@ -364,8 +382,13 @@ export default function App() {
   const navigateToTab = useCallback((tab: TabType) => {
     // Compulsory login guard: require authentication to access ticket creation, incident resolver, admin, or host hubs
     if (!currentUser || !authToken) {
-      if (tab !== 'landing' && tab !== 'status' && tab !== 'kb' && tab !== 'map') {
-        const targetRole: UserRole = tab === 'reports' ? 'host' : tab === 'admin' ? 'technician' : 'student';
+      if (tab !== 'landing') {
+        const targetRole: UserRole =
+          tab === 'reports' || tab === 'command-center'
+            ? 'host'
+            : tab === 'admin'
+            ? 'technician'
+            : 'student';
         setAuthModalRole(targetRole);
         setIsAuthModalOpen(true);
         return;
@@ -378,7 +401,7 @@ export default function App() {
       setIsAuthModalOpen(true);
       return;
     }
-    if (tab === 'reports' && userRole !== 'host') {
+    if ((tab === 'reports' || tab === 'command-center') && userRole !== 'host') {
       setAuthModalRole('host');
       setIsAuthModalOpen(true);
       return;
@@ -672,25 +695,15 @@ export default function App() {
 
       {/* Role-Based Navigation Tabs */}
       <nav className="app-nav-tabs" aria-label="Main Navigation">
-        {/* Common Home Tab */}
-        <button
-          className={`nav-tab-btn ${activeTab === 'landing' && !is404 ? 'active' : ''}`}
-          onClick={() => navigateToTab('landing')}
-        >
-          <Home size={15} />
-          <span>Home</span>
-        </button>
-
         {/* 1. STUDENT VIEW TABS */}
         {currentUser && userRole === 'student' && (
           <>
             <button
-              className={`nav-tab-btn ${activeTab === 'resolver' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('resolver')}
+              className={`nav-tab-btn ${activeTab === 'landing' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('landing')}
             >
-              <Wrench size={15} />
-              <span>AI Help Desk</span>
-              <span className="tab-badge">Diagnostic</span>
+              <Sparkles size={15} style={{ color: '#10b981' }} />
+              <span>Student AI Desk</span>
             </button>
 
             <button
@@ -698,24 +711,7 @@ export default function App() {
               onClick={() => navigateToTab('history')}
             >
               <Clock size={15} />
-              <span>My Incidents</span>
-            </button>
-
-            <button
-              className={`nav-tab-btn ${activeTab === 'tickets' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('tickets')}
-            >
-              <TicketIcon size={15} />
-              <span>Ticket Status</span>
-              <span className="badge-mini">{tickets.length}</span>
-            </button>
-
-            <button
-              className={`nav-tab-btn ${activeTab === 'kb' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('kb')}
-            >
-              <BookOpen size={15} />
-              <span>Help Center</span>
+              <span>My Complaints & Tracer</span>
             </button>
 
             <button
@@ -723,17 +719,8 @@ export default function App() {
               onClick={() => navigateToTab('status')}
             >
               <Radio size={15} />
-              <span>Service Status</span>
+              <span>Campus Status</span>
               <span className="tab-live-dot" />
-            </button>
-
-            <button
-              className={`nav-tab-btn ${activeTab === 'command-center' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('command-center')}
-            >
-              <Sparkles size={15} style={{ color: '#818cf8' }} />
-              <span>AI Command Center</span>
-              <span className="tab-badge" style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#a5b4fc' }}>Agent</span>
             </button>
 
             <button
@@ -742,6 +729,14 @@ export default function App() {
             >
               <MapPin size={15} />
               <span>Campus Map</span>
+            </button>
+
+            <button
+              className={`nav-tab-btn ${activeTab === 'kb' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('kb')}
+            >
+              <BookOpen size={15} />
+              <span>Help Center</span>
             </button>
           </>
         )}
@@ -761,15 +756,6 @@ export default function App() {
             </button>
 
             <button
-              className={`nav-tab-btn ${activeTab === 'command-center' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('command-center')}
-            >
-              <Sparkles size={15} style={{ color: '#818cf8' }} />
-              <span>AI Command Center</span>
-              <span className="tab-badge" style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#a5b4fc' }}>Agent</span>
-            </button>
-
-            <button
               className={`nav-tab-btn ${activeTab === 'tickets' && !is404 ? 'active' : ''}`}
               onClick={() => navigateToTab('tickets')}
             >
@@ -783,7 +769,15 @@ export default function App() {
               onClick={() => navigateToTab('resolver')}
             >
               <Wrench size={15} />
-              <span>AI Help Desk</span>
+              <span>AI Incident Resolver</span>
+            </button>
+
+            <button
+              className={`nav-tab-btn ${activeTab === 'history' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('history')}
+            >
+              <Clock size={15} />
+              <span>Incident History</span>
             </button>
 
             <button
@@ -795,20 +789,20 @@ export default function App() {
             </button>
 
             <button
-              className={`nav-tab-btn ${activeTab === 'kb' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('kb')}
-            >
-              <BookOpen size={15} />
-              <span>Help Center</span>
-            </button>
-
-            <button
               className={`nav-tab-btn ${activeTab === 'status' && !is404 ? 'active' : ''}`}
               onClick={() => navigateToTab('status')}
             >
               <Radio size={15} />
               <span>Service Status</span>
               <span className="tab-live-dot" />
+            </button>
+
+            <button
+              className={`nav-tab-btn ${activeTab === 'kb' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('kb')}
+            >
+              <BookOpen size={15} />
+              <span>Help Center</span>
             </button>
 
             <button
@@ -825,10 +819,10 @@ export default function App() {
         {currentUser && (userRole === 'host' || userRole === 'admin') && (
           <>
             <button
-              className={`nav-tab-btn ${activeTab === 'admin' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('admin')}
+              className={`nav-tab-btn ${activeTab === 'reports' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('reports')}
             >
-              <LayoutDashboard size={15} />
+              <FileSpreadsheet size={15} />
               <span>Host Operations Hub</span>
               <span className="tab-badge" style={{ background: '#f59e0b', color: '#000', fontWeight: 800 }}>
                 Host
@@ -845,23 +839,36 @@ export default function App() {
             </button>
 
             <button
+              className={`nav-tab-btn ${activeTab === 'admin' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('admin')}
+            >
+              <LayoutDashboard size={15} />
+              <span>Staff Provisioning</span>
+            </button>
+
+            <button
               className={`nav-tab-btn ${activeTab === 'tickets' && !is404 ? 'active' : ''}`}
               onClick={() => navigateToTab('tickets')}
             >
               <TicketIcon size={15} />
-              <span>All Incidents & Kanban</span>
+              <span>Ticket Board</span>
               <span className="badge-mini">{tickets.length}</span>
             </button>
 
             <button
-              className={`nav-tab-btn ${activeTab === 'reports' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('reports')}
+              className={`nav-tab-btn ${activeTab === 'resolver' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('resolver')}
             >
-              <FileSpreadsheet size={15} />
-              <span>Executive SLA Reports</span>
-              <span className="tab-badge" style={{ background: '#f59e0b', color: '#000', fontWeight: 800 }}>
-                Host
-              </span>
+              <Wrench size={15} />
+              <span>AI Incident Resolver</span>
+            </button>
+
+            <button
+              className={`nav-tab-btn ${activeTab === 'history' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('history')}
+            >
+              <Clock size={15} />
+              <span>Incident History</span>
             </button>
 
             <button
@@ -870,22 +877,6 @@ export default function App() {
             >
               <MapPin size={15} />
               <span>Campus Map</span>
-            </button>
-
-            <button
-              className={`nav-tab-btn ${activeTab === 'resolver' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('resolver')}
-            >
-              <Wrench size={15} />
-              <span>AI Help Desk</span>
-            </button>
-
-            <button
-              className={`nav-tab-btn ${activeTab === 'kb' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('kb')}
-            >
-              <BookOpen size={15} />
-              <span>Help Center</span>
             </button>
 
             <button
@@ -911,91 +902,38 @@ export default function App() {
         {!currentUser && (
           <>
             <button
-              className={`nav-tab-btn ${activeTab === 'command-center' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('command-center')}
+              className={`nav-tab-btn ${activeTab === 'landing' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('landing')}
             >
-              <Sparkles size={15} style={{ color: '#818cf8' }} />
-              <span>AI Command Center</span>
-              <span className="tab-badge">AI Agent</span>
+              <Home size={15} />
+              <span>Welcome Portal</span>
             </button>
 
             <button
-              className={`nav-tab-btn ${activeTab === 'resolver' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('resolver')}
+              type="button"
+              className="nav-tab-btn"
+              onClick={() => handlePromptLogin('student')}
+              style={{ color: '#34d399', fontWeight: 700 }}
             >
-              <Wrench size={15} />
-              <span>AI Help Desk</span>
-              <span className="tab-badge">Diagnostic</span>
+              <span>🎓 Student Sign In</span>
             </button>
 
             <button
-              className={`nav-tab-btn ${activeTab === 'history' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('history')}
-            >
-              <Clock size={15} />
-              <span>Incident History</span>
-            </button>
-
-            <button
-              className={`nav-tab-btn ${activeTab === 'tickets' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('tickets')}
-            >
-              <TicketIcon size={15} />
-              <span>Ticket Board</span>
-              <span className="badge-mini">{tickets.length}</span>
-            </button>
-
-            <button
-              className={`nav-tab-btn ${activeTab === 'map' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('map')}
-            >
-              <MapPin size={15} />
-              <span>Campus Map</span>
-            </button>
-
-            <button
-              className={`nav-tab-btn ${activeTab === 'status' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('status')}
-            >
-              <Radio size={15} />
-              <span>Service Status</span>
-              <span className="tab-live-dot" />
-            </button>
-
-            <button
-              className={`nav-tab-btn ${activeTab === 'kb' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('kb')}
-            >
-              <BookOpen size={15} />
-              <span>Help Center</span>
-            </button>
-
-            <button
-              className={`nav-tab-btn ${activeTab === 'diagnostics' && !is404 ? 'active' : ''}`}
-              onClick={() => navigateToTab('diagnostics')}
-            >
-              <Activity size={15} />
-              <span>System Health</span>
-            </button>
-
-            <button
+              type="button"
               className="nav-tab-btn"
               onClick={() => handlePromptLogin('technician')}
-              title="Technician login required"
+              style={{ color: '#60a5fa', fontWeight: 700 }}
             >
-              <LayoutDashboard size={15} />
-              <span>Technician Hub</span>
-              <span className="tab-badge" style={{ opacity: 0.7 }}>Login</span>
+              <span>🛠️ Staff Sign In</span>
             </button>
 
             <button
+              type="button"
               className="nav-tab-btn"
               onClick={() => handlePromptLogin('host')}
-              title="Host login required"
+              style={{ color: '#fbbf24', fontWeight: 700 }}
             >
-              <FileSpreadsheet size={15} />
-              <span>Host Reports</span>
-              <span className="tab-badge" style={{ opacity: 0.7 }}>Host</span>
+              <span>👑 Host Sign In</span>
             </button>
           </>
         )}
@@ -1056,10 +994,84 @@ export default function App() {
               </button>
             </div>
           </div>
+        ) : !currentUser ? (
+          /* Unauthenticated visitor access guard */
+          activeTab === 'landing' ? (
+            <LandingPage
+              onStartDiagnosis={handleStartDiagnosis}
+              onNavigateTab={(tab) => navigateToTab(tab)}
+              tickets={tickets}
+              onOpenChatModal={handleOpenChatModal}
+              onPromptLogin={handlePromptLogin}
+            />
+          ) : (
+            <div
+              className="access-restricted-card"
+              style={{
+                maxWidth: 580,
+                margin: '4rem auto',
+                textAlign: 'center',
+                padding: '3.5rem 2.5rem',
+                background: 'var(--bg-surface, #18181b)',
+                borderRadius: 24,
+                border: '1px solid var(--border-default, #27272a)',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.75)',
+              }}
+            >
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: '50%',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  color: '#ef4444',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 1.25rem',
+                }}
+              >
+                <ShieldAlert size={32} />
+              </div>
+              <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', marginBottom: '0.6rem' }}>
+                Authentication Required
+              </h2>
+              <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary, #94a3b8)', marginBottom: '2rem', lineHeight: 1.6 }}>
+                CampusFix is a protected university system. Please sign in to access diagnostic tools, ticket generation, AI command centers, and operational hubs.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', padding: '0.75rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer' }}
+                  onClick={() => handlePromptLogin('student')}
+                >
+                  🎓 Student Sign In
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', border: 'none', padding: '0.75rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer' }}
+                  onClick={() => handlePromptLogin('technician')}
+                >
+                  🛠️ Staff Sign In
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none', padding: '0.75rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer' }}
+                  onClick={() => handlePromptLogin('host')}
+                >
+                  👑 Host Sign In
+                </button>
+              </div>
+            </div>
+          )
         ) : (
+          /* Authenticated role views */
           <>
             {activeTab === 'landing' && (
-              currentUser && userRole === 'student' ? (
+              userRole === 'student' ? (
                 <StudentDashboard
                   currentUser={currentUser}
                   tickets={tickets}
@@ -1072,14 +1084,21 @@ export default function App() {
                   }}
                   onTicketsUpdated={(updated) => setTickets(updated)}
                 />
-              ) : (
-                <LandingPage
-                  onStartDiagnosis={handleStartDiagnosis}
-                  onNavigateTab={(tab) => navigateToTab(tab)}
+              ) : (userRole === 'technician' || userRole === 'admin') ? (
+                <AdminDashboard
                   tickets={tickets}
-                  onOpenChatModal={handleOpenChatModal}
-                  onPromptLogin={handlePromptLogin}
+                  currentUser={currentUser}
+                  authToken={authToken}
+                  onOpenInResolver={handleSelectTicketForResolver}
+                  onUpdateTicketStatus={handleUpdateTicketStatus}
+                  onNavigateToKB={() => navigateToTab('kb')}
+                  onResetData={() => {
+                    fetchTickets();
+                  }}
+                  onTicketsUpdated={(updated) => setTickets(updated)}
                 />
+              ) : (
+                <HostReports tickets={tickets} />
               )
             )}
 
