@@ -16,174 +16,7 @@ import {
   HostAITask,
 } from '../types/chat';
 
-export const INITIAL_MOCK_TICKETS: Ticket[] = [
-  {
-    id: 'ticket-101',
-    ticket_number: 'INC-2026-8941',
-    title: 'Eduroam 802.1X Certificate Trust Loop on Android 14',
-    category: 'Eduroam Wi-Fi',
-    priority: 'Medium',
-    status: 'Diagnosing',
-    location: 'Engineering Hall, Room 304',
-    netid: 'm.chen',
-    email: 'm.chen@university.edu',
-    description: 'Unable to validate server certificate on Pixel 8. Receiving WPA-Enterprise 802.1X handshake timeout.',
-    issue_summary: 'Pixel 8 Android 14 client failing RADIUS EAP-PEAP certificate handshake with campus root CA.',
-    assigned_technician: 'Ramu Kumar',
-    diagnostic_stage: 'Troubleshooting',
-    diagnostic_progress: 60,
-    actions_taken: [
-      {
-        id: 'act-1',
-        timestamp: new Date().toISOString(),
-        action: 'Verified RADIUS Auth Server status for Engineering Hall AP Cluster',
-        result: 'RADIUS Node B responding nominally (latency: 14ms).',
-        actor: 'system',
-      },
-      {
-        id: 'act-2',
-        timestamp: new Date().toISOString(),
-        action: 'Configured CA Certificate domain to university.edu and EAP to MSCHAPv2',
-        result: 'Profile verified. Awaiting student connection check.',
-        actor: 'ai_specialist',
-      },
-    ],
-    notes: [
-      {
-        id: 'note-1',
-        author: 'CampusFix AI',
-        author_role: 'system',
-        text: 'Identified Android 14 strict CA certificate requirement.',
-        created_at: new Date().toISOString(),
-      },
-    ],
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'ticket-102',
-    ticket_number: 'INC-2026-8935',
-    title: 'PaperCut WebPrint Spooler Timeout in Library 2nd Floor',
-    category: 'PaperCut Printing',
-    priority: 'Low',
-    status: 'Resolved',
-    location: 'Main Library, 2nd Floor West Wing',
-    netid: 'k.patel',
-    email: 'k.patel@university.edu',
-    description: 'Sent 14-page PDF via WebPrint. Station terminal displayed Processing without output.',
-    issue_summary: 'Print spooler buffer queue stall resolved; release station driver restarted and student quota refunded.',
-    assigned_technician: 'Dave Miller',
-    diagnostic_stage: 'Completed',
-    diagnostic_progress: 100,
-    actions_taken: [
-      {
-        id: 'act-3',
-        timestamp: new Date().toISOString(),
-        action: 'Diagnostic probe executed on Library Terminal #2 print spooler',
-        result: 'Spooler service buffer cleared; 1 stalled job released.',
-        actor: 'technician',
-      },
-    ],
-    notes: [
-      {
-        id: 'note-2',
-        author: 'Helpdesk Staff',
-        author_role: 'technician',
-        text: 'Printer queue reset and test print verified.',
-        created_at: new Date().toISOString(),
-      },
-    ],
-    resolution_details: 'Cleared PaperCut queue spooler buffer and released physical output. $1.40 print quota credited back.',
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'ticket-103',
-    ticket_number: 'INC-2026-8920',
-    title: 'Duo 2FA Push Notification Timeout after iOS Upgrade',
-    category: 'Duo MFA',
-    priority: 'High',
-    status: 'Escalated',
-    location: 'Residential Hall B, Rm 112',
-    netid: 'j.williams',
-    email: 'j.williams@university.edu',
-    description: 'Upgraded to new iPhone. Duo push requests never appear on lock screen.',
-    issue_summary: 'Hardware token migration required following iOS device upgrade.',
-    assigned_technician: 'Sarah Jenkins',
-    diagnostic_stage: 'Completed',
-    diagnostic_progress: 100,
-    actions_taken: [
-      {
-        id: 'act-5',
-        timestamp: new Date().toISOString(),
-        action: 'High Priority Flag: Midterm submission deadline in 2 hours',
-        result: 'Automatic escalation to Tech Bar Priority Walkup Queue.',
-        actor: 'system',
-      },
-    ],
-    notes: [
-      {
-        id: 'note-3',
-        author: 'Security Dispatch',
-        author_role: 'system',
-        text: 'Walkup identity verification required.',
-        created_at: new Date().toISOString(),
-      },
-    ],
-    escalation_info: {
-      tier: 'Tier-2 Identity & Access Management',
-      department: 'Campus IT Tech Bar Walkup',
-      reason: 'Student lacks access to registered secondary Duo device.',
-      assigned_to: 'Sarah Jenkins (Tech Bar Lead)',
-      tech_bar_location: 'Main Library, 1st Floor Tech Bar (Mon–Fri 8am–7pm)',
-      student_id_required: true,
-      notes: 'Student has urgent midterm deadline. Expedited walkup queue pass granted.',
-      escalated_at: new Date().toISOString(),
-    },
-    created_at: new Date(Date.now() - 10800000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'ticket-104',
-    ticket_number: 'INC-2026-8890',
-    title: 'PlayStation 5 Dorm Wired ResNet Ethernet Port Inactive',
-    category: 'Dorm ResNet',
-    priority: 'Low',
-    status: 'New',
-    location: 'Maple Hall, Rm 421',
-    netid: 'd.rodriguez',
-    email: 'd.rodriguez@university.edu',
-    description: 'Registered LAN MAC address AA:BB:CC:11:22:33 on resnet portal, but wall jack link light remains off.',
-    issue_summary: 'New intake: Dorm room wall ethernet jack link state unconfirmed.',
-    assigned_technician: 'Ramu Kumar',
-    diagnostic_stage: 'Triage',
-    diagnostic_progress: 15,
-    actions_taken: [],
-    notes: [],
-    created_at: new Date(Date.now() - 14400000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'ticket-105',
-    ticket_number: 'INC-2026-8855',
-    title: 'Canvas LMS SSO Stale Session Cookie & Token Expiration',
-    category: 'Canvas / SSO',
-    priority: 'Medium',
-    status: 'Waiting for Student',
-    location: 'Science Center, Rm 102',
-    netid: 'a.taylor',
-    email: 'a.taylor@university.edu',
-    description: 'Clicking Log in with NetID on Canvas loops back to login prompt without throwing an explicit error message.',
-    issue_summary: 'SAML token handshake loop caused by cached browser SSO cookie session.',
-    assigned_technician: 'Alex Wong',
-    diagnostic_stage: 'Environment & Device',
-    diagnostic_progress: 40,
-    actions_taken: [],
-    notes: [],
-    created_at: new Date(Date.now() - 18000000).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
+export const INITIAL_MOCK_TICKETS: Ticket[] = [];
 
 export const INITIAL_MOCK_USERS: CampusUser[] = [
   {
@@ -198,99 +31,27 @@ export const INITIAL_MOCK_USERS: CampusUser[] = [
     status: 'active',
     is_active: true,
     phone: '+1 (555) 019-9000',
-    active_assignments_count: 5,
+    active_assignments_count: 0,
     avatar_initials: 'VA',
     skills: ['Platform Administrator', 'System Governance', 'SLA Auditing', 'Infrastructure Ops'],
     created_at: new Date().toISOString(),
   },
   {
-    id: 'user-tech-1',
+    id: 'user-tech-anand',
     technician_id: 'TECH-001',
-    name: 'Ramu Kumar',
-    username: 'ramu',
-    email: 'ramu@university.edu',
-    netid: 'ramu',
+    name: 'Anand Sen',
+    username: 'anand',
+    email: 'anand@campusfix.edu',
+    netid: 'anand',
     role: 'technician',
     specialization: 'Network',
-    department: 'Network & Wireless Engineering',
+    department: 'Campus IT Operations & Network Infrastructure',
     status: 'active',
     is_active: true,
     phone: '+1 (555) 014-4112',
-    active_assignments_count: 2,
-    avatar_initials: 'RK',
-    skills: ['Eduroam 802.1X', 'RADIUS', 'Cisco Catalyst', 'DNS/DHCP', 'Wi-Fi 6E'],
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'user-tech-2',
-    technician_id: 'TECH-002',
-    name: 'Sarah Jenkins',
-    username: 'sarah',
-    email: 's.jenkins@university.edu',
-    netid: 'sarah',
-    role: 'technician',
-    specialization: 'IAM / Access',
-    department: 'Identity & Access Management',
-    status: 'active',
-    is_active: true,
-    phone: '+1 (555) 018-7721',
-    active_assignments_count: 1,
-    avatar_initials: 'SJ',
-    skills: ['Active Directory', 'Duo 2FA', 'Shibboleth SSO', 'SAML 2.0', 'LDAP'],
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'user-tech-3',
-    technician_id: 'TECH-003',
-    name: 'Dave Miller',
-    username: 'dave',
-    email: 'd.miller@university.edu',
-    netid: 'dave',
-    role: 'technician',
-    specialization: 'Hardware',
-    department: 'Campus Hardware & Printing Infrastructure',
-    status: 'active',
-    is_active: true,
-    phone: '+1 (555) 019-3384',
-    active_assignments_count: 1,
-    avatar_initials: 'DM',
-    skills: ['PaperCut MF', 'Kyocera / HP Spoolers', 'Lab Workstations', 'Peripherals'],
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'user-tech-4',
-    technician_id: 'TECH-004',
-    name: 'Alex Wong',
-    username: 'alex',
-    email: 'a.wong@university.edu',
-    netid: 'alex',
-    role: 'technician',
-    specialization: 'Software',
-    department: 'Academic Software & Licensing',
-    status: 'active',
-    is_active: true,
-    phone: '+1 (555) 012-9901',
-    active_assignments_count: 1,
-    avatar_initials: 'AW',
-    skills: ['Canvas LMS', 'MATLAB', 'Adobe Creative Cloud', 'VMware Horizon'],
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'user-tech-5',
-    technician_id: 'TECH-005',
-    name: 'Priya Sharma',
-    username: 'priya',
-    email: 'p.sharma@university.edu',
-    netid: 'priya',
-    role: 'technician',
-    specialization: 'Support',
-    department: 'Student IT Help Bar & Walkup Center',
-    status: 'active',
-    is_active: true,
-    phone: '+1 (555) 017-6644',
-    active_assignments_count: 1,
-    avatar_initials: 'PS',
-    skills: ['First Contact Resolution', 'Device Onboarding', 'OS Diagnostics', 'VPN'],
+    active_assignments_count: 0,
+    avatar_initials: 'AS',
+    skills: ['Eduroam 802.1X', 'RADIUS', 'Campus Infrastructure', 'IAM Diagnostics'],
     created_at: new Date().toISOString(),
   },
   {
@@ -327,11 +88,7 @@ export function authenticateClientMockUser(
   const validCredentials: Record<string, string> = {
     vamsi: 'vamsi@123',
     admin: 'vamsi@123',
-    ramu: 'ramu@123',
-    sarah: 'sarah@123',
-    dave: 'dave@123',
-    alex: 'alex@123',
-    priya: 'priya@123',
+    anand: 'anand@123',
     student: 'student@123',
   };
 
@@ -916,10 +673,10 @@ export const INITIAL_MOCK_PROBES: DiagnosticProbeResult[] = [
 
 export function getLocalTickets(): Ticket[] {
   try {
-    const raw = localStorage.getItem('campusfix_tickets');
+    const raw = localStorage.getItem('campusfix_tickets_clean_v1');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
@@ -931,7 +688,7 @@ export function getLocalTickets(): Ticket[] {
 
 export function saveLocalTickets(tickets: Ticket[]): void {
   try {
-    localStorage.setItem('campusfix_tickets', JSON.stringify(tickets));
+    localStorage.setItem('campusfix_tickets_clean_v1', JSON.stringify(tickets));
   } catch (e) {
     console.error('Error saving tickets to localStorage:', e);
   }
@@ -969,7 +726,7 @@ export function createClientMockTicket(data: {
     email: data.email || 'student@university.edu',
     description: data.description.trim(),
     issue_summary: data.issue_summary || data.description.trim().slice(0, 140),
-    assigned_technician: 'Jordan Smith (Dispatch Lead)',
+    assigned_technician: 'Anand Sen',
     ai_confidence: 94,
     diagnostic_stage: 'Triage',
     diagnostic_progress: 20,
@@ -987,7 +744,7 @@ export function createClientMockTicket(data: {
         id: `note-${Math.floor(100 + Math.random() * 900)}`,
         author: 'CampusFix AI Intake System',
         author_role: 'system',
-        text: `New incident logged for ${data.location || 'Main Campus'}. Preliminary classification: ${data.category}.`,
+        text: `New incident logged for ${data.location || 'Main Campus'}. Preliminary classification: ${data.category}. Assigned technician: Anand Sen.`,
         created_at: nowIso,
       },
     ],
@@ -1004,7 +761,7 @@ export function createClientMockTicket(data: {
 
 export function getLocalTechnicians(): CampusUser[] {
   try {
-    const raw = localStorage.getItem('campusfix_technicians');
+    const raw = localStorage.getItem('campusfix_technicians_clean_v1');
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -1019,7 +776,7 @@ export function getLocalTechnicians(): CampusUser[] {
 
 export function saveLocalTechnicians(users: CampusUser[]): void {
   try {
-    localStorage.setItem('campusfix_technicians', JSON.stringify(users));
+    localStorage.setItem('campusfix_technicians_clean_v1', JSON.stringify(users));
   } catch (e) {
     console.error('Error saving technicians to localStorage:', e);
   }
@@ -1044,7 +801,7 @@ export function createClientMockTechnician(data: {
     }
   });
 
-  const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 6;
+  const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 2;
   const techId = `TECH-${String(nextNum).padStart(3, '0')}`;
   const initials =
     data.name
@@ -1081,6 +838,8 @@ export function createClientMockTechnician(data: {
 
 export function resetLocalSystemData(): { tickets: Ticket[]; technicians: CampusUser[] } {
   try {
+    localStorage.removeItem('campusfix_tickets_clean_v1');
+    localStorage.removeItem('campusfix_technicians_clean_v1');
     localStorage.removeItem('campusfix_tickets');
     localStorage.removeItem('campusfix_technicians');
     localStorage.removeItem('campusfix_chat_history');

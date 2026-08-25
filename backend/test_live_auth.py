@@ -77,43 +77,18 @@ assert data["name"] == "Aarav Sharma"
 assert data["roll_number"] == "211FA04001"
 print(f"[PASS] 4. /api/auth/me Validated for Student: {data['name']} (Roll: {data['roll_number']})")
 
-# 3. Staff / Technician Logins (Demonstrating Multi-User Staff Identity without Ramu default)
-# 3a. Staff Login: Sarah Jenkins (IAM / Access)
+# 3. Staff / Technician Login: Anand Sen (Network / Support)
 status, data = req("POST", "/api/auth/login", {
-    "username": "sarah",
-    "password": "sarah@123",
-    "specialization": "IAM / Access",
-    "role": "technician"
-})
-assert status == 200, f"Sarah login failed: {data}"
-assert data["user"]["name"] == "Sarah Jenkins"
-assert data["user"]["specialization"] == "IAM / Access"
-sarah_token = data["token"]
-print(f"[PASS] 5. Staff Login (Sarah): {data['user']['name']} (Spec: {data['user']['specialization']}) — Confirmed NOT Ramu")
-
-# 3b. Staff Login: Dave Miller (Hardware)
-status, data = req("POST", "/api/auth/login", {
-    "username": "dave",
-    "password": "dave@123",
-    "specialization": "Hardware",
-    "role": "technician"
-})
-assert status == 200, f"Dave login failed: {data}"
-assert data["user"]["name"] == "Dave Miller"
-assert data["user"]["specialization"] == "Hardware"
-print(f"[PASS] 6. Staff Login (Dave): {data['user']['name']} (Spec: {data['user']['specialization']}) — Confirmed NOT Ramu")
-
-# 3c. Staff Login: Ramu Kumar (Network)
-status, data = req("POST", "/api/auth/login", {
-    "username": "ramu",
-    "password": "ramu@123",
+    "username": "anand",
+    "password": "anand@123",
     "specialization": "Network",
     "role": "technician"
 })
-assert status == 200, f"Ramu login failed: {data}"
-assert data["user"]["name"] == "Ramu Kumar"
+assert status == 200, f"Anand login failed: {data}"
+assert data["user"]["name"] == "Anand Sen"
+assert data["user"]["role"] == "technician"
 tech_token = data["token"]
-print(f"[PASS] 7. Staff Login (Ramu): {data['user']['name']} (Spec: {data['user']['specialization']})")
+print(f"[PASS] 5. Staff Login (Anand Sen): {data['user']['name']} (Technician: TECH-001)")
 
 # 4. Host Login (vamsi / vamsi@123)
 status, data = req("POST", "/api/auth/login", {
@@ -138,12 +113,12 @@ status, data = req(
 assert status == 403, f"Expected 403, got {status}"
 print(f"[PASS] 9. Student Blocked from Host Endpoint: 403 Forbidden")
 
-# 5b. Technician blocked from Host-only endpoints
+# 5b. Technician blocked from Host provisioning endpoint
 status, data = req(
     "POST",
     "/api/technicians",
-    {"name": "Fake Tech 2", "username": "fake2", "email": "f2@test.com", "password": "pwd", "specialization": "Network"},
-    token=sarah_token,
+    {"name": "Fake Tech", "username": "fake", "email": "f@test.com", "password": "pwd", "specialization": "Network"},
+    token=tech_token,
 )
 assert status == 403, f"Expected 403, got {status}"
 print(f"[PASS] 10. Technician Blocked from Host Provisioning: 403 Forbidden")
