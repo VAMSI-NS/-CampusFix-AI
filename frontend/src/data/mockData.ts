@@ -189,7 +189,7 @@ export const INITIAL_MOCK_USERS: CampusUser[] = [
   {
     id: 'user-host-vamsi',
     technician_id: 'HOST-001',
-    name: 'VAMSI',
+    name: 'vamsi',
     username: 'vamsi',
     email: 'vamsi@campusfix.edu',
     netid: 'vamsi',
@@ -322,6 +322,22 @@ export function authenticateClientMockUser(
 
   // Basic validation: username and password cannot be empty
   if (!cleanU || !cleanP) return null;
+
+  // Predefined authorized credentials
+  const validCredentials: Record<string, string> = {
+    vamsi: 'vamsi@123',
+    admin: 'vamsi@123',
+    ramu: 'ramu@123',
+    sarah: 'sarah@123',
+    dave: 'dave@123',
+    alex: 'alex@123',
+    priya: 'priya@123',
+    student: 'student@123',
+  };
+
+  if (validCredentials[cleanU] && validCredentials[cleanU] !== cleanP) {
+    return null; // Password mismatch
+  }
 
   const allUsers = getLocalTechnicians();
 

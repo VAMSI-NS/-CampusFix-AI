@@ -29,7 +29,7 @@ class UsersService:
         now_iso = datetime.now(timezone.utc).isoformat()
 
         # Configurable initial Host credentials from environment with fallback
-        host_username = os.getenv("INITIAL_HOST_USERNAME", "VAMSI")
+        host_username = os.getenv("INITIAL_HOST_USERNAME", "vamsi")
         host_password = os.getenv("INITIAL_HOST_PASSWORD", "vamsi@123")
 
         # 1. Host / Admin Account
@@ -37,8 +37,8 @@ class UsersService:
         host_user = UserInDB(
             id="user-host-vamsi",
             technician_id="HOST-001",
-            name="VAMSI",
-            username=host_username.lower(),
+            name="vamsi",
+            username="vamsi",
             email="vamsi@campusfix.edu",
             netid="vamsi",
             role="host",

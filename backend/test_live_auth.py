@@ -132,7 +132,7 @@ status, data = req("POST", "/api/auth/login", {
     "role": "host"
 })
 assert status == 200, f"Host login failed: {data}"
-assert data["user"]["name"] == "VAMSI"
+assert data["user"]["name"].lower() == "vamsi"
 assert data["user"]["role"] == "host"
 host_token = data["token"]
 print(f"[PASS] 9. Host Login: {data['user']['name']} ({data['user']['role']})")
