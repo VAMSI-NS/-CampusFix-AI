@@ -6,7 +6,13 @@ import hashlib
 import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Tuple
+from pathlib import Path
+from dotenv import load_dotenv
 from app.models.users import CampusUser
+
+_backend_env = Path(__file__).resolve().parents[2] / ".env"
+if _backend_env.exists():
+    load_dotenv(dotenv_path=_backend_env)
 
 # Secret key for token signing (from env or cryptographically secure fallback)
 JWT_SECRET_KEY = os.getenv("AUTH_SECRET_KEY", "campusfix-super-secure-production-jwt-hmac-key-2026-auth-engine")

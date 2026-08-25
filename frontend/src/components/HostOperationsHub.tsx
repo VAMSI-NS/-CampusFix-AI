@@ -104,7 +104,7 @@ export default function HostOperationsHub({
             </span>
           </div>
           <p style={{ margin: '0.2rem 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-            Logged in as <strong>{currentUser?.name || 'VAMSI'}</strong> • Autonomous campus infrastructure governance & SLA oversight.
+            Logged in as <strong>{currentUser?.name || 'Host Administrator'}</strong> • Autonomous campus infrastructure governance & SLA oversight.
           </p>
         </div>
 

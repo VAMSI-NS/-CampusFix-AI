@@ -242,13 +242,13 @@ export default function LandingPage({
                 Student Help Desk
               </h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.55, marginBottom: '1.25rem' }}>
-                Instant AI problem diagnosis, ticket tracking, Eduroam/Canvas recovery, and mobile OTP authentication.
+                Instant AI problem diagnosis, ticket tracking, Eduroam/Canvas recovery, and direct student password authentication.
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
                   <CheckCircle2 size={14} style={{ color: '#10b981', flexShrink: 0 }} />
-                  <span>Name + Roll Number + OTP sign-in</span>
+                  <span>Name + Roll Number + Password sign-in</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
                   <CheckCircle2 size={14} style={{ color: '#10b981', flexShrink: 0 }} />

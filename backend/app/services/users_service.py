@@ -2,8 +2,10 @@ import os
 import json
 import random
 import logging
+from pathlib import Path
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime, timezone
+from dotenv import load_dotenv
 from app.models.users import (
     CampusUser,
     UserInDB,
@@ -19,6 +21,10 @@ from app.database import db
 
 logger = logging.getLogger("campusfix.users")
 
+_backend_env = Path(__file__).resolve().parents[2] / ".env"
+if _backend_env.exists():
+    load_dotenv(dotenv_path=_backend_env)
+
 
 class UsersService:
     def __init__(self):
@@ -31,16 +37,20 @@ class UsersService:
         # Configurable initial Host credentials from environment with fallback
         host_username = os.getenv("INITIAL_HOST_USERNAME", "vamsi")
         host_password = os.getenv("INITIAL_HOST_PASSWORD", "vamsi@123")
+        host_name = os.getenv("INITIAL_HOST_NAME", "vamsi")
+        host_email = os.getenv("INITIAL_HOST_EMAIL", f"{host_username}@campusfix.edu")
+        host_netid = os.getenv("INITIAL_HOST_NETID", host_username)
+        host_initials = "".join(part[0].upper() for part in host_name.split() if part)[:2] or "HA"
 
         # 1. Host / Admin Account
         h_hash, h_salt = auth_service.hash_password(host_password)
         host_user = UserInDB(
-            id="user-host-vamsi",
+            id="user-host-configured",
             technician_id="HOST-001",
-            name="vamsi",
-            username="vamsi",
-            email="vamsi@campusfix.edu",
-            netid="vamsi",
+            name=host_name,
+            username=host_username.strip().lower(),
+            email=host_email.strip().lower(),
+            netid=host_netid.strip().lower(),
             role="host",
             specialization=None,
             department="Office of the University CIO & Campus Governance",
@@ -48,7 +58,7 @@ class UsersService:
             is_active=True,
             phone="+1 (555) 019-9000",
             active_assignments_count=0,
-            avatar_initials="VA",
+            avatar_initials=host_initials,
             skills=["Platform Administrator", "System Governance", "SLA Auditing", "Infrastructure Ops"],
             created_at=now_iso,
             password_hash=h_hash,
@@ -222,6 +232,71 @@ class UsersService:
             with db.get_cursor(commit=True) as cur:
                 cur.execute("SELECT COUNT(*) AS count FROM users;")
                 count = cur.fetchone()["count"]
+                configured_host = next((u for u in self._users_db.values() if u.role == "host"), None)
+                if configured_host:
+                    cur.execute("SELECT id FROM users WHERE role IN ('host', 'admin') ORDER BY created_at ASC LIMIT 1;")
+                    existing_host = cur.fetchone()
+                    if existing_host:
+                        cur.execute(
+                            """
+                            UPDATE users
+                            SET id = %s, technician_id = %s, name = %s, username = %s,
+                                email = %s, netid = %s, role = %s, department = %s,
+                                status = %s, is_active = %s, phone = %s,
+                                avatar_initials = %s, skills = %s,
+                                password_hash = %s, password_salt = %s
+                            WHERE id = %s;
+                            """,
+                            (
+                                configured_host.id,
+                                configured_host.technician_id,
+                                configured_host.name,
+                                configured_host.username,
+                                configured_host.email,
+                                configured_host.netid,
+                                configured_host.role,
+                                configured_host.department,
+                                configured_host.status,
+                                configured_host.is_active,
+                                configured_host.phone,
+                                configured_host.avatar_initials,
+                                json.dumps(configured_host.skills),
+                                configured_host.password_hash,
+                                configured_host.password_salt,
+                                existing_host["id"],
+                            ),
+                        )
+                    elif count > 0:
+                        cur.execute(
+                            """
+                            INSERT INTO users (
+                                id, technician_id, name, username, email, netid, role,
+                                specialization, department, status, is_active, phone,
+                                active_assignments_count, avatar_initials, skills,
+                                password_hash, password_salt, created_at
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                            """,
+                            (
+                                configured_host.id,
+                                configured_host.technician_id,
+                                configured_host.name,
+                                configured_host.username,
+                                configured_host.email,
+                                configured_host.netid,
+                                configured_host.role,
+                                configured_host.specialization,
+                                configured_host.department,
+                                configured_host.status,
+                                configured_host.is_active,
+                                configured_host.phone,
+                                configured_host.active_assignments_count,
+                                configured_host.avatar_initials,
+                                json.dumps(configured_host.skills),
+                                configured_host.password_hash,
+                                configured_host.password_salt,
+                                configured_host.created_at,
+                            ),
+                        )
                 if count == 0:
                     logger.info("Seeding initial users into PostgreSQL users table...")
                     for u in self._users_db.values():
@@ -354,36 +429,64 @@ class UsersService:
                 return u
         return None
 
-    def get_or_create_student(self, name: str, roll_number: str, phone: str) -> CampusUser:
-        """Retrieves or registers an authenticated student account by roll number."""
-        clean_roll = roll_number.strip().upper()
-        clean_name = name.strip()
-        clean_phone = phone.strip()
+    def authenticate_student(
+        self,
+        name: str,
+        roll_number: str,
+        password: str,
+    ) -> Tuple[Optional[CampusUser], Optional[str]]:
+        """Authenticates or registers student account using Name, Roll Number, and Password."""
+        clean_name = (name or "").strip()
+        clean_roll = (roll_number or "").strip().upper()
+        clean_pwd = (password or "").strip()
 
-        # Check existing by roll number or username
+        if not clean_name:
+            return None, "Please enter your name."
+        if not clean_roll:
+            return None, "Please enter your roll number."
+        if not clean_pwd:
+            return None, "Please enter your password."
+
+        # Search existing student by roll number or username
+        user_in_db = None
         for u in self._users_db.values():
             if u.role == "student" and (
                 (u.roll_number and u.roll_number.upper() == clean_roll)
                 or u.username.upper() == clean_roll
-                or (u.phone and u.phone == clean_phone)
+                or u.netid.upper() == clean_roll
             ):
-                # Update name/phone if changed
-                u.name = clean_name
-                u.roll_number = clean_roll
-                u.phone = clean_phone
-                return self._to_campus_user(u)
+                user_in_db = u
+                break
 
+        if user_in_db:
+            if not user_in_db.is_active:
+                return None, "This account is inactive. Please contact the Host / Administrator."
+
+            if user_in_db.password_hash and user_in_db.password_salt:
+                if not auth_service.verify_password(clean_pwd, user_in_db.password_hash, user_in_db.password_salt):
+                    return None, "Invalid credentials. Incorrect password."
+            else:
+                # Initialize password for pre-seeded student account
+                p_hash, p_salt = auth_service.hash_password(clean_pwd)
+                user_in_db.password_hash = p_hash
+                user_in_db.password_salt = p_salt
+
+            user_in_db.name = clean_name
+            user_in_db.roll_number = clean_roll
+            return self._to_campus_user(user_in_db), None
+
+        # Register new student account
+        p_hash, p_salt = auth_service.hash_password(clean_pwd)
         now_iso = datetime.now(timezone.utc).isoformat()
         initials = "".join([part[0].upper() for part in clean_name.split() if part])[:2] or "ST"
         new_id = f"user-stu-{clean_roll.lower().replace(' ', '-')}"
-        email = f"{clean_roll.lower()}@university.edu"
 
         stu_user = UserInDB(
             id=new_id,
             technician_id=None,
             name=clean_name,
             username=clean_roll.lower(),
-            email=email,
+            email=f"{clean_roll.lower()}@university.edu",
             netid=clean_roll.lower(),
             roll_number=clean_roll,
             role="student",
@@ -391,16 +494,16 @@ class UsersService:
             department="Student Computing & Campus IT Services",
             status="active",
             is_active=True,
-            phone=clean_phone,
+            phone=None,
             active_assignments_count=0,
             avatar_initials=initials,
             skills=["Student User"],
             created_at=now_iso,
-            password_hash=None,
-            password_salt=None,
+            password_hash=p_hash,
+            password_salt=p_salt,
         )
         self._users_db[new_id] = stu_user
-        return self._to_campus_user(stu_user)
+        return self._to_campus_user(stu_user), None
 
     def authenticate(
         self,

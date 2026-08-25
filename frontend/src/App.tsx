@@ -1264,7 +1264,7 @@ export default function App() {
                       style={{ padding: '0.65rem 1.25rem' }}
                     >
                       <LogIn size={15} />
-                      <span>Log In as Host (VAMSI)</span>
+                      <span>Log In as Host / Administrator</span>
                     </button>
                     <button
                       className="btn-secondary"

@@ -438,15 +438,10 @@ export interface LoginResponse {
   expires_in: number;
 }
 
-export interface StudentSendOTPResponse {
-  status: string;
-  message: string;
-  phone: string;
+export interface StudentLoginRequest {
+  name: string;
   roll_number: string;
-  expires_in_seconds: number;
-  cooldown_seconds: number;
-  dev_mode: boolean;
-  dev_otp?: string;
+  password: string;
 }
 
 // --- Diagnostics & Probes Types ---

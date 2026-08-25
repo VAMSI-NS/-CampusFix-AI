@@ -10,17 +10,13 @@ import {
   CheckCircle2,
   ArrowRight,
   RefreshCw,
-  Phone,
   Hash,
-  Clock,
-  ArrowLeft,
-  KeyRound,
   ShieldCheck,
   GraduationCap,
   Wrench,
 } from 'lucide-react';
-import { CampusUser, LoginResponse, TechnicianSpecialization, UserRole, StudentSendOTPResponse } from '../types/chat';
-import { authenticateClientMockUser, sendClientStudentOTP, verifyClientStudentOTP } from '../data/mockData';
+import { CampusUser, LoginResponse, UserRole } from '../types/chat';
+import { authenticateClientMockUser, authenticateClientStudent } from '../data/mockData';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -28,14 +24,6 @@ interface AuthModalProps {
   onLoginSuccess: (token: string, user: CampusUser) => void;
   initialRole?: UserRole;
 }
-
-const SPECIALIZATIONS: { id: TechnicianSpecialization; label: string }[] = [
-  { id: 'Network', label: 'Network Specialist (Wi-Fi 6E, RADIUS, VLANs)' },
-  { id: 'Hardware', label: 'Hardware Specialist (PaperCut, Lab Stations)' },
-  { id: 'Software', label: 'Software Specialist (Canvas LMS, Academic Apps)' },
-  { id: 'Support', label: 'Support Specialist (Tech Bar Walkup Triage)' },
-  { id: 'IAM / Access', label: 'IAM / Access (Duo 2FA, Shibboleth SSO)' },
-];
 
 export default function AuthModal({
   isOpen,
@@ -45,57 +33,36 @@ export default function AuthModal({
 }: AuthModalProps) {
   const [selectedRole, setSelectedRole] = useState<UserRole>(initialRole);
 
-  // Student Flow State
-  const [studentStep, setStudentStep] = useState<'details' | 'otp'>('details');
+  // Student Form State
   const [studentName, setStudentName] = useState('');
   const [studentRoll, setStudentRoll] = useState('');
-  const [studentPhone, setStudentPhone] = useState('');
-  const [studentOtp, setStudentOtp] = useState('');
-  const [devOtpInfo, setDevOtpInfo] = useState<string | null>(null);
-  const [otpExpirySeconds, setOtpExpirySeconds] = useState(300);
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const [studentPassword, setStudentPassword] = useState('');
+  const [showStudentPassword, setShowStudentPassword] = useState(false);
 
-  // Staff / Host State
+  // Staff & Host Form State
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [specialization, setSpecialization] = useState<TechnicianSpecialization>('Network');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Common UI State
+  // Status & Error State
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
   const handleRoleTabChange = (role: UserRole) => {
     setSelectedRole(role);
     setErrorMsg(null);
-    setSuccessNotice(null);
-    setStudentStep('details');
-    // Clear inputs — NEVER prefill credentials
+    setStudentName('');
+    setStudentRoll('');
+    setStudentPassword('');
     setUsername('');
     setPassword('');
-    setStudentOtp('');
-    setDevOtpInfo(null);
   };
 
-  // Sync initial role when opened
   useEffect(() => {
     if (isOpen && initialRole) {
       handleRoleTabChange(initialRole);
     }
   }, [isOpen, initialRole]);
-
-  // Live Timer for OTP expiry and resend cooldown
-  useEffect(() => {
-    if (!isOpen || studentStep !== 'otp') return;
-
-    const interval = setInterval(() => {
-      setOtpExpirySeconds((prev) => (prev > 0 ? prev - 1 : 0));
-      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isOpen, studentStep]);
 
   // Lock background scroll and support Escape key
   useEffect(() => {
@@ -117,26 +84,19 @@ export default function AuthModal({
     };
   }, [isOpen, onClose]);
 
-  // Format expiry seconds into mm:ss
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  // --- 1. STUDENT FLOW: SEND OTP ---
-  const handleStudentSendOTP = async (e: React.FormEvent) => {
+  // --- 1. STUDENT LOGIN HANDLER ---
+  const handleStudentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentName.trim()) {
-      setErrorMsg('Please enter your full student name.');
+      setErrorMsg('Please enter your name.');
       return;
     }
-    if (!studentRoll.trim() || studentRoll.trim().length < 3) {
-      setErrorMsg('Please enter a valid student roll number (e.g. 211FA04001).');
+    if (!studentRoll.trim()) {
+      setErrorMsg('Please enter your roll number.');
       return;
     }
-    if (!studentPhone.trim() || studentPhone.trim().replace(/\D/g, '').length < 7) {
-      setErrorMsg('Please enter a valid phone number with area/country code.');
+    if (!studentPassword.trim()) {
+      setErrorMsg('Please enter your password.');
       return;
     }
 
@@ -144,111 +104,13 @@ export default function AuthModal({
     setErrorMsg(null);
 
     try {
-      const res = await fetch('/api/auth/student/send-otp', {
+      const res = await fetch('/api/auth/student/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: studentName.trim(),
           roll_number: studentRoll.trim().toUpperCase(),
-          phone: studentPhone.trim(),
-        }),
-      });
-
-      const contentType = res.headers.get('content-type') || '';
-      if (res.ok && contentType.includes('application/json')) {
-        const data: StudentSendOTPResponse = await res.json();
-        setStudentStep('otp');
-        setOtpExpirySeconds(data.expires_in_seconds || 300);
-        setResendCooldown(data.cooldown_seconds || 30);
-        if (data.dev_otp) {
-          setDevOtpInfo(data.dev_otp);
-        }
-        setSuccessNotice('OTP generated successfully. (Dev mode: check development badge)');
-        return;
-      } else if (res.status === 404 || res.status === 405 || !contentType.includes('application/json')) {
-        throw new Error('Static host fallback');
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        setErrorMsg(errJson.detail || 'Failed to send OTP. Please check your details.');
-        return;
-      }
-    } catch {
-      // Offline fallback: use client mock OTP generator
-      const mockRes = sendClientStudentOTP(studentName, studentRoll, studentPhone);
-      setStudentStep('otp');
-      setOtpExpirySeconds(mockRes.expires_in_seconds);
-      setResendCooldown(mockRes.cooldown_seconds);
-      setDevOtpInfo(mockRes.dev_otp);
-      setSuccessNotice('OTP generated successfully.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // --- 2. STUDENT FLOW: RESEND OTP ---
-  const handleStudentResendOTP = async () => {
-    if (resendCooldown > 0) return;
-
-    setIsLoading(true);
-    setErrorMsg(null);
-
-    try {
-      const res = await fetch('/api/auth/student/resend-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: studentPhone.trim(),
-          roll_number: studentRoll.trim().toUpperCase(),
-        }),
-      });
-
-      const contentType = res.headers.get('content-type') || '';
-      if (res.ok && contentType.includes('application/json')) {
-        const data: StudentSendOTPResponse = await res.json();
-        setOtpExpirySeconds(data.expires_in_seconds || 300);
-        setResendCooldown(data.cooldown_seconds || 30);
-        if (data.dev_otp) {
-          setDevOtpInfo(data.dev_otp);
-        }
-        setSuccessNotice('New verification OTP sent.');
-        return;
-      } else if (res.status === 404 || res.status === 405 || !contentType.includes('application/json')) {
-        throw new Error('Static host fallback');
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        setErrorMsg(errJson.detail || 'Failed to resend OTP.');
-        return;
-      }
-    } catch {
-      const mockRes = sendClientStudentOTP(studentName, studentRoll, studentPhone);
-      setOtpExpirySeconds(mockRes.expires_in_seconds);
-      setResendCooldown(mockRes.cooldown_seconds);
-      setDevOtpInfo(mockRes.dev_otp);
-      setSuccessNotice('New OTP generated.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // --- 3. STUDENT FLOW: VERIFY OTP ---
-  const handleStudentVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!studentOtp.trim() || studentOtp.trim().length !== 6) {
-      setErrorMsg('Please enter the full 6-digit OTP.');
-      return;
-    }
-
-    setIsLoading(true);
-    setErrorMsg(null);
-
-    try {
-      const res = await fetch('/api/auth/student/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: studentPhone.trim(),
-          roll_number: studentRoll.trim().toUpperCase(),
-          otp: studentOtp.trim(),
+          password: studentPassword.trim(),
         }),
       });
 
@@ -265,12 +127,12 @@ export default function AuthModal({
         throw new Error('Static host fallback');
       } else {
         const errJson = await res.json().catch(() => ({}));
-        setErrorMsg(errJson.detail || 'Invalid or expired OTP. Please verify and try again.');
+        setErrorMsg(errJson.detail || 'Invalid credentials. Incorrect password.');
         return;
       }
     } catch {
-      // Offline fallback
-      const mockResult = verifyClientStudentOTP(studentPhone, studentRoll, studentOtp);
+      // Offline / Static deployment fallback
+      const mockResult = authenticateClientStudent(studentName, studentRoll, studentPassword);
       if ('error' in mockResult) {
         setErrorMsg(mockResult.error);
         return;
@@ -286,11 +148,15 @@ export default function AuthModal({
     }
   };
 
-  // --- 4. STAFF & HOST FLOW: USERNAME & PASSWORD LOGIN ---
+  // --- 2. STAFF & HOST LOGIN HANDLER ---
   const handleStaffOrHostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !password.trim()) {
-      setErrorMsg('Please enter both username/NetID and password.');
+    if (!username.trim()) {
+      setErrorMsg('Please enter your username or NetID.');
+      return;
+    }
+    if (!password.trim()) {
+      setErrorMsg('Please enter your password.');
       return;
     }
 
@@ -306,7 +172,6 @@ export default function AuthModal({
           username: username.trim(),
           password: password.trim(),
           role: targetRole,
-          specialization: selectedRole === 'technician' ? specialization : undefined,
         }),
       });
 
@@ -320,22 +185,16 @@ export default function AuthModal({
         onClose();
         return;
       } else if (res.status === 404 || res.status === 405 || !contentType.includes('application/json')) {
-        // GitHub Pages / Static hosting fallback
         throw new Error('Static host fallback');
       } else {
         const errJson = await res.json().catch(() => ({}));
-        setErrorMsg(errJson.detail || 'Authentication failed. Incorrect username or password.');
+        setErrorMsg(errJson.detail || 'Invalid credentials. Incorrect password.');
         return;
       }
     } catch {
-      // Offline client fallback
+      // Offline / Static deployment fallback
       const targetRole = selectedRole === 'admin' ? 'host' : selectedRole;
-      const mockResult = authenticateClientMockUser(
-        username.trim(),
-        password.trim(),
-        targetRole,
-        selectedRole === 'technician' ? specialization : undefined
-      );
+      const mockResult = authenticateClientMockUser(username.trim(), password.trim(), targetRole);
 
       if (mockResult) {
         localStorage.setItem('campusfix_token', mockResult.token);
@@ -345,7 +204,7 @@ export default function AuthModal({
         onClose();
         return;
       } else {
-        setErrorMsg('Authentication failed. Incorrect username or password.');
+        setErrorMsg('Invalid credentials. Incorrect password.');
       }
     } finally {
       setIsLoading(false);
@@ -418,7 +277,7 @@ export default function AuthModal({
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.8rem', color: 'var(--text-secondary, #94a3b8)' }}>
                     <CheckCircle2 size={16} style={{ color: '#10b981', flexShrink: 0 }} />
-                    <span>One-time mobile OTP authentication</span>
+                    <span>Direct Name + Roll Number + Password login</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.8rem', color: 'var(--text-secondary, #94a3b8)' }}>
                     <CheckCircle2 size={16} style={{ color: '#10b981', flexShrink: 0 }} />
@@ -474,14 +333,14 @@ export default function AuthModal({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary, #F9FAFB)', fontFamily: 'var(--font-heading)' }}>
-                  Sign in to CampusFix
+                  Welcome to CampusFix.AI
                 </h3>
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--text-secondary, #94a3b8)' }}>
                   {selectedRole === 'student'
-                    ? 'Student verification via OTP'
+                    ? 'Student Sign In'
                     : selectedRole === 'technician'
-                    ? 'Staff & Technician credentials'
-                    : 'Host & Administrator access'}
+                    ? 'Staff & Technician Sign In'
+                    : 'Host & Administrator Sign In'}
                 </p>
               </div>
               <button
@@ -597,35 +456,14 @@ export default function AuthModal({
               </div>
             )}
 
-            {/* Success Notice */}
-            {successNotice && (
-              <div
-                style={{
-                  padding: '0.65rem 0.85rem',
-                  background: 'rgba(16, 185, 129, 0.12)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
-                  borderRadius: '10px',
-                  color: '#10b981',
-                  fontSize: '0.76rem',
-                  marginBottom: '1rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.45rem',
-                }}
-              >
-                <CheckCircle2 size={15} style={{ flexShrink: 0 }} />
-                <span>{successNotice}</span>
-              </div>
-            )}
-
             {/* =========================================================================
-                A) STUDENT AUTHENTICATION FORM (STEP 1: DETAILS & STEP 2: OTP)
+                A) STUDENT LOGIN FORM: NAME + ROLL NUMBER + PASSWORD
                 ========================================================================= */}
-            {selectedRole === 'student' && studentStep === 'details' && (
-              <form onSubmit={handleStudentSendOTP} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+            {selectedRole === 'student' && (
+              <form onSubmit={handleStudentSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
                 <div>
                   <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary, #A1A1AA)', display: 'block', marginBottom: '0.35rem' }}>
-                    Student Full Name
+                    Full Name
                   </label>
                   <div style={{ position: 'relative' }}>
                     <User size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #71717A)' }} />
@@ -640,7 +478,7 @@ export default function AuthModal({
                         borderRadius: '12px',
                         width: '100%',
                       }}
-                      placeholder="e.g. Aarav Sharma"
+                      placeholder="Enter your full name"
                       value={studentName}
                       onChange={(e) => setStudentName(e.target.value)}
                       required
@@ -651,7 +489,7 @@ export default function AuthModal({
 
                 <div>
                   <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary, #A1A1AA)', display: 'block', marginBottom: '0.35rem' }}>
-                    Roll Number / Student ID
+                    Roll Number
                   </label>
                   <div style={{ position: 'relative' }}>
                     <Hash size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #71717A)' }} />
@@ -667,7 +505,7 @@ export default function AuthModal({
                         textTransform: 'uppercase',
                         width: '100%',
                       }}
-                      placeholder="e.g. 211FA04001"
+                      placeholder="Enter roll number (e.g. 211FA04001)"
                       value={studentRoll}
                       onChange={(e) => setStudentRoll(e.target.value.toUpperCase())}
                       required
@@ -677,26 +515,34 @@ export default function AuthModal({
 
                 <div>
                   <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary, #A1A1AA)', display: 'block', marginBottom: '0.35rem' }}>
-                    Phone Number (for OTP verification)
+                    Password
                   </label>
                   <div style={{ position: 'relative' }}>
-                    <Phone size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #71717A)' }} />
+                    <Lock size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #71717A)' }} />
                     <input
-                      type="tel"
+                      type={showStudentPassword ? 'text' : 'password'}
                       className="saas-input"
                       style={{
                         paddingLeft: '2.5rem',
+                        paddingRight: '2.5rem',
                         background: 'var(--bg-surface, #111111)',
                         border: '1px solid var(--border-default, #27272A)',
                         color: 'var(--text-primary, #F8FAFC)',
                         borderRadius: '12px',
                         width: '100%',
                       }}
-                      placeholder="+91 98765 43210"
-                      value={studentPhone}
-                      onChange={(e) => setStudentPhone(e.target.value)}
+                      placeholder="Enter password"
+                      value={studentPassword}
+                      onChange={(e) => setStudentPassword(e.target.value)}
                       required
                     />
+                    <button
+                      type="button"
+                      style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--text-muted, #71717A)', cursor: 'pointer' }}
+                      onClick={() => setShowStudentPassword(!showStudentPassword)}
+                    >
+                      {showStudentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
                 </div>
 
@@ -725,160 +571,11 @@ export default function AuthModal({
                   {isLoading ? (
                     <>
                       <RefreshCw size={16} className="spin-icon" />
-                      <span>Sending OTP...</span>
+                      <span>Signing In...</span>
                     </>
                   ) : (
                     <>
-                      <span>Continue to Verification</span>
-                      <ArrowRight size={16} />
-                    </>
-                  )}
-                </button>
-              </form>
-            )}
-
-            {selectedRole === 'student' && studentStep === 'otp' && (
-              <form onSubmit={handleStudentVerifyOTP} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ background: 'var(--bg-surface, #111111)', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid var(--border-default, #27272A)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
-                    <span>Student: <strong style={{ color: '#ffffff' }}>{studentName}</strong></span>
-                    <span>Roll: <strong style={{ color: '#ffffff' }}>{studentRoll}</strong></span>
-                  </div>
-                  <div style={{ fontSize: '0.76rem', color: 'var(--text-muted, #71717A)', marginTop: '0.2rem' }}>
-                    Sent OTP to: {studentPhone}
-                  </div>
-                </div>
-
-                {/* Clearly Marked Development Mode OTP Notice */}
-                {devOtpInfo && (
-                  <div
-                    style={{
-                      background: 'rgba(245, 158, 11, 0.12)',
-                      border: '1px solid rgba(245, 158, 11, 0.35)',
-                      borderRadius: '10px',
-                      padding: '0.75rem 1rem',
-                      color: '#fbbf24',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' }}>
-                      <KeyRound size={14} />
-                      <span>DEVELOPMENT OTP MODE</span>
-                    </div>
-                    <div style={{ fontSize: '0.82rem', marginTop: '0.25rem', color: '#fef3c7' }}>
-                      Verification OTP: <strong style={{ letterSpacing: '2px', fontSize: '1.05rem', color: '#fbbf24' }}>{devOtpInfo}</strong>
-                    </div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                      (No live SMS gateway billed in development. Code logged to server console.)
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                    <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary, #A1A1AA)' }}>
-                      Enter 6-Digit OTP Code
-                    </label>
-                    <span style={{ fontSize: '0.74rem', color: otpExpirySeconds > 0 ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Clock size={12} />
-                      {otpExpirySeconds > 0 ? `Expires in ${formatTime(otpExpirySeconds)}` : 'OTP Expired'}
-                    </span>
-                  </div>
-
-                  <input
-                    type="text"
-                    maxLength={6}
-                    className="saas-input"
-                    style={{
-                      textAlign: 'center',
-                      letterSpacing: '8px',
-                      fontSize: '1.25rem',
-                      fontWeight: 800,
-                      background: 'var(--bg-surface, #111111)',
-                      border: '1px solid var(--border-default, #27272A)',
-                      color: 'var(--text-primary, #F8FAFC)',
-                      borderRadius: '12px',
-                      padding: '0.75rem',
-                      width: '100%',
-                    }}
-                    placeholder="••••••"
-                    value={studentOtp}
-                    onChange={(e) => setStudentOtp(e.target.value.replace(/\D/g, ''))}
-                    required
-                    autoFocus
-                  />
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-secondary, #94a3b8)',
-                      fontSize: '0.76rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.3rem',
-                      padding: 0,
-                    }}
-                    onClick={() => {
-                      setStudentStep('details');
-                      setErrorMsg(null);
-                      setStudentOtp('');
-                    }}
-                  >
-                    <ArrowLeft size={13} />
-                    <span>Change details</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: resendCooldown === 0 ? '#10b981' : 'var(--text-muted, #71717A)',
-                      fontSize: '0.76rem',
-                      fontWeight: 700,
-                      cursor: resendCooldown === 0 ? 'pointer' : 'not-allowed',
-                      padding: 0,
-                    }}
-                    onClick={handleStudentResendOTP}
-                    disabled={resendCooldown > 0 || isLoading}
-                  >
-                    {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend OTP'}
-                  </button>
-                </div>
-
-                <button
-                  type="submit"
-                  style={{
-                    width: '100%',
-                    padding: '0.85rem',
-                    marginTop: '0.2rem',
-                    borderRadius: '12px',
-                    background: 'linear-gradient(135deg, #10b981, #059669)',
-                    color: '#ffffff',
-                    fontWeight: 800,
-                    fontSize: '0.9rem',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-                  }}
-                  disabled={isLoading || studentOtp.length !== 6 || otpExpirySeconds === 0}
-                >
-                  {isLoading ? (
-                    <>
-                      <RefreshCw size={16} className="spin-icon" />
-                      <span>Verifying...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Verify & Access Student Portal</span>
+                      <span>Sign In as Student</span>
                       <ArrowRight size={16} />
                     </>
                   )}
@@ -887,13 +584,13 @@ export default function AuthModal({
             )}
 
             {/* =========================================================================
-                B) STAFF & HOST AUTHENTICATION FORM (NO PREFILLED PASSWORDS)
+                B) STAFF & HOST LOGIN FORM: USERNAME/NAME + PASSWORD
                 ========================================================================= */}
             {selectedRole !== 'student' && (
               <form onSubmit={handleStaffOrHostSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
                 <div>
                   <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary, #A1A1AA)', display: 'block', marginBottom: '0.35rem' }}>
-                    {selectedRole === 'host' ? 'Host Username / NetID' : 'Staff NetID / Username'}
+                    {selectedRole === 'host' ? 'Username / Name' : 'Username / Name'}
                   </label>
                   <div style={{ position: 'relative' }}>
                     <User size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #71717A)' }} />
@@ -908,7 +605,7 @@ export default function AuthModal({
                         borderRadius: '12px',
                         width: '100%',
                       }}
-                      placeholder={selectedRole === 'host' ? 'Enter Host username...' : 'e.g. sarah, dave, alex, ramu...'}
+                      placeholder={selectedRole === 'host' ? 'Enter host username or NetID' : 'Enter staff username or NetID'}
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       required
@@ -935,7 +632,7 @@ export default function AuthModal({
                         borderRadius: '12px',
                         width: '100%',
                       }}
-                      placeholder="Enter password..."
+                      placeholder="Enter password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -949,32 +646,6 @@ export default function AuthModal({
                     </button>
                   </div>
                 </div>
-
-                {selectedRole === 'technician' && (
-                  <div>
-                    <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary, #A1A1AA)', display: 'block', marginBottom: '0.35rem' }}>
-                      Specialization Domain
-                    </label>
-                    <select
-                      className="saas-input"
-                      style={{
-                        background: 'var(--bg-surface, #111111)',
-                        border: '1px solid var(--border-default, #27272A)',
-                        color: 'var(--text-primary, #F8FAFC)',
-                        borderRadius: '12px',
-                        width: '100%',
-                      }}
-                      value={specialization}
-                      onChange={(e) => setSpecialization(e.target.value as TechnicianSpecialization)}
-                    >
-                      {SPECIALIZATIONS.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
 
                 <button
                   type="submit"
@@ -1007,11 +678,11 @@ export default function AuthModal({
                   {isLoading ? (
                     <>
                       <RefreshCw size={16} className="spin-icon" />
-                      <span>Authenticating...</span>
+                      <span>Signing In...</span>
                     </>
                   ) : (
                     <>
-                      <span>Sign In as {selectedRole.toUpperCase()}</span>
+                      <span>Sign In as {selectedRole === 'technician' ? 'Staff' : 'Host'}</span>
                       <ArrowRight size={16} />
                     </>
                   )}

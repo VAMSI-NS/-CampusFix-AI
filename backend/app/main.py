@@ -7,6 +7,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
+# Load backend configuration before importing services that read auth settings.
+_backend_env = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
+if os.path.exists(_backend_env):
+    load_dotenv(dotenv_path=_backend_env)
+else:
+    load_dotenv()
+
 from app.models.chat import (
     ChatRequest,
     ChatResponse,
@@ -40,11 +47,8 @@ from app.models.diagnostics import DiagnosticsReportResponse
 from app.models.users import (
     CampusUser,
     LoginRequest,
+    StudentLoginRequest,
     LoginResponse,
-    StudentSendOTPRequest,
-    StudentSendOTPResponse,
-    StudentVerifyOTPRequest,
-    StudentResendOTPRequest,
     UserUpdateRequest,
     TechnicianCreateRequest,
     TechnicianUpdateRequest,
@@ -63,7 +67,6 @@ from app.services.analytics_service import analytics_service
 from app.services.users_service import users_service
 from app.services.diagnostics_service import diagnostics_service
 from app.services.auth_service import auth_service
-from app.services.otp_service import otp_service
 from app.services.auth_deps import (
     get_current_user,
     get_current_user_optional,
@@ -72,13 +75,6 @@ from app.services.auth_deps import (
     require_technician_or_host,
 )
 from app.database import db
-
-# Load environment variables
-_backend_env = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
-if os.path.exists(_backend_env):
-    load_dotenv(dotenv_path=_backend_env)
-else:
-    load_dotenv()
 
 app = FastAPI(
     title="CampusFix IT Platform — Backend API",
@@ -217,56 +213,34 @@ def login(login_data: LoginRequest):
     )
 
 
-# --- Student OTP Authentication Endpoints ---
+# --- Student Direct Authentication Endpoint ---
 
 
 @app.post(
-    "/api/auth/student/send-otp",
-    response_model=StudentSendOTPResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Generate and send one-time OTP for student authentication",
-)
-def student_send_otp(payload: StudentSendOTPRequest):
-    """
-    Validates Student Name, Roll Number, and Phone Number.
-    Generates a secure 6-digit one-time OTP with 5-minute expiration and 30-second resend cooldown.
-    In development mode, returns/logs the OTP for instant test verification.
-    """
-    success, data, err = otp_service.send_student_otp(
-        name=payload.name,
-        roll_number=payload.roll_number,
-        phone=payload.phone,
-    )
-    if not success or not data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=err or "Unable to send verification OTP.",
-        )
-    return StudentSendOTPResponse(**data)
-
-
-@app.post(
-    "/api/auth/student/verify-otp",
+    "/api/auth/student/login",
     response_model=LoginResponse,
     status_code=status.HTTP_200_OK,
-    summary="Verify student OTP and establish authenticated session",
+    summary="Authenticate student using Name, Roll Number, and Password",
 )
-def student_verify_otp(payload: StudentVerifyOTPRequest):
+def student_login(payload: StudentLoginRequest):
     """
-    Verifies the student's 6-digit OTP code against expiry and attempt limits.
-    Creates or loads the student's profile and issues a signed JWT Bearer session token.
+    Authenticates or registers student account directly with Name, Roll Number, and Password.
+    No OTP, SMS, or email verification.
+    Returns secure signed JWT Bearer token and sanitized student profile.
     """
-    user, token, err = otp_service.verify_student_otp(
-        phone=payload.phone,
+    user, err = users_service.authenticate_student(
+        name=payload.name,
         roll_number=payload.roll_number,
-        otp=payload.otp,
+        password=payload.password,
     )
-    if err or not user or not token:
+    if err or not user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=err or "OTP verification failed.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=err or "Invalid credentials. Please check your roll number and password.",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
+    token = auth_service.create_access_token(user=user)
     return LoginResponse(
         authenticated=True,
         token=token,
@@ -274,26 +248,6 @@ def student_verify_otp(payload: StudentVerifyOTPRequest):
         user=user,
         expires_in=604800,
     )
-
-
-@app.post(
-    "/api/auth/student/resend-otp",
-    response_model=StudentSendOTPResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Resend verification OTP for student authentication",
-)
-def student_resend_otp(payload: StudentResendOTPRequest):
-    """Resends a fresh OTP code subject to a 30-second cooldown."""
-    success, data, err = otp_service.resend_student_otp(
-        phone=payload.phone,
-        roll_number=payload.roll_number,
-    )
-    if not success or not data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=err or "Unable to resend verification OTP.",
-        )
-    return StudentSendOTPResponse(**data)
 
 
 @app.post(

@@ -3,8 +3,8 @@ import {
   SystemStatusResponse,
   KBArticle,
   CampusUser,
-  LoginResponse,
   UserRole,
+  LoginResponse,
   TechnicianSpecialization,
   AnalyticsGraphsResponse,
   ReportSummaryResponse,
@@ -401,63 +401,45 @@ export function authenticateClientMockUser(
   };
 }
 
-export function sendClientStudentOTP(name: string, rollNumber: string, phone: string) {
-  const cleanRoll = rollNumber.trim().toUpperCase();
-  const cleanPhone = phone.trim();
-  const generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
-  
-  // Store in session storage for verification matching
-  sessionStorage.setItem(`campusfix_otp_${cleanPhone}`, JSON.stringify({
-    name: name.trim(),
-    roll_number: cleanRoll,
-    phone: cleanPhone,
-    otp: generatedOTP,
-    expires_at: Date.now() + 300000, // 5 min
-    attempts: 0,
-  }));
+export function authenticateClientStudent(
+  name: string,
+  rollNumber: string,
+  password?: string
+): LoginResponse | { error: string } {
+  const cleanName = (name || '').trim();
+  const cleanRoll = (rollNumber || '').trim().toUpperCase();
+  const cleanPwd = (password || '').trim();
 
-  return {
-    status: 'success',
-    message: `Verification OTP generated for ${cleanPhone}.`,
-    phone: cleanPhone,
-    roll_number: cleanRoll,
-    expires_in_seconds: 300,
-    cooldown_seconds: 30,
-    dev_mode: true,
-    dev_otp: generatedOTP,
-  };
-}
+  if (!cleanName) return { error: 'Please enter your name.' };
+  if (!cleanRoll) return { error: 'Please enter your roll number.' };
+  if (!cleanPwd) return { error: 'Please enter your password.' };
 
-export function verifyClientStudentOTP(phone: string, rollNumber: string, otp: string): LoginResponse | { error: string } {
-  const cleanPhone = phone.trim();
-  const cleanRoll = rollNumber.trim().toUpperCase();
-  const cleanOTP = otp.trim();
+  // Local storage for registered students
+  const storageKey = `campusfix_stu_${cleanRoll}`;
+  const stored = localStorage.getItem(storageKey);
 
-  const recordStr = sessionStorage.getItem(`campusfix_otp_${cleanPhone}`);
-  if (!recordStr) {
-    return { error: 'No OTP request found. Please request a new OTP.' };
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (parsed.password && parsed.password !== cleanPwd) {
+        return { error: 'Invalid credentials. Incorrect password.' };
+      }
+    } catch {}
+  } else {
+    // Check pre-seeded student account (student@123)
+    if (cleanRoll === 'STUDENT' || cleanRoll === '211FA04001') {
+      if (cleanPwd !== 'student@123') {
+        return { error: 'Invalid credentials. Incorrect password.' };
+      }
+    }
+    // Save student profile
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({ name: cleanName, roll_number: cleanRoll, password: cleanPwd })
+    );
   }
 
-  const record = JSON.parse(recordStr);
-  if (Date.now() > record.expires_at) {
-    sessionStorage.removeItem(`campusfix_otp_${cleanPhone}`);
-    return { error: 'Verification OTP has expired. Please request a new OTP.' };
-  }
-
-  if (record.attempts >= 5) {
-    sessionStorage.removeItem(`campusfix_otp_${cleanPhone}`);
-    return { error: 'Too many incorrect attempts. Please request a new OTP.' };
-  }
-
-  if (record.otp !== cleanOTP) {
-    record.attempts += 1;
-    sessionStorage.setItem(`campusfix_otp_${cleanPhone}`, JSON.stringify(record));
-    return { error: `Invalid OTP code. ${5 - record.attempts} attempts remaining.` };
-  }
-
-  sessionStorage.removeItem(`campusfix_otp_${cleanPhone}`);
-
-  const initials = record.name
+  const initials = cleanName
     .split(' ')
     .filter(Boolean)
     .map((p: string) => p[0].toUpperCase())
@@ -466,16 +448,16 @@ export function verifyClientStudentOTP(phone: string, rollNumber: string, otp: s
 
   const user: CampusUser = {
     id: `user-stu-${cleanRoll.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-    name: record.name,
+    name: cleanName,
     username: cleanRoll.toLowerCase(),
     email: `${cleanRoll.toLowerCase()}@university.edu`,
     netid: cleanRoll.toLowerCase(),
     roll_number: cleanRoll,
     role: 'student',
-    department: 'Student Computing & Helpdesk',
+    department: 'Student Computing & Campus IT Services',
     status: 'active',
     is_active: true,
-    phone: cleanPhone,
+    phone: undefined,
     active_assignments_count: 0,
     avatar_initials: initials,
     skills: ['Student User'],
