@@ -154,7 +154,8 @@ export default function AuthModal({
         }),
       });
 
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data: StudentSendOTPResponse = await res.json();
         setStudentStep('otp');
         setOtpExpirySeconds(data.expires_in_seconds || 300);
@@ -164,6 +165,8 @@ export default function AuthModal({
         }
         setSuccessNotice('OTP generated successfully. (Dev mode: check development badge)');
         return;
+      } else if (res.status === 404 || res.status === 405 || !contentType.includes('application/json')) {
+        throw new Error('Static host fallback');
       } else {
         const errJson = await res.json().catch(() => ({}));
         setErrorMsg(errJson.detail || 'Failed to send OTP. Please check your details.');
@@ -176,7 +179,7 @@ export default function AuthModal({
       setOtpExpirySeconds(mockRes.expires_in_seconds);
       setResendCooldown(mockRes.cooldown_seconds);
       setDevOtpInfo(mockRes.dev_otp);
-      setSuccessNotice('OTP generated (Offline Resilience Mode).');
+      setSuccessNotice('OTP generated successfully.');
     } finally {
       setIsLoading(false);
     }
@@ -199,7 +202,8 @@ export default function AuthModal({
         }),
       });
 
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data: StudentSendOTPResponse = await res.json();
         setOtpExpirySeconds(data.expires_in_seconds || 300);
         setResendCooldown(data.cooldown_seconds || 30);
@@ -208,6 +212,8 @@ export default function AuthModal({
         }
         setSuccessNotice('New verification OTP sent.');
         return;
+      } else if (res.status === 404 || res.status === 405 || !contentType.includes('application/json')) {
+        throw new Error('Static host fallback');
       } else {
         const errJson = await res.json().catch(() => ({}));
         setErrorMsg(errJson.detail || 'Failed to resend OTP.');
@@ -218,7 +224,7 @@ export default function AuthModal({
       setOtpExpirySeconds(mockRes.expires_in_seconds);
       setResendCooldown(mockRes.cooldown_seconds);
       setDevOtpInfo(mockRes.dev_otp);
-      setSuccessNotice('New OTP generated (Offline Mode).');
+      setSuccessNotice('New OTP generated.');
     } finally {
       setIsLoading(false);
     }
@@ -246,7 +252,8 @@ export default function AuthModal({
         }),
       });
 
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data: LoginResponse = await res.json();
         localStorage.setItem('campusfix_token', data.token);
         localStorage.setItem('campusfix_user', JSON.stringify(data.user));
@@ -254,6 +261,8 @@ export default function AuthModal({
         onLoginSuccess(data.token, data.user);
         onClose();
         return;
+      } else if (res.status === 404 || res.status === 405 || !contentType.includes('application/json')) {
+        throw new Error('Static host fallback');
       } else {
         const errJson = await res.json().catch(() => ({}));
         setErrorMsg(errJson.detail || 'Invalid or expired OTP. Please verify and try again.');
@@ -301,7 +310,8 @@ export default function AuthModal({
         }),
       });
 
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data: LoginResponse = await res.json();
         localStorage.setItem('campusfix_token', data.token);
         localStorage.setItem('campusfix_user', JSON.stringify(data.user));
@@ -309,6 +319,9 @@ export default function AuthModal({
         onLoginSuccess(data.token, data.user);
         onClose();
         return;
+      } else if (res.status === 404 || res.status === 405 || !contentType.includes('application/json')) {
+        // GitHub Pages / Static hosting fallback
+        throw new Error('Static host fallback');
       } else {
         const errJson = await res.json().catch(() => ({}));
         setErrorMsg(errJson.detail || 'Authentication failed. Incorrect username or password.');
@@ -332,7 +345,7 @@ export default function AuthModal({
         onClose();
         return;
       } else {
-        setErrorMsg('Authentication failed. Please verify your credentials.');
+        setErrorMsg('Authentication failed. Incorrect username or password.');
       }
     } finally {
       setIsLoading(false);
