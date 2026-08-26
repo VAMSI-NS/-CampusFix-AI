@@ -16,7 +16,8 @@ import {
   Wrench,
 } from 'lucide-react';
 import { CampusUser, LoginResponse, UserRole } from '../types/chat';
-import { authenticateClientMockUser, authenticateClientStudent } from '../data/mockData';
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -104,7 +105,7 @@ export default function AuthModal({
     setErrorMsg(null);
 
     try {
-      const res = await fetch('/api/auth/student/login', {
+      const res = await fetch(`${API_BASE_URL}/auth/student/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -117,32 +118,24 @@ export default function AuthModal({
       const contentType = res.headers.get('content-type') || '';
       if (res.ok && contentType.includes('application/json')) {
         const data: LoginResponse = await res.json();
+        if (!data?.token || !data?.user) {
+          setErrorMsg('Authentication failed. Please try again.');
+          return;
+        }
         localStorage.setItem('campusfix_token', data.token);
         localStorage.setItem('campusfix_user', JSON.stringify(data.user));
         setIsLoading(false);
         onLoginSuccess(data.token, data.user);
         onClose();
         return;
-      } else if (res.status === 404 || res.status === 405 || !contentType.includes('application/json')) {
-        throw new Error('Static host fallback');
       } else {
         const errJson = await res.json().catch(() => ({}));
-        setErrorMsg(errJson.detail || 'Invalid credentials. Incorrect password.');
+        setErrorMsg(errJson.detail || 'Invalid credentials.');
         return;
       }
     } catch {
-      // Offline / Static deployment fallback
-      const mockResult = authenticateClientStudent(studentName, studentRoll, studentPassword);
-      if ('error' in mockResult) {
-        setErrorMsg(mockResult.error);
-        return;
-      }
-
-      localStorage.setItem('campusfix_token', mockResult.token);
-      localStorage.setItem('campusfix_user', JSON.stringify(mockResult.user));
-      setIsLoading(false);
-      onLoginSuccess(mockResult.token, mockResult.user);
-      onClose();
+      // If backend server is unreachable
+      setErrorMsg('Unable to connect to authentication server.');
     } finally {
       setIsLoading(false);
     }
@@ -165,7 +158,7 @@ export default function AuthModal({
 
     try {
       const targetRole = selectedRole === 'admin' ? 'host' : selectedRole;
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -184,28 +177,14 @@ export default function AuthModal({
         onLoginSuccess(data.token, data.user);
         onClose();
         return;
-      } else if (res.status === 404 || res.status === 405 || !contentType.includes('application/json')) {
-        throw new Error('Static host fallback');
       } else {
         const errJson = await res.json().catch(() => ({}));
-        setErrorMsg(errJson.detail || 'Invalid credentials. Incorrect password.');
+        setErrorMsg(errJson.detail || 'Invalid credentials.');
         return;
       }
     } catch {
-      // Offline / Static deployment fallback
-      const targetRole = selectedRole === 'admin' ? 'host' : selectedRole;
-      const mockResult = authenticateClientMockUser(username.trim(), password.trim(), targetRole);
-
-      if (mockResult) {
-        localStorage.setItem('campusfix_token', mockResult.token);
-        localStorage.setItem('campusfix_user', JSON.stringify(mockResult.user));
-        setIsLoading(false);
-        onLoginSuccess(mockResult.token, mockResult.user);
-        onClose();
-        return;
-      } else {
-        setErrorMsg('Invalid credentials. Incorrect password.');
-      }
+      // If backend server is unreachable
+      setErrorMsg('Unable to connect to authentication server.');
     } finally {
       setIsLoading(false);
     }

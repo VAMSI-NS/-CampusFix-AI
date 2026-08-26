@@ -96,6 +96,7 @@ def on_startup():
 
 # Configure CORS origins (allowing frontend dev server)
 origins = [
+    "https://vamsi-ns.github.io",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
@@ -194,7 +195,7 @@ def login(login_data: LoginRequest):
     if err or not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=err or "Invalid username or password.",
+            detail=err or "Invalid credentials.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -224,8 +225,7 @@ def login(login_data: LoginRequest):
 )
 def student_login(payload: StudentLoginRequest):
     """
-    Authenticates or registers student account directly with Name, Roll Number, and Password.
-    No OTP, SMS, or email verification.
+    Authenticates student account directly with Name, Roll Number, and Password.
     Returns secure signed JWT Bearer token and sanitized student profile.
     """
     user, err = users_service.authenticate_student(
@@ -236,7 +236,7 @@ def student_login(payload: StudentLoginRequest):
     if err or not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=err or "Invalid credentials. Please check your roll number and password.",
+            detail=err or "Invalid credentials.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -366,10 +366,10 @@ async def chat_with_agent(
     "/api/ai/command-center",
     response_model=AICommandCenterResponse,
     status_code=status.HTTP_200_OK,
-    summary="Retrieve real-time AI Command Center telemetry and incident insights",
+    summary="Retrieve real-time AI Command Center telemetry and incident insights (Host Only)",
 )
 def get_ai_command_center(
-    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+    current_user: CampusUser = Depends(require_host),
 ):
     """
     Aggregates active AI incident correlations, root-cause recommendations,
@@ -382,11 +382,11 @@ def get_ai_command_center(
     "/api/ai/execute-action",
     response_model=AIActionExecutionResponse,
     status_code=status.HTTP_200_OK,
-    summary="Execute an authorized action via the CampusFix AI Agent",
+    summary="Execute an authorized action via the CampusFix AI Agent (Staff / Host Only)",
 )
 def execute_ai_action(
     payload: AIActionExecutionRequest,
-    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+    current_user: CampusUser = Depends(require_technician_or_host),
 ):
     """
     Executes role-authorized actions requested through conversational or command center UI.
@@ -914,7 +914,7 @@ def get_reports_summary(
     date_range: Optional[str] = Query("Last 30 Days", description="Date range"),
     department: Optional[str] = Query("All", description="Filter by department"),
     category: Optional[str] = Query("All", description="Filter by category"),
-    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+    current_user: CampusUser = Depends(require_host),
 ):
     """Returns executive incident metrics and SLA performance for Host review."""
     return analytics_service.get_report_summary(date_range=date_range, department=department, category=category)
@@ -938,9 +938,9 @@ def run_diagnostics_probes():
     "/api/admin/database",
     response_model=Dict[str, Any],
     status_code=status.HTTP_200_OK,
-    summary="Get database storage and record counts",
+    summary="Get database storage and record counts (Staff / Host)",
 )
-def get_database_overview(current_user: Optional[CampusUser] = Depends(get_current_user_optional)):
+def get_database_overview(current_user: CampusUser = Depends(require_technician_or_host)):
     """Returns table record counts, schema version, and storage telemetry."""
     return diagnostics_service.get_database_overview()
 
@@ -949,9 +949,9 @@ def get_database_overview(current_user: Optional[CampusUser] = Depends(get_curre
     "/api/admin/reset-data",
     response_model=Dict[str, Any],
     status_code=status.HTTP_200_OK,
-    summary="Reset system data (Purge tickets and restore clean fresh state)",
+    summary="Reset system data (Host Only)",
 )
-def reset_system_data(current_user: Optional[CampusUser] = Depends(get_current_user_optional)):
+def reset_system_data(current_user: CampusUser = Depends(require_host)):
     """Wipes all custom tickets and resets database to a fresh clean state."""
     ticket_res = ticket_service.reset_data()
     users_res = users_service.reset_data()

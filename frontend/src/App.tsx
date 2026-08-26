@@ -37,6 +37,8 @@ import { Ticket, TicketStatus, UserRole, CampusUser } from './types/chat';
 import { getLocalTickets, saveLocalTickets } from './data/mockData';
 import './App.css';
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+
 interface HealthData {
   status: string;
   message?: string;
@@ -321,8 +323,8 @@ export default function App() {
 
   // Validate token on app boot
   useEffect(() => {
-    if (authToken && !authToken.startsWith('demo-jwt-token-')) {
-      fetch('/api/auth/me', {
+    if (authToken) {
+      fetch(`${API_BASE_URL}/auth/me`, {
         headers: { Authorization: `Bearer ${authToken}` },
       })
         .then((res) => {
@@ -332,10 +334,22 @@ export default function App() {
         .then((user: CampusUser) => {
           setCurrentUser(user);
           setUserRole(user.role);
+          localStorage.setItem('campusfix_user', JSON.stringify(user));
         })
         .catch(() => {
-          console.warn('Could not validate session with backend, maintaining local session state.');
+          // If token verification fails with 401 or invalid response, invalidate session
+          localStorage.removeItem('campusfix_token');
+          localStorage.removeItem('campusfix_user');
+          setAuthToken(null);
+          setCurrentUser(null);
+          setUserRole('student');
         });
+    } else {
+      if (currentUser) {
+        localStorage.removeItem('campusfix_user');
+        setCurrentUser(null);
+        setUserRole('student');
+      }
     }
   }, [authToken]);
 
@@ -364,6 +378,25 @@ export default function App() {
             setIsAuthModalOpen(true);
             return;
           }
+        } else {
+          try {
+            const parsed = JSON.parse(storedUser);
+            const userR = parsed.role || 'student';
+            // Host route security guard: strictly require Host role for reports & command-center
+            if ((match.tab === 'reports' || match.tab === 'command-center') && userR !== 'host' && userR !== 'admin') {
+              setActiveTab(userR === 'technician' ? 'admin' : 'landing');
+              setAuthModalRole('host');
+              setIsAuthModalOpen(true);
+              return;
+            }
+            // Technician route security guard: strictly require Technician or Host role for admin hub
+            if (match.tab === 'admin' && userR !== 'technician' && userR !== 'host' && userR !== 'admin') {
+              setActiveTab('landing');
+              setAuthModalRole('technician');
+              setIsAuthModalOpen(true);
+              return;
+            }
+          } catch {}
         }
         setActiveTab(match.tab);
       }
@@ -395,13 +428,13 @@ export default function App() {
       }
     }
 
-    // Role permission guards
+    // Strict Role permission guards
     if (tab === 'admin' && userRole !== 'admin' && userRole !== 'technician' && userRole !== 'host') {
       setAuthModalRole('technician');
       setIsAuthModalOpen(true);
       return;
     }
-    if ((tab === 'reports' || tab === 'command-center') && userRole !== 'host') {
+    if ((tab === 'reports' || tab === 'command-center') && userRole !== 'host' && userRole !== 'admin') {
       setAuthModalRole('host');
       setIsAuthModalOpen(true);
       return;
@@ -545,6 +578,8 @@ export default function App() {
     setAuthToken(token);
     setCurrentUser(user);
     setUserRole(user.role);
+    localStorage.setItem('campusfix_token', token);
+    localStorage.setItem('campusfix_user', JSON.stringify(user));
 
     if (user.role === 'host') {
       navigateToTab('admin');
@@ -1309,17 +1344,72 @@ export default function App() {
             )}
 
             {activeTab === 'command-center' && (
-              <AICommandCenter
-                currentUser={currentUser}
-                tickets={tickets}
-                onOpenTicketInResolver={handleSelectTicketForResolver}
-                onNavigateToMap={(locCode) => {
-                  setMapInitialLocationId(locCode || null);
-                  navigateToTab('map');
-                }}
-                onUpdateTicketStatus={handleUpdateTicketStatus}
-                onRefreshTickets={fetchTickets}
-              />
+              (userRole === 'host' || userRole === 'admin') ? (
+                <AICommandCenter
+                  currentUser={currentUser}
+                  tickets={tickets}
+                  onOpenTicketInResolver={handleSelectTicketForResolver}
+                  onNavigateToMap={(locCode) => {
+                    setMapInitialLocationId(locCode || null);
+                    navigateToTab('map');
+                  }}
+                  onUpdateTicketStatus={handleUpdateTicketStatus}
+                  onRefreshTickets={fetchTickets}
+                />
+              ) : (
+                <div
+                  className="access-restricted-card"
+                  style={{
+                    maxWidth: 540,
+                    margin: '3rem auto',
+                    textAlign: 'center',
+                    padding: '3rem 2rem',
+                    background: 'var(--bg-surface)',
+                    borderRadius: 20,
+                    border: '1px solid var(--border-default)',
+                    boxShadow: 'var(--shadow-lg)',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: '50%',
+                      background: 'rgba(245, 158, 11, 0.15)',
+                      color: '#fbbf24',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto 1rem',
+                    }}
+                  >
+                    <ShieldCheck size={28} />
+                  </div>
+                  <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+                    Host / Administrator Access Only
+                  </h3>
+                  <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+                    Autonomous AI Command Center and multi-agent dispatch are restricted to Host administrators.
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <button
+                      className="btn-primary"
+                      onClick={() => handlePromptLogin('host')}
+                      style={{ padding: '0.65rem 1.25rem' }}
+                    >
+                      <LogIn size={15} />
+                      <span>Log In as Host / Administrator</span>
+                    </button>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => navigateToTab(userRole === 'technician' ? 'admin' : 'landing')}
+                      style={{ padding: '0.65rem 1.25rem' }}
+                    >
+                      <span>Return to {userRole === 'technician' ? 'Technician Hub' : 'Student Help Desk'}</span>
+                    </button>
+                  </div>
+                </div>
+              )
             )}
           </>
         )}
