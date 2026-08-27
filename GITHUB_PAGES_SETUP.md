@@ -21,7 +21,7 @@ The GitHub Actions workflow needs your actual backend URL. Here's how:
 
 Your backend is running on:
 - **Local Development**: `http://localhost:8000` (only works on same machine)
-- **Render Deployment**: `https://campusfix-api.onrender.com` (or your Render URL)
+- **Render Deployment**: `https://campusfix-ai-y5o8.onrender.com`
 - **Other Cloud**: Your actual backend HTTPS URL
 
 **⚠️ MUST BE HTTPS** - GitHub Actions workflow requires HTTPS for security.
