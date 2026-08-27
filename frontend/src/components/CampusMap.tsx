@@ -19,6 +19,7 @@ import {
   resetCampusMapToDefault,
   addHostAITask,
 } from '../data/mockData';
+import { apiUrl } from '../api';
 import {
   MapPin,
   Wifi,
@@ -138,7 +139,7 @@ export default function CampusMap({
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('/api/campus/map', { headers });
+      const res = await fetch(apiUrl('/campus/map'), { headers });
       if (res.ok) {
         const ct = res.headers.get('content-type') || '';
         if (ct.includes('application/json')) {

@@ -22,6 +22,7 @@ import {
   TicketStatus,
   AICommandCenterResponse,
 } from '../types/chat';
+import { apiUrl } from '../api';
 
 interface AICommandCenterProps {
   currentUser?: CampusUser | null;
@@ -58,7 +59,7 @@ export default function AICommandCenter({
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('/api/ai/command-center', { headers });
+      const res = await fetch(apiUrl('/ai/command-center'), { headers });
       if (res.ok) {
         const json = await res.json();
         setData(json);
@@ -188,7 +189,7 @@ export default function AICommandCenter({
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('/api/chat', {
+      const res = await fetch(apiUrl('/chat'), {
         method: 'POST',
         headers,
         body: JSON.stringify({

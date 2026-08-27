@@ -39,15 +39,11 @@ jobs:
       - name: Build Frontend with Vite
         working-directory: frontend
         env:
-          VITE_API_BASE_URL: ${{ vars.PUBLIC_HTTPS_BACKEND_URL }}
+          VITE_API_BASE_URL: https://campusfix-ai-y508.onrender.com
         run: |
-          if [ -z "$VITE_API_BASE_URL" ]; then
-            echo "PUBLIC_HTTPS_BACKEND_URL is required before deploying the frontend."
-            exit 1
-          fi
           case "$VITE_API_BASE_URL" in
-            https://*) ;;
-            *) echo "PUBLIC_HTTPS_BACKEND_URL must use HTTPS."; exit 1 ;;
+            https://campusfix-ai-y508.onrender.com) ;;
+            *) echo "The production API URL must be the CampusFix Render backend."; exit 1 ;;
           esac
           npm run build
 

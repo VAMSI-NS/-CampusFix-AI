@@ -35,9 +35,8 @@ import CampusMap from './components/CampusMap';
 import AICommandCenter from './components/AICommandCenter';
 import { Ticket, TicketStatus, UserRole, CampusUser } from './types/chat';
 import { getLocalTickets, saveLocalTickets } from './data/mockData';
+import { apiUrl } from './api';
 import './App.css';
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 
 interface HealthData {
   status: string;
@@ -324,7 +323,7 @@ export default function App() {
   // Validate token on app boot
   useEffect(() => {
     if (authToken) {
-      fetch(`${API_BASE_URL}/auth/me`, {
+      fetch(apiUrl('/auth/me'), {
         headers: { Authorization: `Bearer ${authToken}` },
       })
         .then((res) => {
@@ -454,7 +453,7 @@ export default function App() {
   // Fetch tickets
   const fetchTickets = useCallback(async () => {
     try {
-      const res = await fetch('/api/tickets');
+      const res = await fetch(apiUrl('/tickets'));
       if (res.ok) {
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
@@ -475,7 +474,7 @@ export default function App() {
     setIsRefreshing(true);
     const startTime = performance.now();
     try {
-      const response = await fetch('/api/health');
+      const response = await fetch(apiUrl('/health'));
       const endTime = performance.now();
       const roundTrip = Math.round(endTime - startTime);
 
@@ -530,7 +529,7 @@ export default function App() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
-      const res = await fetch(`/api/tickets/${ticketId}`, {
+      const res = await fetch(apiUrl(`/tickets/${ticketId}`), {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ status: newStatus }),
@@ -1471,7 +1470,7 @@ export default function App() {
         </div>
         <div className="footer-links">
           <a
-            href="http://127.0.0.1:8000/docs"
+            href={apiUrl('/docs')}
             target="_blank"
             rel="noopener noreferrer"
             className="footer-link"
@@ -1479,7 +1478,7 @@ export default function App() {
             API Docs ↗
           </a>
           <a
-            href="http://127.0.0.1:8000/api/status"
+            href={apiUrl('/status')}
             target="_blank"
             rel="noopener noreferrer"
             className="footer-link"
@@ -1487,7 +1486,7 @@ export default function App() {
             Telemetry API ↗
           </a>
           <a
-            href="http://127.0.0.1:8000/api/kb"
+            href={apiUrl('/kb')}
             target="_blank"
             rel="noopener noreferrer"
             className="footer-link"

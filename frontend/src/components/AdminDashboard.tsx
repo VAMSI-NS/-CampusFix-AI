@@ -17,6 +17,7 @@ import {
   saveLocalUserPassword,
   resetLocalSystemData,
 } from '../data/mockData';
+import { apiUrl } from '../api';
 import {
   LayoutDashboard,
   Ticket as TicketIcon,
@@ -298,11 +299,11 @@ export default function AdminDashboard({
       }
 
       const [gRes, uRes, tRes, pRes, dRes] = await Promise.all([
-        fetch('/api/analytics/graphs', { headers }),
-        fetch('/api/users', { headers }),
-        fetch('/api/technicians', { headers }).catch(() => null),
-        fetch('/api/diagnostics/probes', { headers }),
-        fetch('/api/admin/database', { headers }),
+        fetch(apiUrl('/analytics/graphs'), { headers }),
+        fetch(apiUrl('/users'), { headers }),
+        fetch(apiUrl('/technicians'), { headers }).catch(() => null),
+        fetch(apiUrl('/diagnostics/probes'), { headers }),
+        fetch(apiUrl('/admin/database'), { headers }),
       ]);
 
       if (gRes.ok) setGraphs(await gRes.json());
@@ -377,7 +378,7 @@ export default function AdminDashboard({
   // Host Ticket Assignment / Reassignment Handler
   const handleAssignTicket = async (ticketId: string, assignedTechName: string) => {
     try {
-      const res = await fetch(`/api/tickets/${ticketId}`, {
+      const res = await fetch(apiUrl(`/tickets/${ticketId}`), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -428,7 +429,7 @@ export default function AdminDashboard({
     };
 
     try {
-      const res = await fetch('/api/technicians', {
+      const res = await fetch(apiUrl('/technicians'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -491,7 +492,7 @@ export default function AdminDashboard({
     };
 
     try {
-      const res = await fetch(`/api/technicians/${selectedTech.id}`, {
+      const res = await fetch(apiUrl(`/technicians/${selectedTech.id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -535,7 +536,7 @@ export default function AdminDashboard({
     if (!selectedTech || !resetNewPassword.trim()) return;
 
     try {
-      await fetch(`/api/technicians/${selectedTech.id}/reset-password`, {
+      await fetch(apiUrl(`/technicians/${selectedTech.id}/reset-password`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -557,7 +558,7 @@ export default function AdminDashboard({
     let updated: CampusUser = { ...tech, is_active: nextActive };
 
     try {
-      const res = await fetch(`/api/technicians/${tech.id}`, {
+      const res = await fetch(apiUrl(`/technicians/${tech.id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -591,7 +592,7 @@ export default function AdminDashboard({
     if (!currentHostPwd || !newHostPwd) return;
 
     try {
-      const res = await fetch('/api/auth/change-password', {
+      const res = await fetch(apiUrl('/auth/change-password'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -636,7 +637,7 @@ export default function AdminDashboard({
     setIsReassigning(true);
     let updated: Ticket | null = null;
     try {
-      const res = await fetch(`/api/tickets/${reassignTicket.id}/reassign`, {
+      const res = await fetch(apiUrl(`/tickets/${reassignTicket.id}/reassign`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -705,7 +706,7 @@ export default function AdminDashboard({
   const handleSystemDataReset = async () => {
     setIsResettingData(true);
     try {
-      await fetch('/api/admin/reset-data', {
+      await fetch(apiUrl('/admin/reset-data'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

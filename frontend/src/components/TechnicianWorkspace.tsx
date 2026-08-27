@@ -9,6 +9,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { CampusUser, Ticket, TicketStatus } from '../types/chat';
+import { apiUrl } from '../api';
 
 interface TechnicianWorkspaceProps {
   currentUser?: CampusUser | null;
@@ -62,7 +63,7 @@ export default function TechnicianWorkspace({
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('/api/ai/execute-action', {
+      const res = await fetch(apiUrl('/ai/execute-action'), {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -95,7 +96,7 @@ export default function TechnicianWorkspace({
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('/api/ai/execute-action', {
+      const res = await fetch(apiUrl('/ai/execute-action'), {
         method: 'POST',
         headers,
         body: JSON.stringify({

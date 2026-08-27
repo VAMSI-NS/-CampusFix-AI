@@ -16,8 +16,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { CampusUser, LoginResponse, UserRole } from '../types/chat';
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+import { apiUrl } from '../api';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -105,7 +104,7 @@ export default function AuthModal({
     setErrorMsg(null);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/student/login`, {
+      const res = await fetch(apiUrl('/auth/student/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -158,7 +157,7 @@ export default function AuthModal({
 
     try {
       const targetRole = selectedRole === 'admin' ? 'host' : selectedRole;
-      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      const res = await fetch(apiUrl('/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -171,6 +170,10 @@ export default function AuthModal({
       const contentType = res.headers.get('content-type') || '';
       if (res.ok && contentType.includes('application/json')) {
         const data: LoginResponse = await res.json();
+        if (!data?.authenticated || !data?.token || !data?.user) {
+          setErrorMsg('Authentication failed. Please try again.');
+          return;
+        }
         localStorage.setItem('campusfix_token', data.token);
         localStorage.setItem('campusfix_user', JSON.stringify(data.user));
         setIsLoading(false);

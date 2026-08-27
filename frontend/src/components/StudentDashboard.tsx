@@ -16,6 +16,7 @@ import {
   Hash,
 } from 'lucide-react';
 import { CampusUser, Ticket, TicketCategory, TicketPriority } from '../types/chat';
+import { apiUrl } from '../api';
 
 interface StudentDashboardProps {
   currentUser?: CampusUser | null;
@@ -202,7 +203,7 @@ export default function StudentDashboard({
     };
 
     try {
-      await fetch('/api/tickets', {
+      await fetch(apiUrl('/tickets'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

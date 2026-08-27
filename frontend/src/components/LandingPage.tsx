@@ -18,6 +18,7 @@ import {
   LogIn,
   CheckCircle2,
 } from 'lucide-react';
+import { apiUrl } from '../api';
 import { Ticket, UserRole } from '../types/chat';
 import { getLocalTickets } from '../data/mockData';
 
@@ -114,7 +115,7 @@ export default function LandingPage({
     }
 
     try {
-      const res = await fetch(`/api/tickets/${encodeURIComponent(query)}`);
+      const res = await fetch(apiUrl(`/tickets/${encodeURIComponent(query)}`));
       if (res.ok) {
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {

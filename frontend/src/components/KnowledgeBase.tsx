@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { KBArticle, KBSearchResponse, UserRole } from '../types/chat';
 import { INITIAL_MOCK_KB_ARTICLES } from '../data/mockData';
+import { apiUrl } from '../api';
 
 interface KnowledgeBaseProps {
   userRole: UserRole;
@@ -63,7 +64,7 @@ export default function KnowledgeBase({
 
   const fetchArticles = useCallback(async () => {
     try {
-      const res = await fetch('/api/kb');
+      const res = await fetch(apiUrl('/kb'));
       if (res.ok) {
         const data: KBSearchResponse = await res.json();
         if (data && Array.isArray(data.articles) && data.articles.length > 0) {
@@ -106,7 +107,7 @@ export default function KnowledgeBase({
   const handleVoteHelpful = async (articleId: string) => {
     if (votedArticleIds.has(articleId)) return;
     try {
-      const res = await fetch(`/api/kb/${articleId}/helpful`, { method: 'POST' });
+      const res = await fetch(apiUrl(`/kb/${articleId}/helpful`), { method: 'POST' });
       if (res.ok) {
         const updated: KBArticle = await res.json();
         setArticles((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
@@ -148,7 +149,7 @@ export default function KnowledgeBase({
 
     try {
       if (editingArticleId) {
-        const res = await fetch(`/api/kb/${editingArticleId}`, {
+        const res = await fetch(apiUrl(`/kb/${editingArticleId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -166,7 +167,7 @@ export default function KnowledgeBase({
           setIsArticleModalOpen(false);
         }
       } else {
-        const res = await fetch('/api/kb', {
+        const res = await fetch(apiUrl('/kb'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -192,7 +193,7 @@ export default function KnowledgeBase({
   const handleDeleteArticle = async (id: string) => {
     if (!confirm('Are you sure you want to delete this guide?')) return;
     try {
-      const res = await fetch(`/api/kb/${id}`, { method: 'DELETE' });
+      const res = await fetch(apiUrl(`/kb/${id}`), { method: 'DELETE' });
       if (res.ok) {
         setArticles((prev) => prev.filter((a) => a.id !== id));
         if (selectedArticle?.id === id) setSelectedArticle(null);

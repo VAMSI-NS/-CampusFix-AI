@@ -15,6 +15,7 @@ import {
   RotateCcw,
   ArrowUpRight,
 } from 'lucide-react';
+import { apiUrl } from '../api';
 
 interface TicketHistoryProps {
   onSelectTicketForResolver: (ticketId: string) => void;
@@ -53,7 +54,7 @@ export default function TicketHistory({
   const fetchTickets = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/tickets');
+      const res = await fetch(apiUrl('/tickets'));
       if (res.ok) {
         const data: Ticket[] = await res.json();
         setTickets(data);

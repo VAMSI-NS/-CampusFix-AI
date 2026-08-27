@@ -6,6 +6,7 @@ import {
 } from '../types/chat';
 import { INITIAL_MOCK_STATUS } from '../data/mockData';
 import CampusMap from './CampusMap';
+import { apiUrl } from '../api';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -44,7 +45,7 @@ export default function CampusStatusPanel({
   const fetchStatus = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/status');
+      const res = await fetch(apiUrl('/status'));
       if (res.ok) {
         const data: SystemStatusResponse = await res.json();
         if (data && data.services) {

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ReportSummaryResponse, Ticket } from '../types/chat';
 import { INITIAL_MOCK_EXECUTIVE_REPORT } from '../data/mockData';
+import { apiUrl } from '../api';
 
 interface HostReportsProps {
   tickets: Ticket[];
@@ -42,7 +43,7 @@ export default function HostReports({ tickets }: HostReportsProps) {
       params.set('date_range', selectedRange);
       if (selectedDept !== 'All') params.set('department', selectedDept);
 
-      const res = await fetch(`/api/reports?${params.toString()}`);
+      const res = await fetch(apiUrl(`/reports?${params.toString()}`));
       if (res.ok) {
         const data: ReportSummaryResponse = await res.json();
         setReport(data);

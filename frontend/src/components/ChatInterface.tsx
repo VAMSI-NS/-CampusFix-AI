@@ -15,6 +15,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { Message, DiagnosticStage, Ticket, TicketCategory, TicketPriority, AIActionButton } from '../types/chat';
+import { apiUrl } from '../api';
 
 interface ChatInterfaceProps {
   backendConnected?: boolean;
@@ -194,7 +195,7 @@ export default function ChatInterface({
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('/api/chat', {
+      const res = await fetch(apiUrl('/chat'), {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -295,7 +296,7 @@ export default function ChatInterface({
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('/api/tickets', {
+      const res = await fetch(apiUrl('/tickets'), {
         method: 'POST',
         headers,
         body: JSON.stringify({

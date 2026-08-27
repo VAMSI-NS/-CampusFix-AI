@@ -12,6 +12,7 @@ import {
   TicketAIAnalysisResponse,
 } from '../types/chat';
 import { createClientMockTicket, saveLocalTickets, generateClientTicketAnalysis } from '../data/mockData';
+import { apiUrl } from '../api';
 import ChatInterface from './ChatInterface';
 import {
   CheckCircle2,
@@ -146,7 +147,7 @@ export default function IncidentWorkspace({
     setIsLoadingAnalysis(true);
     let analysis: TicketAIAnalysisResponse | null = null;
     try {
-      const res = await fetch(`/api/tickets/${ticket.id}/analyze`, {
+      const res = await fetch(apiUrl(`/tickets/${ticket.id}/analyze`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -180,7 +181,7 @@ export default function IncidentWorkspace({
   const fetchTickets = useCallback(async () => {
     setIsLoadingTickets(true);
     try {
-      const res = await fetch('/api/tickets');
+      const res = await fetch(apiUrl('/tickets'));
       if (res.ok) {
         const data: Ticket[] = await res.json();
         setLocalTickets(data);
@@ -227,7 +228,7 @@ export default function IncidentWorkspace({
     if (!activeTicket) return;
     let updated: Ticket | null = null;
     try {
-      const res = await fetch(`/api/tickets/${activeTicket.id}`, {
+      const res = await fetch(apiUrl(`/tickets/${activeTicket.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),
@@ -268,7 +269,7 @@ export default function IncidentWorkspace({
     let updated: Ticket | null = null;
 
     try {
-      const res = await fetch(`/api/tickets/${activeTicket.id}/action`, {
+      const res = await fetch(apiUrl(`/tickets/${activeTicket.id}/action`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -346,7 +347,7 @@ export default function IncidentWorkspace({
     if (onTicketsUpdated) onTicketsUpdated(updatedList);
     if (onTicketChanged) onTicketChanged(updated);
 
-    fetch(`/api/tickets/${activeTicket.id}`, {
+    fetch(apiUrl(`/tickets/${activeTicket.id}`), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ technician_note: noteText }),
@@ -383,7 +384,7 @@ export default function IncidentWorkspace({
     if (onTicketsUpdated) onTicketsUpdated(updatedList);
     if (onTicketChanged) onTicketChanged(updated);
 
-    fetch(`/api/tickets/${activeTicket.id}`, {
+    fetch(apiUrl(`/tickets/${activeTicket.id}`), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ assigned_technician: claimTechName, status: 'Diagnosing' }),
@@ -422,7 +423,7 @@ export default function IncidentWorkspace({
     if (onTicketsUpdated) onTicketsUpdated(updatedList);
     if (onTicketChanged) onTicketChanged(updated);
 
-    fetch(`/api/tickets/${activeTicket.id}/action`, {
+    fetch(apiUrl(`/tickets/${activeTicket.id}/action`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: actText, result: actResult, actor: 'technician' }),
@@ -436,7 +437,7 @@ export default function IncidentWorkspace({
     if (!activeTicket || !resolutionText.trim()) return;
     let updated: Ticket | null = null;
     try {
-      const res = await fetch(`/api/tickets/${activeTicket.id}/resolve`, {
+      const res = await fetch(apiUrl(`/tickets/${activeTicket.id}/resolve`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resolution_details: resolutionText.trim() }),
@@ -508,7 +509,7 @@ export default function IncidentWorkspace({
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`/api/tickets/${activeTicket.id}/escalate`, {
+      const res = await fetch(apiUrl(`/tickets/${activeTicket.id}/escalate`), {
         method: 'POST',
         headers,
         body: JSON.stringify(escalationPayload),
@@ -581,7 +582,7 @@ export default function IncidentWorkspace({
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`/api/tickets/${activeTicket.id}/escalate`, {
+      const res = await fetch(apiUrl(`/tickets/${activeTicket.id}/escalate`), {
         method: 'POST',
         headers,
         body: JSON.stringify(escalationPayload),
@@ -656,7 +657,7 @@ export default function IncidentWorkspace({
 
     let created: Ticket | null = null;
     try {
-      const res = await fetch('/api/tickets', {
+      const res = await fetch(apiUrl('/tickets'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -800,7 +801,7 @@ export default function IncidentWorkspace({
               onSuggestedAction={(action, result) => {
                 if (!activeTicket) return;
                 const actResult = result || 'Diagnosis executed and recorded.';
-                fetch(`/api/tickets/${activeTicket.id}/action`, {
+                fetch(apiUrl(`/tickets/${activeTicket.id}/action`), {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ action, result: actResult, actor: 'ai_specialist' }),

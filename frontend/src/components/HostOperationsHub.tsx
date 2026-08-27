@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { CampusUser, Ticket, TicketStatus } from '../types/chat';
 import { getLocalTechnicians } from '../data/mockData';
+import { apiUrl } from '../api';
 
 interface HostOperationsHubProps {
   currentUser?: CampusUser | null;
@@ -63,7 +64,7 @@ export default function HostOperationsHub({
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('/api/ai/execute-action', {
+      const res = await fetch(apiUrl('/ai/execute-action'), {
         method: 'POST',
         headers,
         body: JSON.stringify({
