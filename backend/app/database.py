@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(120) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     netid VARCHAR(120) NOT NULL,
+    roll_number VARCHAR(120),
     role VARCHAR(50) NOT NULL,
     specialization VARCHAR(100),
     department VARCHAR(255) NOT NULL,
@@ -37,6 +38,8 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS roll_number VARCHAR(120);
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);

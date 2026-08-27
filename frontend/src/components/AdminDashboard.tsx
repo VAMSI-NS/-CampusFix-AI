@@ -14,6 +14,7 @@ import {
   saveLocalTechnicians,
   saveLocalTickets,
   createClientMockTechnician,
+  saveLocalUserPassword,
   resetLocalSystemData,
 } from '../data/mockData';
 import {
@@ -448,6 +449,10 @@ export default function AdminDashboard({
 
     if (!created) {
       created = createClientMockTechnician(techPayload);
+    } else {
+      if (techPayload.password) {
+        saveLocalUserPassword(created.username || techPayload.username, techPayload.password);
+      }
     }
 
     const updated = [...technicians.filter((t) => t.id !== created!.id), created];
@@ -542,6 +547,7 @@ export default function AdminDashboard({
       console.warn('Backend password reset unavailable, recording client state:', err);
     }
 
+    saveLocalUserPassword(selectedTech.username || selectedTech.netid, resetNewPassword.trim());
     setIsResetPwdModalOpen(false);
     setActionNotice({ type: 'success', text: `Password successfully reset to '${resetNewPassword}' for '${selectedTech.name}'.` });
   };

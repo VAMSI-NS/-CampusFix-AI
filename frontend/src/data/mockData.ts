@@ -3,8 +3,6 @@ import {
   SystemStatusResponse,
   KBArticle,
   CampusUser,
-  UserRole,
-  LoginResponse,
   TechnicianSpecialization,
   AnalyticsGraphsResponse,
   ReportSummaryResponse,
@@ -60,7 +58,8 @@ export const INITIAL_MOCK_USERS: CampusUser[] = [
     name: 'Student User',
     username: 'student',
     email: 'student@university.edu',
-    netid: 'student.user',
+    netid: 'student',
+    roll_number: 'STUDENT',
     role: 'student',
     department: 'Undergraduate Studies',
     status: 'active',
@@ -70,165 +69,72 @@ export const INITIAL_MOCK_USERS: CampusUser[] = [
     skills: ['Student'],
     created_at: new Date().toISOString(),
   },
-];
-
-export function authenticateClientMockUser(
-  username: string,
-  password?: string,
-  role: UserRole = 'student',
-  specialization?: TechnicianSpecialization
-): LoginResponse | null {
-  const cleanU = (username || '').trim().toLowerCase();
-  const cleanP = (password || '').trim();
-
-  // Basic validation: username and password cannot be empty
-  if (!cleanU || !cleanP) return null;
-
-  // Predefined authorized credentials
-  const validCredentials: Record<string, string> = {
-    vamsi: 'vamsi@123',
-    admin: 'vamsi@123',
-    anand: 'anand@123',
-    student: 'student@123',
-  };
-
-  if (validCredentials[cleanU] && validCredentials[cleanU] !== cleanP) {
-    return null; // Password mismatch
-  }
-
-  const allUsers = getLocalTechnicians();
-
-  // Search across existing persisted local technicians and mock users by explicit username/netid/id
-  let user = allUsers.find(
-    (u) =>
-      u.username?.toLowerCase() === cleanU ||
-      u.netid?.toLowerCase() === cleanU ||
-      u.id?.toLowerCase() === cleanU ||
-      u.name.toLowerCase() === cleanU
-  );
-
-  if (!user) {
-    // Create new identity matching the typed username
-    const cleanName = username.trim().length > 1
-      ? username.trim().charAt(0).toUpperCase() + username.trim().slice(1)
-      : (role === 'host' ? 'Host Administrator' : 'Campus Staff');
-    const initials = cleanName
-      .split(' ')
-      .filter(Boolean)
-      .map((p) => p[0].toUpperCase())
-      .join('')
-      .slice(0, 2) || (role === 'host' ? 'HA' : 'ST');
-
-    const spec = specialization || (role === 'technician' ? 'Network' : undefined);
-
-    user = {
-      id: `user-${role}-${cleanU.replace(/[^a-z0-9]/g, '-') || Date.now()}`,
-      technician_id: role === 'technician' ? `TECH-${Math.floor(100 + Math.random() * 900)}` : undefined,
-      name: cleanName,
-      username: cleanU,
-      email: `${cleanU}@campusfix.edu`,
-      netid: cleanU,
-      role: role === 'host' ? 'host' : role === 'technician' ? 'technician' : 'student',
-      specialization: spec,
-      department: role === 'host' ? 'Campus IT Operations & Governance' : `${spec || 'IT'} Services`,
-      status: 'active',
-      is_active: true,
-      phone: `+1 (555) 01${Math.floor(10 + Math.random() * 90)}-${Math.floor(1000 + Math.random() * 9000)}`,
-      active_assignments_count: 0,
-      avatar_initials: initials,
-      skills: spec ? [`${spec} Operations`, 'Campus IT Support'] : ['System Governance'],
-      created_at: new Date().toISOString(),
-      authenticated: true,
-    };
-
-    saveLocalTechnicians([...allUsers, user]);
-  }
-
-  return {
-    authenticated: true,
-    token: `demo-jwt-token-${user.id}-${Date.now()}`,
-    token_type: 'Bearer',
-    user: {
-      ...user,
-      role: role === 'host' ? 'host' : role === 'technician' ? 'technician' : user.role,
-      specialization: role === 'technician' ? (specialization || user.specialization || 'Network') : user.specialization,
-      authenticated: true,
-    },
-    expires_in: 86400,
-  };
-}
-
-export function authenticateClientStudent(
-  name: string,
-  rollNumber: string,
-  password?: string
-): LoginResponse | { error: string } {
-  const cleanName = (name || '').trim();
-  const cleanRoll = (rollNumber || '').trim().toUpperCase();
-  const cleanPwd = (password || '').trim();
-
-  if (!cleanName) return { error: 'Please enter your name.' };
-  if (!cleanRoll) return { error: 'Please enter your roll number.' };
-  if (!cleanPwd) return { error: 'Please enter your password.' };
-
-  // Local storage for registered students
-  const storageKey = `campusfix_stu_${cleanRoll}`;
-  const stored = localStorage.getItem(storageKey);
-
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored);
-      if (parsed.password && parsed.password !== cleanPwd) {
-        return { error: 'Invalid credentials. Incorrect password.' };
-      }
-    } catch {}
-  } else {
-    // Check pre-seeded student account (student@123)
-    if (cleanRoll === 'STUDENT' || cleanRoll === '211FA04001') {
-      if (cleanPwd !== 'student@123') {
-        return { error: 'Invalid credentials. Incorrect password.' };
-      }
-    }
-    // Save student profile
-    localStorage.setItem(
-      storageKey,
-      JSON.stringify({ name: cleanName, roll_number: cleanRoll, password: cleanPwd })
-    );
-  }
-
-  const initials = cleanName
-    .split(' ')
-    .filter(Boolean)
-    .map((p: string) => p[0].toUpperCase())
-    .join('')
-    .slice(0, 2) || 'ST';
-
-  const user: CampusUser = {
-    id: `user-stu-${cleanRoll.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-    name: cleanName,
-    username: cleanRoll.toLowerCase(),
-    email: `${cleanRoll.toLowerCase()}@university.edu`,
-    netid: cleanRoll.toLowerCase(),
-    roll_number: cleanRoll,
+  {
+    id: 'user-student-2',
+    technician_id: undefined,
+    name: 'Marcus Chen',
+    username: '211fa04001',
+    email: '211fa04001@university.edu',
+    netid: '211fa04001',
+    roll_number: '211FA04001',
     role: 'student',
-    department: 'Student Computing & Campus IT Services',
+    department: 'Computer Science & Engineering',
     status: 'active',
     is_active: true,
-    phone: undefined,
     active_assignments_count: 0,
-    avatar_initials: initials,
-    skills: ['Student User'],
+    avatar_initials: 'MC',
+    skills: ['Student'],
     created_at: new Date().toISOString(),
-    authenticated: true,
-  };
+  },
+  {
+    id: 'user-student-3',
+    technician_id: undefined,
+    name: 'Priya Patel',
+    username: '211fa04002',
+    email: '211fa04002@university.edu',
+    netid: '211fa04002',
+    roll_number: '211FA04002',
+    role: 'student',
+    department: 'School of Business',
+    status: 'active',
+    is_active: true,
+    active_assignments_count: 0,
+    avatar_initials: 'PP',
+    skills: ['Student'],
+    created_at: new Date().toISOString(),
+  },
+];
 
-  return {
-    authenticated: true,
-    token: `demo-jwt-token-${user.id}-${Date.now()}`,
-    token_type: 'Bearer',
-    user,
-    expires_in: 604800,
-  };
+export const DEFAULT_USER_PASSWORDS: Record<string, string> = {
+  vamsi: 'vamsi@123',
+  admin: 'vamsi@123',
+  anand: 'anand@123',
+  student: 'student@123',
+  '211fa04001': 'student@123',
+  '211fa04002': 'student@123',
+};
+
+export function getLocalUserPasswords(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem('campusfix_user_passwords_v1');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return { ...DEFAULT_USER_PASSWORDS, ...parsed };
+    }
+  } catch (e) {
+    console.error('Error reading user passwords from localStorage:', e);
+  }
+  return { ...DEFAULT_USER_PASSWORDS };
+}
+
+export function saveLocalUserPassword(username: string, password: string): void {
+  try {
+    const current = getLocalUserPasswords();
+    current[username.trim().toLowerCase()] = password.trim();
+    localStorage.setItem('campusfix_user_passwords_v1', JSON.stringify(current));
+  } catch (e) {
+    console.error('Error saving user password to localStorage:', e);
+  }
 }
 
 export function generateClientTicketAnalysis(
@@ -786,6 +692,7 @@ export function createClientMockTechnician(data: {
   name: string;
   username: string;
   email: string;
+  password?: string;
   specialization: TechnicianSpecialization;
   department?: string;
   phone?: string;
@@ -830,6 +737,10 @@ export function createClientMockTechnician(data: {
     skills: data.skills || [`${data.specialization} Operations`, 'Campus IT Support'],
     created_at: new Date().toISOString(),
   };
+
+  if (data.password) {
+    saveLocalUserPassword(newTech.username || data.username, data.password);
+  }
 
   const updated = [...currentList, newTech];
   saveLocalTechnicians(updated);

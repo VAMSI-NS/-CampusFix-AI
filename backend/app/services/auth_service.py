@@ -42,6 +42,10 @@ class AuthService:
 
     def verify_password(self, password: str, password_hash: str, salt_hex: str) -> bool:
         """Verifies candidate password against stored salt and hash."""
+        # SECURITY FIX: Reject authentication if password_hash or salt_hex are None/empty
+        if not password_hash or not salt_hex:
+            return False
+        
         try:
             salt = bytes.fromhex(salt_hex)
             expected_hash = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100_000)

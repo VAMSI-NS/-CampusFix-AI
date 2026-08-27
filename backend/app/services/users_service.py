@@ -114,21 +114,35 @@ class UsersService:
         student_seeds = [
             {
                 "id": "user-student-1",
-                "name": "Marcus Chen",
+                "name": "Student User",
                 "username": "student",
-                "email": "m.chen@university.edu",
-                "netid": "m.chen",
+                "email": "student@university.edu",
+                "netid": "student",
+                "roll_number": "STUDENT",
+                "role": "student",
+                "department": "Undergraduate Studies",
+                "password": "student@123",
+                "avatar_initials": "SU",
+            },
+            {
+                "id": "user-student-2",
+                "name": "Marcus Chen",
+                "username": "211fa04001",
+                "email": "211fa04001@university.edu",
+                "netid": "211fa04001",
+                "roll_number": "211FA04001",
                 "role": "student",
                 "department": "Computer Science & Engineering",
                 "password": "student@123",
                 "avatar_initials": "MC",
             },
             {
-                "id": "user-student-2",
+                "id": "user-student-3",
                 "name": "Priya Patel",
-                "username": "k.patel",
-                "email": "k.patel@university.edu",
-                "netid": "k.patel",
+                "username": "211fa04002",
+                "email": "211fa04002@university.edu",
+                "netid": "211fa04002",
+                "roll_number": "211FA04002",
                 "role": "student",
                 "department": "School of Business",
                 "password": "student@123",
@@ -145,6 +159,7 @@ class UsersService:
                 username=st["username"],
                 email=st["email"],
                 netid=st["netid"],
+                roll_number=st["roll_number"],
                 role="student",
                 specialization=None,
                 department=st["department"],
@@ -159,6 +174,16 @@ class UsersService:
                 password_salt=s_salt,
             )
             self._users_db[stu_user.id] = stu_user
+
+        # SECURITY VALIDATION: Verify all accounts have password hashes
+        self._validate_account_security()
+
+    def _validate_account_security(self):
+        """Validates that all users have properly configured password hashes."""
+        for user in self._users_db.values():
+            if not user.password_hash or not user.password_salt:
+                logger.warning(f"⚠️ SECURITY ISSUE: User '{user.username}' (role: {user.role}) lacks password hash. This account cannot be authenticated.")
+        logger.info(f"✅ Account security validation complete. {len(self._users_db)} users initialized.")
 
     def sync_to_db(self):
         """Seeds initial memory users into PostgreSQL if users table is empty."""
@@ -209,8 +234,8 @@ class UsersService:
                                 id, technician_id, name, username, email, netid, role,
                                 specialization, department, status, is_active, phone,
                                 active_assignments_count, avatar_initials, skills,
-                                password_hash, password_salt, created_at
-                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                                password_hash, password_salt, roll_number, created_at
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                             """,
                             (
                                 configured_host.id,
@@ -230,6 +255,7 @@ class UsersService:
                                 json.dumps(configured_host.skills),
                                 configured_host.password_hash,
                                 configured_host.password_salt,
+                                configured_host.roll_number,
                                 configured_host.created_at,
                             ),
                         )
@@ -242,9 +268,9 @@ class UsersService:
                                 id, technician_id, name, username, email, netid, role,
                                 specialization, department, status, is_active, phone,
                                 active_assignments_count, avatar_initials, skills,
-                                password_hash, password_salt, created_at
+                                password_hash, password_salt, roll_number, created_at
                             ) VALUES (
-                                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                             ) ON CONFLICT (id) DO NOTHING;
                             """,
                             (
@@ -265,6 +291,7 @@ class UsersService:
                                 json.dumps(u.skills),
                                 u.password_hash,
                                 u.password_salt,
+                                u.roll_number,
                                 u.created_at or datetime.now(timezone.utc).isoformat(),
                             ),
                         )
@@ -332,18 +359,35 @@ class UsersService:
         if db.is_connected():
             try:
                 with db.get_cursor(commit=False) as cur:
-                    cur.execute(
-                        """
-                        SELECT * FROM users
-                        WHERE LOWER(id) = %s
-                           OR LOWER(username) = %s
-                           OR LOWER(netid) = %s
-                           OR LOWER(email) = %s
-                           OR LOWER(COALESCE(technician_id, '')) = %s
-                        LIMIT 1;
-                        """,
-                        (clean_id, clean_id, clean_id, clean_id, clean_id),
-                    )
+                    if clean_id == "admin":
+                        cur.execute(
+                            """
+                            SELECT * FROM users
+                            WHERE LOWER(id) = %s
+                               OR LOWER(username) = %s
+                               OR LOWER(netid) = %s
+                               OR LOWER(email) = %s
+                               OR LOWER(COALESCE(roll_number, '')) = %s
+                               OR role IN ('host', 'admin')
+                            ORDER BY created_at ASC
+                            LIMIT 1;
+                            """,
+                            (clean_id, clean_id, clean_id, clean_id, clean_id),
+                        )
+                    else:
+                        cur.execute(
+                            """
+                            SELECT * FROM users
+                            WHERE LOWER(id) = %s
+                               OR LOWER(username) = %s
+                               OR LOWER(netid) = %s
+                               OR LOWER(email) = %s
+                               OR LOWER(COALESCE(roll_number, '')) = %s
+                               OR LOWER(COALESCE(technician_id, '')) = %s
+                            LIMIT 1;
+                            """,
+                            (clean_id, clean_id, clean_id, clean_id, clean_id, clean_id),
+                        )
                     row = cur.fetchone()
                     if row:
                         user = self._row_to_user_in_db(row)
@@ -361,6 +405,7 @@ class UsersService:
                 or (u.roll_number and u.roll_number.lower() == clean_id)
                 or u.email.lower() == clean_id
                 or (u.technician_id and u.technician_id.lower() == clean_id)
+                or (clean_id == "admin" and u.role in ["host", "admin"])
             ):
                 return u
         return None
@@ -371,7 +416,7 @@ class UsersService:
         roll_number: str,
         password: str,
     ) -> Tuple[Optional[CampusUser], Optional[str]]:
-        """Authenticates or registers student account using Name, Roll Number, and Password."""
+        """Authenticates student account using Name, Roll Number, and Password against stored hash."""
         clean_name = (name or "").strip()
         clean_roll = (roll_number or "").strip().upper()
         clean_pwd = (password or "").strip()
@@ -383,7 +428,7 @@ class UsersService:
         if not clean_pwd:
             return None, "Please enter your password."
 
-        # Search existing student by roll number or username
+        # Search existing student by roll number or username.
         user_in_db = None
         for u in self._users_db.values():
             if u.role == "student" and (
@@ -394,52 +439,27 @@ class UsersService:
                 user_in_db = u
                 break
 
-        if user_in_db:
-            if not user_in_db.is_active:
-                return None, "This account is inactive. Please contact the Host / Administrator."
+        if not user_in_db:
+            return None, "Invalid credentials."
 
-            if user_in_db.password_hash and user_in_db.password_salt:
-                if not auth_service.verify_password(clean_pwd, user_in_db.password_hash, user_in_db.password_salt):
-                    return None, "Invalid credentials. Incorrect password."
-            else:
-                # Initialize password for pre-seeded student account
-                p_hash, p_salt = auth_service.hash_password(clean_pwd)
-                user_in_db.password_hash = p_hash
-                user_in_db.password_salt = p_salt
+        if not user_in_db.is_active:
+            return None, "This account is inactive. Please contact the Host / Administrator."
 
-            user_in_db.name = clean_name
-            user_in_db.roll_number = clean_roll
-            return self._to_campus_user(user_in_db), None
+        stored_name = (user_in_db.name or "").strip().lower()
+        if clean_name.lower() != stored_name:
+            return None, "Invalid credentials."
 
-        # Register new student account
-        p_hash, p_salt = auth_service.hash_password(clean_pwd)
-        now_iso = datetime.now(timezone.utc).isoformat()
-        initials = "".join([part[0].upper() for part in clean_name.split() if part])[:2] or "ST"
-        new_id = f"user-stu-{clean_roll.lower().replace(' ', '-')}"
+        # SECURITY FIX: Enforce password hash requirement - no password initialization fallback
+        if not user_in_db.password_hash or not user_in_db.password_salt:
+            logger.warning(f"Student account '{clean_roll}' lacks password hash. Account must be provisioned by administrator.")
+            return None, "Account requires administrator provisioning. Please contact the Help Desk."
 
-        stu_user = UserInDB(
-            id=new_id,
-            technician_id=None,
-            name=clean_name,
-            username=clean_roll.lower(),
-            email=f"{clean_roll.lower()}@university.edu",
-            netid=clean_roll.lower(),
-            roll_number=clean_roll,
-            role="student",
-            specialization=None,
-            department="Student Computing & Campus IT Services",
-            status="active",
-            is_active=True,
-            phone=None,
-            active_assignments_count=0,
-            avatar_initials=initials,
-            skills=["Student User"],
-            created_at=now_iso,
-            password_hash=p_hash,
-            password_salt=p_salt,
-        )
-        self._users_db[new_id] = stu_user
-        return self._to_campus_user(stu_user), None
+        # Verify password against stored hash
+        if not auth_service.verify_password(clean_pwd, user_in_db.password_hash, user_in_db.password_salt):
+            return None, "Invalid credentials."
+
+        user_in_db.roll_number = clean_roll
+        return self._to_campus_user(user_in_db), None
 
     def authenticate(
         self,
@@ -450,25 +470,30 @@ class UsersService:
     ) -> Tuple[Optional[CampusUser], Optional[str]]:
         user_in_db = self.find_user_by_username_or_id(username)
         if not user_in_db:
-            return None, "Invalid credentials. Account not found."
+            return None, "Invalid credentials."
 
         if not user_in_db.is_active:
             return None, "This account is inactive. Please contact the Host / Administrator."
 
-        # Verify password
+        # SECURITY FIX: Enforce password hash requirement - no account without password hash
+        if not user_in_db.password_hash or not user_in_db.password_salt:
+            logger.warning(f"Account '{username}' lacks password hash. Authentication rejected.")
+            return None, "Invalid credentials."
+
+        # Verify password against stored hash
         if not auth_service.verify_password(password, user_in_db.password_hash, user_in_db.password_salt):
-            return None, "Invalid credentials. Incorrect password."
+            return None, "Invalid credentials."
 
         # Validate Role consistency if requested
         if role:
             req_role = role.lower()
             if req_role == "host" and user_in_db.role not in ["host", "admin"]:
-                return None, "Access denied. This account does not possess Host / Administrator authority."
-            if req_role == "technician" and user_in_db.role not in ["technician", "admin", "host"]:
-                return None, "Access denied. This account is not registered as a technician."
+                return None, "Access denied. Host privileges required."
+            if req_role in ["technician", "staff"] and user_in_db.role not in ["technician", "staff", "admin", "host"]:
+                return None, "Access denied. Staff privileges required."
 
         # Validate Technician Specialization if technician
-        if user_in_db.role == "technician" and specialization:
+        if user_in_db.role in ["technician", "staff"] and specialization:
             norm_req = normalize_specialization(specialization)
             norm_db = normalize_specialization(user_in_db.specialization)
             if norm_db and norm_req and norm_db.lower() != norm_req.lower():
