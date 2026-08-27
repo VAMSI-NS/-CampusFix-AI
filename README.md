@@ -163,3 +163,46 @@ python run.py                 # Runs on http://127.0.0.1:8000
 cd frontend
 npm run dev                   # Runs on http://localhost:5173
 ```
+
+---
+
+## 🌐 GitHub Pages Deployment
+
+### ⚠️ Critical: Backend URL Configuration
+
+The GitHub Pages deployment requires your backend URL to be configured. Without it, login will fail when accessing from another device.
+
+**Current Status**:
+- ✅ Frontend deployed to GitHub Pages: https://vamsi-ns.github.io/-CampusFix-AI/
+- ❌ Backend URL NOT configured (must be set)
+
+### Setup Instructions
+
+See [**GITHUB_PAGES_SETUP.md**](./GITHUB_PAGES_SETUP.md) for:
+1. How to set the `PUBLIC_HTTPS_BACKEND_URL` GitHub repository variable
+2. Why GitHub URLs appear without proper configuration
+3. CORS setup for your backend
+4. Troubleshooting deployment issues
+
+**Quick Steps**:
+1. Go to GitHub repository → **Settings** → **Secrets and variables** → **Actions**
+2. Add new **Repository variable**:
+   ```
+   Name: PUBLIC_HTTPS_BACKEND_URL
+   Value: https://your-backend-url.com
+   ```
+3. Commit and push to trigger workflow
+4. Wait for deployment to complete
+5. Test login from another device
+
+---
+
+## 🔒 Security Notes
+
+**Authentication Fixes** (Commit: `9aac3e7`):
+- ✅ Password initialization fallback removed
+- ✅ Fake credentials now properly rejected
+- ✅ Strict password hash enforcement enforced
+- See [**SECURITY_AUDIT_REPORT.md**](./SECURITY_AUDIT_REPORT.md) for full details
+
+**Test Results**: 5/5 security tests passing ✅
