@@ -1,19 +1,18 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   Search,
   Sparkles,
   Ticket as TicketIcon,
-  MapPin,
   Radio,
   ArrowRight,
   CheckCircle2,
   Plus,
-  Clock,
   Send,
   ShieldCheck,
   RefreshCw,
-  User,
   Hash,
+  X,
+  Check,
 } from 'lucide-react';
 import { CampusUser, Ticket, TicketCategory, TicketPriority } from '../types/chat';
 import { apiUrl } from '../api';
@@ -70,6 +69,7 @@ export default function StudentDashboard({
 
   // New Complaint Form Modal State
   const [isNewComplaintModalOpen, setIsNewComplaintModalOpen] = useState(false);
+  const [complaintStep, setComplaintStep] = useState<1 | 2>(1);
   const [compTitle, setCompTitle] = useState('');
   const [compCategory, setCompCategory] = useState<TicketCategory>('Eduroam Wi-Fi');
   const [compPriority, setCompPriority] = useState<TicketPriority>('Medium');
@@ -82,7 +82,7 @@ export default function StudentDashboard({
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'resolved'>('all');
   const [searchTicketQuery, setSearchTicketQuery] = useState('');
 
-  // Selected ticket for live tracking details in panel
+  // Selected ticket for live tracking details in slide-over drawer
   const [trackingTicket, setTrackingTicket] = useState<Ticket | null>(null);
 
   // Filter tickets matching this student's account
@@ -114,6 +114,9 @@ export default function StudentDashboard({
     }
     return true;
   });
+
+  const activeTicketsCount = displayTickets.filter((t) => t.status !== 'Resolved').length;
+  const resolvedTicketsCount = displayTickets.filter((t) => t.status === 'Resolved').length;
 
   // Handle AI Problem Solver submission
   const handleSendAiMessage = (queryToSend?: string) => {
@@ -152,7 +155,7 @@ export default function StudentDashboard({
         },
       ]);
       setIsAiResponding(false);
-    }, 900);
+    }, 800);
   };
 
   // Convert AI chat to official complaint ticket
@@ -160,6 +163,7 @@ export default function StudentDashboard({
     const lastUserQuery = aiChatMessages.filter((m) => m.sender === 'student').pop()?.text || 'Student reported campus IT issue';
     setCompTitle(lastUserQuery.slice(0, 60));
     setCompDescription(lastUserQuery);
+    setComplaintStep(1);
     setIsNewComplaintModalOpen(true);
   };
 
@@ -182,7 +186,7 @@ export default function StudentDashboard({
       priority: compPriority,
       status: 'New',
       diagnostic_stage: 'Triage',
-      diagnostic_progress: 10,
+      diagnostic_progress: 15,
       netid: currentUser?.roll_number || currentUser?.username || 'student',
       email: currentUser?.email || 'student@university.edu',
       location: compLocation,
@@ -227,6 +231,7 @@ export default function StudentDashboard({
     setIsNewComplaintModalOpen(false);
     setCompTitle('');
     setCompDescription('');
+    setComplaintStep(1);
     setSubmittedNotice(`Complaint ${newNum} created successfully! Assigned to Campus IT.`);
     setActiveSection('my_tickets');
     setTrackingTicket(newTicket);
@@ -235,278 +240,287 @@ export default function StudentDashboard({
   };
 
   return (
-    <div className="animate-fade-in" style={{ maxWidth: '1400px', margin: '0 auto', padding: '1.5rem 1.5rem 4rem' }}>
+    <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '0 0 3.5rem' }}>
       {/* =========================================================================
-          1. STUDENT HEADER & IDENTITY SUMMARY
+          1. SAAS OVERVIEW & HERO SECTION ("What can I do here?")
           ========================================================================= */}
       <div
+        className="card-saas"
         style={{
-          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(6, 182, 212, 0.05) 100%)',
-          border: '1px solid rgba(16, 185, 129, 0.3)',
-          borderRadius: '20px',
-          padding: '1.5rem 2rem',
-          marginBottom: '1.5rem',
+          padding: '1.75rem 2rem',
+          marginBottom: '1.75rem',
+          background: 'var(--bg-surface)',
           display: 'flex',
-          flexWrap: 'wrap',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '1rem',
-          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
+          flexDirection: 'column',
+          gap: '1.5rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div
-            style={{
-              width: '54px',
-              height: '54px',
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, #10b981, #059669)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-              fontWeight: 800,
-              fontSize: '1.3rem',
-              boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)',
-            }}
-          >
-            {currentUser?.avatar_initials || 'ST'}
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary, #F8FAFC)' }}>
-                {currentUser?.name || 'Student Portal'}
-              </h2>
-              <span
-                style={{
-                  fontSize: '0.72rem',
-                  fontWeight: 800,
-                  padding: '0.2rem 0.6rem',
-                  borderRadius: '999px',
-                  background: 'rgba(16, 185, 129, 0.2)',
-                  color: '#10b981',
-                  border: '1px solid rgba(16, 185, 129, 0.4)',
-                }}
-              >
-                STUDENT
-              </span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <div
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: 'var(--radius-lg)',
+                background: 'var(--primary-gradient)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#FFFFFF',
+                fontWeight: 800,
+                fontSize: '1.35rem',
+                boxShadow: '0 4px 16px rgba(79, 70, 229, 0.3)',
+                flexShrink: 0,
+              }}
+            >
+              {currentUser?.avatar_initials || 'ST'}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginTop: '0.25rem', fontSize: '0.82rem', color: 'var(--text-secondary, #94a3b8)' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <h1 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 800 }}>
+                  {currentUser?.name ? `Welcome back, ${currentUser.name}` : 'Student IT Operations Hub'}
+                </h1>
+                <span className="badge-saas badge-saas-primary">STUDENT PORTAL</span>
+              </div>
+              <p style={{ margin: '0.25rem 0 0', fontSize: '0.86rem', color: 'var(--text-secondary)' }}>
+                Get instant autonomous troubleshooting, report IT disruptions, or track technician progress in real-time.
+              </p>
               {currentUser?.roll_number && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontFamily: 'var(--font-mono)' }}>
-                  <Hash size={13} style={{ color: '#10b981' }} />
-                  <strong>Roll: {currentUser.roll_number}</strong>
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginTop: '0.35rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontFamily: 'var(--font-mono)' }}>
+                    <Hash size={13} style={{ color: 'var(--primary-500)' }} />
+                    <span>Roll: {currentUser.roll_number}</span>
+                  </span>
+                  <span>•</span>
+                  <span>{currentUser?.department || 'Student Computing Services'}</span>
+                </div>
               )}
-              <span>•</span>
-              <span>{currentUser?.department || 'Student Computing Services'}</span>
             </div>
+          </div>
+
+          {/* Primary Action Button */}
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="btn-saas btn-primary"
+              style={{ padding: '0.7rem 1.4rem', fontSize: '0.9rem', gap: '0.5rem' }}
+              onClick={() => {
+                setComplaintStep(1);
+                setIsNewComplaintModalOpen(true);
+              }}
+            >
+              <Plus size={17} />
+              <span>Report Incident</span>
+            </button>
           </div>
         </div>
 
-        {/* Quick Action Button */}
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button
-            type="button"
-            className="btn-saas btn-saas-primary"
+        {/* 3 Quick SaaS Overview Metric / Action Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)' }}>
+          <div
+            className="card-saas"
             style={{
-              padding: '0.65rem 1.25rem',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #10b981, #059669)',
-              color: '#ffffff',
-              fontWeight: 700,
-              fontSize: '0.86rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-              border: 'none',
+              padding: '1.1rem 1.25rem',
               cursor: 'pointer',
+              background: activeSection === 'ai_desk' ? 'var(--bg-surface-hover)' : 'var(--bg-surface)',
+              borderLeft: '3px solid var(--ai-500)',
             }}
-            onClick={() => setIsNewComplaintModalOpen(true)}
+            onClick={() => setActiveSection('ai_desk')}
           >
-            <Plus size={16} />
-            <span>File New Complaint</span>
-          </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--ai-500)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Instant AI Diagnosis
+              </span>
+              <Sparkles size={16} style={{ color: 'var(--ai-500)' }} />
+            </div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              AI Problem Solver
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+              Step-by-step resolution for Wi-Fi, LMS & Duo
+            </div>
+          </div>
+
+          <div
+            className="card-saas"
+            style={{
+              padding: '1.1rem 1.25rem',
+              cursor: 'pointer',
+              background: activeSection === 'my_tickets' ? 'var(--bg-surface-hover)' : 'var(--bg-surface)',
+              borderLeft: '3px solid var(--primary-500)',
+            }}
+            onClick={() => setActiveSection('my_tickets')}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary-500)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                My Incidents & Tracer
+              </span>
+              <TicketIcon size={16} style={{ color: 'var(--primary-500)' }} />
+            </div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              {activeTicketsCount} Active <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-muted)' }}>({resolvedTicketsCount} resolved)</span>
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+              Real-time audit log & technician timeline
+            </div>
+          </div>
+
+          <div
+            className="card-saas"
+            style={{
+              padding: '1.1rem 1.25rem',
+              cursor: 'pointer',
+              background: activeSection === 'status_help' ? 'var(--bg-surface-hover)' : 'var(--bg-surface)',
+              borderLeft: '3px solid var(--success-500)',
+            }}
+            onClick={() => setActiveSection('status_help')}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--success-500)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Campus Telemetry
+              </span>
+              <Radio size={16} style={{ color: 'var(--success-500)' }} />
+            </div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              All Systems Nominal
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+              99.9% campus service uptime & self-help
+            </div>
+          </div>
         </div>
       </div>
 
       {submittedNotice && (
         <div
           style={{
-            padding: '0.85rem 1.2rem',
-            background: 'rgba(16, 185, 129, 0.15)',
-            border: '1px solid rgba(16, 185, 129, 0.4)',
-            borderRadius: '12px',
-            color: '#10b981',
-            fontSize: '0.86rem',
+            padding: '0.85rem 1.25rem',
+            background: 'var(--success-50)',
+            border: '1px solid var(--success-500)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--success-700)',
+            fontSize: '0.88rem',
+            fontWeight: 600,
             marginBottom: '1.5rem',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.6rem',
+            gap: '0.65rem',
           }}
         >
-          <CheckCircle2 size={18} />
+          <CheckCircle2 size={18} style={{ color: 'var(--success-500)' }} />
           <span>{submittedNotice}</span>
         </div>
       )}
 
       {/* =========================================================================
-          2. CLEAN 3-TAB DASHBOARD NAVIGATION
+          2. DASHBOARD NAVIGATION TABS
           ========================================================================= */}
       <div
         style={{
           display: 'flex',
-          gap: '0.5rem',
-          borderBottom: '1px solid var(--border-default, #27272a)',
-          paddingBottom: '0.75rem',
+          gap: '0.45rem',
+          borderBottom: '1px solid var(--border-default)',
+          paddingBottom: '0.65rem',
           marginBottom: '1.75rem',
         }}
       >
         <button
           type="button"
-          style={{
-            padding: '0.6rem 1.25rem',
-            fontSize: '0.86rem',
-            fontWeight: 700,
-            borderRadius: '10px',
-            border: 'none',
-            cursor: 'pointer',
-            background: activeSection === 'ai_desk' ? 'linear-gradient(135deg, #10b981, #059669)' : 'var(--bg-surface, #18181b)',
-            color: activeSection === 'ai_desk' ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.45rem',
-            transition: 'all 0.2s ease',
-          }}
+          className={`btn-saas ${activeSection === 'ai_desk' ? 'btn-primary' : 'btn-ghost'}`}
           onClick={() => setActiveSection('ai_desk')}
         >
-          <Sparkles size={16} />
-          <span>AI Problem Solver Desk</span>
+          <Sparkles size={15} />
+          <span>AI Problem Solver</span>
         </button>
 
         <button
           type="button"
-          style={{
-            padding: '0.6rem 1.25rem',
-            fontSize: '0.86rem',
-            fontWeight: 700,
-            borderRadius: '10px',
-            border: 'none',
-            cursor: 'pointer',
-            background: activeSection === 'my_tickets' ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : 'var(--bg-surface, #18181b)',
-            color: activeSection === 'my_tickets' ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.45rem',
-            transition: 'all 0.2s ease',
-          }}
+          className={`btn-saas ${activeSection === 'my_tickets' ? 'btn-primary' : 'btn-ghost'}`}
           onClick={() => setActiveSection('my_tickets')}
         >
-          <TicketIcon size={16} />
+          <TicketIcon size={15} />
           <span>My Complaints & Tracer ({displayTickets.length})</span>
         </button>
 
         <button
           type="button"
-          style={{
-            padding: '0.6rem 1.25rem',
-            fontSize: '0.86rem',
-            fontWeight: 700,
-            borderRadius: '10px',
-            border: 'none',
-            cursor: 'pointer',
-            background: activeSection === 'status_help' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'var(--bg-surface, #18181b)',
-            color: activeSection === 'status_help' ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.45rem',
-            transition: 'all 0.2s ease',
-          }}
+          className={`btn-saas ${activeSection === 'status_help' ? 'btn-primary' : 'btn-ghost'}`}
           onClick={() => setActiveSection('status_help')}
         >
-          <Radio size={16} />
-          <span>Service Health & Help</span>
+          <Radio size={15} />
+          <span>Campus Status & Guides</span>
         </button>
       </div>
 
       {/* =========================================================================
-          SECTION 1: AI PROBLEM SOLVER DESK (Dedicated AI Workbench for Students)
+          SECTION 1: AI PROBLEM SOLVER DESK
           ========================================================================= */}
       {activeSection === 'ai_desk' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.8fr) minmax(300px, 1fr)', gap: '1.5rem' }}>
-          {/* Main AI Chat & Solution Generator */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.85fr) minmax(320px, 1fr)', gap: '1.5rem' }}>
+          {/* Main AI Chat Container */}
           <div
+            className="card-saas"
             style={{
-              background: 'var(--bg-surface, #18181b)',
-              border: '1px solid var(--border-default, #27272a)',
-              borderRadius: '18px',
               padding: '1.5rem',
               display: 'flex',
               flexDirection: 'column',
-              height: '580px',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)',
+              height: '620px',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default, #27272a)', paddingBottom: '0.85rem', marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }} />
-                <span style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-primary, #F8FAFC)' }}>
-                  Interactive AI Problem Diagnostic Assistant
-                </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default)', paddingBottom: '0.85rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div style={{ width: '9px', height: '9px', borderRadius: '50%', background: 'var(--success-500)', boxShadow: '0 0 8px var(--success-500)' }} />
+                <div>
+                  <span style={{ fontSize: '0.94rem', fontWeight: 800 }}>
+                    AI Diagnostic Specialist
+                  </span>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Autonomous University IT Triage</div>
+                </div>
               </div>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted, #71717a)' }}>
-                Powered by NVIDIA Nemotron 3 Ultra
+              <span className="badge-saas badge-saas-ai">
+                Nemotron 3 Ultra
               </span>
             </div>
 
             {/* Chat Message List */}
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.85rem', paddingRight: '0.5rem' }}>
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.95rem', paddingRight: '0.5rem' }}>
               {aiChatMessages.map((msg, idx) => (
                 <div
                   key={idx}
                   style={{
                     alignSelf: msg.sender === 'student' ? 'flex-end' : 'flex-start',
                     maxWidth: '85%',
-                    background: msg.sender === 'student' ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(255, 255, 255, 0.05)',
-                    border: msg.sender === 'student' ? 'none' : '1px solid var(--border-default, #27272a)',
-                    color: '#ffffff',
-                    padding: '0.85rem 1.1rem',
+                    background: msg.sender === 'student' ? 'var(--primary-500)' : 'var(--bg-surface-hover)',
+                    color: msg.sender === 'student' ? '#FFFFFF' : 'var(--text-primary)',
+                    border: msg.sender === 'student' ? 'none' : '1px solid var(--border-default)',
+                    padding: '0.85rem 1.15rem',
                     borderRadius: msg.sender === 'student' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                     fontSize: '0.86rem',
                     lineHeight: 1.55,
                     whiteSpace: 'pre-wrap',
+                    boxShadow: 'var(--shadow-sm)',
                   }}
                 >
                   <div>{msg.text}</div>
-                  <div style={{ fontSize: '0.68rem', color: 'rgba(255, 255, 255, 0.6)', textAlign: 'right', marginTop: '0.35rem' }}>
+                  <div style={{ fontSize: '0.68rem', color: msg.sender === 'student' ? 'rgba(255, 255, 255, 0.7)' : 'var(--text-muted)', textAlign: 'right', marginTop: '0.35rem' }}>
                     {msg.time}
                   </div>
                 </div>
               ))}
               {isAiResponding && (
-                <div style={{ alignSelf: 'flex-start', padding: '0.75rem 1rem', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '12px', fontSize: '0.82rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ alignSelf: 'flex-start', padding: '0.75rem 1rem', background: 'var(--bg-surface-hover)', border: '1px solid var(--border-default)', borderRadius: '12px', fontSize: '0.82rem', color: 'var(--primary-500)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <RefreshCw size={14} className="spin-icon" />
-                  <span>Diagnosing problem & analyzing Vignan campus telemetry...</span>
+                  <span>Analyzing campus diagnostics & knowledge base telemetry...</span>
                 </div>
               )}
             </div>
 
             {/* Input Bar */}
-            <div style={{ marginTop: '1rem', paddingTop: '0.85rem', borderTop: '1px solid var(--border-default, #27272a)' }}>
+            <div style={{ marginTop: '1rem', paddingTop: '0.85rem', borderTop: '1px solid var(--border-default)' }}>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <input
                   type="text"
                   className="saas-input"
-                  style={{
-                    flex: 1,
-                    background: 'var(--bg-card, #111111)',
-                    border: '1px solid var(--border-default, #27272a)',
-                    color: '#ffffff',
-                    borderRadius: '12px',
-                    padding: '0.75rem 1rem',
-                    fontSize: '0.88rem',
-                  }}
                   placeholder="Describe your issue (e.g. 'Eduroam disconnected in U-Block 304')..."
                   value={aiProblemQuery}
                   onChange={(e) => setAiProblemQuery(e.target.value)}
@@ -516,18 +530,7 @@ export default function StudentDashboard({
                 />
                 <button
                   type="button"
-                  style={{
-                    padding: '0.75rem 1.25rem',
-                    borderRadius: '12px',
-                    background: 'linear-gradient(135deg, #10b981, #059669)',
-                    color: '#ffffff',
-                    border: 'none',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                  }}
+                  className="btn-saas btn-primary"
                   onClick={() => handleSendAiMessage()}
                   disabled={isAiResponding || !aiProblemQuery.trim()}
                 >
@@ -536,26 +539,15 @@ export default function StudentDashboard({
                 </button>
               </div>
 
-              {/* 1-Click Ticket Conversion Button */}
+              {/* 1-Click Ticket Conversion */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem' }}>
-                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted, #71717a)' }}>
-                  Unable to solve with AI steps?
+                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                  Need human technician dispatch?
                 </span>
                 <button
                   type="button"
-                  style={{
-                    background: 'rgba(37, 99, 235, 0.15)',
-                    border: '1px solid rgba(37, 99, 235, 0.35)',
-                    color: '#60a5fa',
-                    padding: '0.35rem 0.85rem',
-                    borderRadius: '8px',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                  }}
+                  className="btn-saas btn-ghost"
+                  style={{ color: 'var(--primary-500)', fontSize: '0.78rem', padding: '0.35rem 0.75rem' }}
                   onClick={handleCreateTicketFromAi}
                 >
                   <Plus size={14} />
@@ -565,19 +557,12 @@ export default function StudentDashboard({
             </div>
           </div>
 
-          {/* Quick Problem Categories & Self-Help Tips */}
+          {/* Quick Problem Triage & Self-Help Tips */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div
-              style={{
-                background: 'var(--bg-surface, #18181b)',
-                border: '1px solid var(--border-default, #27272a)',
-                borderRadius: '18px',
-                padding: '1.25rem',
-              }}
-            >
-              <h4 style={{ margin: '0 0 0.85rem', fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-primary, #F8FAFC)' }}>
+            <div className="card-saas" style={{ padding: '1.25rem' }}>
+              <h3 style={{ margin: '0 0 0.85rem', fontSize: '0.92rem', fontWeight: 800 }}>
                 ⚡ Quick Problem Triage
-              </h4>
+              </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {[
                   'My Eduroam Wi-Fi keeps disconnecting in U-Block',
@@ -591,14 +576,14 @@ export default function StudentDashboard({
                     type="button"
                     style={{
                       textAlign: 'left',
-                      padding: '0.6rem 0.85rem',
-                      background: 'rgba(255, 255, 255, 0.03)',
-                      border: '1px solid var(--border-default, #27272a)',
-                      borderRadius: '10px',
-                      color: 'var(--text-secondary, #94a3b8)',
+                      padding: '0.65rem 0.85rem',
+                      background: 'var(--bg-surface-hover)',
+                      border: '1px solid var(--border-default)',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text-secondary)',
                       fontSize: '0.78rem',
                       cursor: 'pointer',
-                      transition: 'all 0.2s ease',
+                      transition: 'all 0.15s ease',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
@@ -606,28 +591,21 @@ export default function StudentDashboard({
                     onClick={() => handleSendAiMessage(prompt)}
                   >
                     <span>{prompt}</span>
-                    <ArrowRight size={12} style={{ color: '#10b981', flexShrink: 0 }} />
+                    <ArrowRight size={12} style={{ color: 'var(--primary-500)', flexShrink: 0 }} />
                   </button>
                 ))}
               </div>
             </div>
 
-            <div
-              style={{
-                background: 'rgba(16, 185, 129, 0.06)',
-                border: '1px solid rgba(16, 185, 129, 0.2)',
-                borderRadius: '18px',
-                padding: '1.25rem',
-              }}
-            >
+            <div className="card-saas" style={{ padding: '1.25rem', background: 'var(--bg-surface-hover)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                <ShieldCheck size={18} style={{ color: '#10b981' }} />
-                <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 800, color: '#10b981' }}>
-                  Walkup Support Available
+                <ShieldCheck size={18} style={{ color: 'var(--success-500)' }} />
+                <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  Walkup IT Tech Bar
                 </h4>
               </div>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.5 }}>
-                Visit the <strong>NTR Library Ground Floor Tech Bar</strong> for in-person device diagnostics, laptop hardware checks, or photo ID verification.
+              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Visit the <strong>NTR Library Ground Floor Walkup Tech Bar</strong> for in-person hardware diagnostics, physical LAN port testing, or ID credentials reset.
               </p>
             </div>
           </div>
@@ -638,251 +616,126 @@ export default function StudentDashboard({
           SECTION 2: MY COMPLAINTS & TICKET TRACER
           ========================================================================= */}
       {activeSection === 'my_tickets' && (
-        <div style={{ display: 'grid', gridTemplateColumns: trackingTicket ? 'minmax(0, 1.3fr) minmax(360px, 1.2fr)' : '1fr', gap: '1.5rem' }}>
-          {/* Complaints Table / List */}
-          <div
-            style={{
-              background: 'var(--bg-surface, #18181b)',
-              border: '1px solid var(--border-default, #27272a)',
-              borderRadius: '18px',
-              padding: '1.5rem',
-            }}
-          >
-            {/* Filter Bar */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-              <div style={{ display: 'flex', gap: '0.4rem' }}>
-                {(['all', 'active', 'resolved'] as const).map((filter) => (
-                  <button
-                    key={filter}
-                    type="button"
-                    style={{
-                      padding: '0.4rem 0.85rem',
-                      borderRadius: '8px',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: statusFilter === filter ? '#2563eb' : 'rgba(255, 255, 255, 0.05)',
-                      color: statusFilter === filter ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
-                      textTransform: 'capitalize',
-                    }}
-                    onClick={() => setStatusFilter(filter)}
-                  >
-                    {filter}
-                  </button>
-                ))}
-              </div>
-
-              <div style={{ position: 'relative', width: '240px' }}>
-                <Search size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #71717a)' }} />
-                <input
-                  type="text"
-                  className="saas-input"
-                  style={{
-                    paddingLeft: '2.2rem',
-                    paddingTop: '0.4rem',
-                    paddingBottom: '0.4rem',
-                    fontSize: '0.78rem',
-                    borderRadius: '8px',
-                    width: '100%',
-                    background: 'var(--bg-card, #111111)',
-                    border: '1px solid var(--border-default, #27272a)',
-                    color: '#ffffff',
-                  }}
-                  placeholder="Search complaints..."
-                  value={searchTicketQuery}
-                  onChange={(e) => setSearchTicketQuery(e.target.value)}
-                />
-              </div>
+        <div className="card-saas" style={{ padding: '1.5rem' }}>
+          {/* Filter Bar */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+            <div style={{ display: 'flex', gap: '0.4rem' }}>
+              {(['all', 'active', 'resolved'] as const).map((filter) => (
+                <button
+                  key={filter}
+                  type="button"
+                  className={`btn-saas ${statusFilter === filter ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '0.4rem 0.85rem', fontSize: '0.78rem', textTransform: 'capitalize' }}
+                  onClick={() => setStatusFilter(filter)}
+                >
+                  {filter}
+                </button>
+              ))}
             </div>
 
-            {/* Complaints Cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {filteredTickets.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted, #71717a)' }}>
-                  <TicketIcon size={36} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
-                  <p style={{ margin: 0, fontSize: '0.88rem' }}>No complaints found matching this filter.</p>
-                </div>
-              ) : (
-                filteredTickets.map((t) => {
-                  const isSelected = trackingTicket?.id === t.id;
-                  const isResolved = t.status === 'Resolved';
-                  const isEscalated = t.status === 'Escalated';
-
-                  return (
-                    <div
-                      key={t.id}
-                      style={{
-                        padding: '1rem 1.25rem',
-                        background: isSelected ? 'rgba(37, 99, 235, 0.12)' : 'rgba(255, 255, 255, 0.02)',
-                        border: isSelected ? '1px solid #2563eb' : '1px solid var(--border-default, #27272a)',
-                        borderRadius: '12px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                      }}
-                      onClick={() => setTrackingTicket(t)}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontSize: '0.76rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#60a5fa' }}>
-                            {t.ticket_number}
-                          </span>
-                          <span style={{ fontSize: '0.72rem', padding: '0.15rem 0.5rem', borderRadius: '6px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary, #94a3b8)' }}>
-                            {t.category}
-                          </span>
-                        </div>
-
-                        <span
-                          style={{
-                            fontSize: '0.72rem',
-                            fontWeight: 800,
-                            padding: '0.2rem 0.6rem',
-                            borderRadius: '999px',
-                            background: isResolved
-                              ? 'rgba(16, 185, 129, 0.2)'
-                              : isEscalated
-                              ? 'rgba(239, 68, 68, 0.2)'
-                              : 'rgba(245, 158, 11, 0.2)',
-                            color: isResolved ? '#10b981' : isEscalated ? '#ef4444' : '#f59e0b',
-                          }}
-                        >
-                          {t.status}
-                        </span>
-                      </div>
-
-                      <h4 style={{ margin: '0 0 0.35rem', fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary, #F8FAFC)' }}>
-                        {t.title}
-                      </h4>
-
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.85rem', fontSize: '0.76rem', color: 'var(--text-muted, #71717a)' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                          <MapPin size={12} />
-                          <span>{t.location}</span>
-                        </span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                          <Clock size={12} />
-                          <span>{new Date(t.created_at).toLocaleDateString()}</span>
-                        </span>
-                        {t.assigned_technician && (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#93c5fd' }}>
-                            <User size={12} />
-                            <span>Assigned: {t.assigned_technician}</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+            <div style={{ position: 'relative', width: '260px' }}>
+              <Search size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                className="saas-input"
+                style={{ paddingLeft: '2.2rem', paddingRight: '0.75rem', fontSize: '0.82rem', height: '36px' }}
+                placeholder="Search complaints..."
+                value={searchTicketQuery}
+                onChange={(e) => setSearchTicketQuery(e.target.value)}
+              />
             </div>
           </div>
 
-          {/* Dedicated Live Ticket Tracer Panel */}
-          {trackingTicket && (
-            <div
-              style={{
-                background: 'var(--bg-surface, #18181b)',
-                border: '1px solid var(--border-default, #27272a)',
-                borderRadius: '18px',
-                padding: '1.5rem',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1.25rem',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default, #27272a)', paddingBottom: '0.85rem' }}>
-                <div>
-                  <span style={{ fontSize: '0.74rem', fontFamily: 'var(--font-mono)', color: '#60a5fa', fontWeight: 700 }}>
-                    {trackingTicket.ticket_number}
-                  </span>
-                  <h3 style={{ margin: '0.2rem 0 0', fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary, #F8FAFC)' }}>
-                    {trackingTicket.title}
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  style={{ background: 'none', border: 'none', color: 'var(--text-muted, #71717a)', cursor: 'pointer' }}
-                  onClick={() => setTrackingTicket(null)}
-                >
-                  ✕
-                </button>
+          {/* Complaints Table */}
+          {filteredTickets.length === 0 ? (
+            <div className="empty-state-box">
+              <div className="empty-state-icon">
+                <TicketIcon size={24} />
               </div>
-
-              {/* Resolution Banner (if Resolved) */}
-              {trackingTicket.status === 'Resolved' && (
-                <div
-                  style={{
-                    padding: '0.85rem 1rem',
-                    background: 'rgba(16, 185, 129, 0.12)',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    borderRadius: '12px',
-                    color: '#10b981',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 800, fontSize: '0.84rem' }}>
-                    <CheckCircle2 size={16} />
-                    <span>Resolved by Campus IT Technician</span>
-                  </div>
-                  <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: '#e2e8f0' }}>
-                    {trackingTicket.resolution_details || 'The reported issue was remediated and confirmed functional.'}
-                  </p>
-                </div>
-              )}
-
-              {/* Diagnostic Progress Stepper */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.4rem', color: 'var(--text-secondary, #94a3b8)' }}>
-                  <span>Diagnostic Progress: <strong>{trackingTicket.diagnostic_stage}</strong></span>
-                  <span>{trackingTicket.diagnostic_progress}%</span>
-                </div>
-                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '999px', overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      width: `${trackingTicket.diagnostic_progress}%`,
-                      height: '100%',
-                      background: trackingTicket.status === 'Resolved' ? '#10b981' : '#2563eb',
-                      transition: 'width 0.3s ease',
-                    }}
-                  />
-                </div>
+              <div className="empty-state-title">No complaints found</div>
+              <div className="empty-state-desc">
+                {statusFilter === 'all'
+                  ? "You haven't filed any IT complaints yet. Use the 'Report Incident' button to submit one."
+                  : `No complaints found with status '${statusFilter}'.`}
               </div>
-
-              {/* Action Log History */}
-              <div>
-                <h4 style={{ margin: '0 0 0.6rem', fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-secondary, #94a3b8)', textTransform: 'uppercase' }}>
-                  Timeline & Diagnostic Log
-                </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '220px', overflowY: 'auto' }}>
-                  {trackingTicket.actions_taken && trackingTicket.actions_taken.length > 0 ? (
-                    trackingTicket.actions_taken.map((act) => (
-                      <div
-                        key={act.id}
-                        style={{
-                          padding: '0.6rem 0.85rem',
-                          background: 'rgba(255, 255, 255, 0.03)',
-                          border: '1px solid var(--border-default, #27272a)',
-                          borderRadius: '8px',
-                          fontSize: '0.78rem',
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted, #71717a)', marginBottom: '0.2rem' }}>
-                          <span style={{ fontWeight: 700, color: '#93c5fd' }}>{act.actor.toUpperCase()}</span>
-                          <span>{new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+          ) : (
+            <div className="table-saas-wrapper">
+              <table className="table-saas">
+                <thead>
+                  <tr>
+                    <th>Incident ID</th>
+                    <th>Issue Summary</th>
+                    <th>Category</th>
+                    <th>Location</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Technician</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTickets.map((t) => (
+                    <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => setTrackingTicket(t)}>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--primary-400)' }}>
+                        {t.ticket_number}
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{t.title}</div>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          {new Date(t.created_at).toLocaleDateString()}
                         </div>
-                        <div style={{ color: '#ffffff', fontWeight: 600 }}>{act.action}</div>
-                        {act.result && <div style={{ color: 'var(--text-secondary, #94a3b8)', marginTop: '0.15rem' }}>{act.result}</div>}
-                      </div>
-                    ))
-                  ) : (
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted, #71717a)' }}>No timeline entries yet.</div>
-                  )}
-                </div>
-              </div>
-
-              {/* Permission Note */}
-              <div style={{ padding: '0.65rem 0.85rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', fontSize: '0.75rem', color: 'var(--text-muted, #71717a)' }}>
-                🔒 <em>Only authorized technicians and hosts can mark tickets as resolved.</em>
-              </div>
+                      </td>
+                      <td>
+                        <span className="badge-saas badge-saas-secondary">{t.category}</span>
+                      </td>
+                      <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{t.location}</td>
+                      <td>
+                        <span
+                          className={`badge-saas ${
+                            t.priority === 'Critical'
+                              ? 'badge-saas-danger'
+                              : t.priority === 'High'
+                              ? 'badge-saas-warning'
+                              : 'badge-saas-primary'
+                          }`}
+                        >
+                          {t.priority}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={`badge-saas ${
+                            t.status === 'Resolved'
+                              ? 'badge-saas-success'
+                              : t.status === 'Escalated'
+                              ? 'badge-saas-danger'
+                              : 'badge-saas-warning'
+                          }`}
+                        >
+                          {t.status}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        {t.assigned_technician || 'Unassigned'}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn-saas btn-ghost"
+                          style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', color: 'var(--primary-500)' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTrackingTicket(t);
+                          }}
+                        >
+                          Track Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -892,18 +745,11 @@ export default function StudentDashboard({
           SECTION 3: SERVICE HEALTH & KNOWLEDGE BASE
           ========================================================================= */}
       {activeSection === 'status_help' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem' }}>
           {/* Service Status */}
-          <div
-            style={{
-              background: 'var(--bg-surface, #18181b)',
-              border: '1px solid var(--border-default, #27272a)',
-              borderRadius: '18px',
-              padding: '1.5rem',
-            }}
-          >
-            <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary, #F8FAFC)' }}>
-              Campus IT Service Status
+          <div className="card-saas" style={{ padding: '1.5rem' }}>
+            <h3 style={{ margin: '0 0 1rem', fontSize: '1.05rem', fontWeight: 800 }}>
+              Campus IT Infrastructure Status
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {[
@@ -920,16 +766,16 @@ export default function StudentDashboard({
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     padding: '0.75rem 1rem',
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid var(--border-default, #27272a)',
-                    borderRadius: '10px',
+                    background: 'var(--bg-surface-hover)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 'var(--radius-md)',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
-                    <span style={{ fontSize: '0.84rem', fontWeight: 600, color: '#ffffff' }}>{svc.name}</span>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success-500)' }} />
+                    <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>{svc.name}</span>
                   </div>
-                  <span style={{ fontSize: '0.76rem', color: '#10b981', fontWeight: 700 }}>
+                  <span style={{ fontSize: '0.76rem', color: 'var(--success-500)', fontWeight: 700 }}>
                     {svc.status} ({svc.uptime})
                   </span>
                 </div>
@@ -938,16 +784,9 @@ export default function StudentDashboard({
           </div>
 
           {/* Quick IT Guides */}
-          <div
-            style={{
-              background: 'var(--bg-surface, #18181b)',
-              border: '1px solid var(--border-default, #27272a)',
-              borderRadius: '18px',
-              padding: '1.5rem',
-            }}
-          >
-            <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary, #F8FAFC)' }}>
-              Step-by-Step Setup Guides
+          <div className="card-saas" style={{ padding: '1.5rem' }}>
+            <h3 style={{ margin: '0 0 1rem', fontSize: '1.05rem', fontWeight: 800 }}>
+              Self-Help IT Setup Guides
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {[
@@ -960,23 +799,24 @@ export default function StudentDashboard({
                   key={idx}
                   style={{
                     padding: '0.85rem 1rem',
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid var(--border-default, #27272a)',
-                    borderRadius: '10px',
+                    background: 'var(--bg-surface-hover)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 'var(--radius-md)',
                     cursor: 'pointer',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
+                    transition: 'all 0.15s ease',
                   }}
                   onClick={() => onNavigateToTab?.('kb')}
                 >
                   <div>
-                    <h4 style={{ margin: '0 0 0.2rem', fontSize: '0.84rem', fontWeight: 700, color: '#ffffff' }}>
+                    <h4 style={{ margin: '0 0 0.2rem', fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                       {guide.title}
                     </h4>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted, #71717a)' }}>{guide.category}</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{guide.category}</span>
                   </div>
-                  <ArrowRight size={14} style={{ color: '#60a5fa' }} />
+                  <ArrowRight size={14} style={{ color: 'var(--primary-500)' }} />
                 </div>
               ))}
             </div>
@@ -985,149 +825,323 @@ export default function StudentDashboard({
       )}
 
       {/* =========================================================================
-          MODAL: FILE NEW COMPLAINT FORM
+          SLIDE-OVER DRAWER: INTERACTIVE INCIDENT DETAILS
+          ========================================================================= */}
+      {trackingTicket && (
+        <div className="drawer-backdrop" onClick={() => setTrackingTicket(null)}>
+          <div className="drawer-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="drawer-header">
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.78rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--primary-400)' }}>
+                    {trackingTicket.ticket_number}
+                  </span>
+                  <span
+                    className={`badge-saas ${
+                      trackingTicket.status === 'Resolved'
+                        ? 'badge-saas-success'
+                        : trackingTicket.status === 'Escalated'
+                        ? 'badge-saas-danger'
+                        : 'badge-saas-warning'
+                    }`}
+                  >
+                    {trackingTicket.status}
+                  </span>
+                  <span className="badge-saas badge-saas-secondary">
+                    {trackingTicket.priority} Priority
+                  </span>
+                </div>
+                <h3 style={{ margin: '0.35rem 0 0', fontSize: '1.15rem', fontWeight: 800 }}>
+                  {trackingTicket.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="btn-saas btn-ghost"
+                style={{ padding: '0.4rem' }}
+                onClick={() => setTrackingTicket(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="drawer-body">
+              {/* Resolution banner if resolved */}
+              {trackingTicket.status === 'Resolved' && (
+                <div
+                  style={{
+                    padding: '0.9rem 1rem',
+                    background: 'var(--success-50)',
+                    border: '1px solid var(--success-500)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--success-700)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 800, fontSize: '0.86rem' }}>
+                    <CheckCircle2 size={16} />
+                    <span>Remediated & Resolved by Campus IT</span>
+                  </div>
+                  <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    {trackingTicket.resolution_details || 'The reported issue was remediated and confirmed functional.'}
+                  </p>
+                </div>
+              )}
+
+              {/* Lifecycle Diagnostic Progress Stepper */}
+              <div className="card-saas" style={{ padding: '1.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '0.5rem' }}>
+                  <span style={{ fontWeight: 600 }}>
+                    Diagnostic Stage: <strong>{trackingTicket.diagnostic_stage}</strong>
+                  </span>
+                  <span style={{ fontWeight: 700, color: 'var(--primary-500)' }}>{trackingTicket.diagnostic_progress}%</span>
+                </div>
+                <div style={{ width: '100%', height: '8px', background: 'var(--bg-surface-hover)', borderRadius: '999px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${trackingTicket.diagnostic_progress}%`,
+                      height: '100%',
+                      background: trackingTicket.status === 'Resolved' ? 'var(--success-500)' : 'var(--primary-gradient)',
+                      transition: 'width 0.3s ease',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Metadata Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="card-saas" style={{ padding: '0.85rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Location</div>
+                  <div style={{ fontSize: '0.84rem', fontWeight: 700, marginTop: '0.15rem' }}>{trackingTicket.location}</div>
+                </div>
+                <div className="card-saas" style={{ padding: '0.85rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Assigned Technician</div>
+                  <div style={{ fontSize: '0.84rem', fontWeight: 700, marginTop: '0.15rem' }}>
+                    {trackingTicket.assigned_technician || 'Pending Assignment'}
+                  </div>
+                </div>
+                <div className="card-saas" style={{ padding: '0.85rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Category</div>
+                  <div style={{ fontSize: '0.84rem', fontWeight: 700, marginTop: '0.15rem' }}>{trackingTicket.category}</div>
+                </div>
+                <div className="card-saas" style={{ padding: '0.85rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Reported At</div>
+                  <div style={{ fontSize: '0.84rem', fontWeight: 700, marginTop: '0.15rem' }}>
+                    {new Date(trackingTicket.created_at).toLocaleDateString()} {new Date(trackingTicket.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Problem Description */}
+              <div className="card-saas" style={{ padding: '1.15rem' }}>
+                <div style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+                  Reported Issue Description
+                </div>
+                <div style={{ fontSize: '0.86rem', color: 'var(--text-primary)', lineHeight: 1.55 }}>
+                  {trackingTicket.description || trackingTicket.issue_summary}
+                </div>
+              </div>
+
+              {/* Timeline & Actions Taken */}
+              <div>
+                <h4 style={{ margin: '0 0 0.65rem', fontSize: '0.86rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                  Audit Trail & Technician Updates
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  {trackingTicket.actions_taken && trackingTicket.actions_taken.length > 0 ? (
+                    trackingTicket.actions_taken.map((act) => (
+                      <div
+                        key={act.id}
+                        className="card-saas"
+                        style={{ padding: '0.75rem 1rem', fontSize: '0.8rem' }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '0.2rem', fontSize: '0.72rem' }}>
+                          <span style={{ fontWeight: 700, color: 'var(--primary-400)' }}>{act.actor.toUpperCase()}</span>
+                          <span>{new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{act.action}</div>
+                        {act.result && <div style={{ color: 'var(--text-secondary)', marginTop: '0.2rem' }}>{act.result}</div>}
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>No audit events logged yet.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="drawer-footer">
+              <button
+                type="button"
+                className="btn-saas btn-secondary"
+                onClick={() => setTrackingTicket(null)}
+              >
+                Close Drawer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          STRUCTURED MULTI-STEP MODAL: FILE NEW COMPLAINT FORM
           ========================================================================= */}
       {isNewComplaintModalOpen && (
-        <div className="modal-backdrop-saas" onClick={() => setIsNewComplaintModalOpen(false)}>
-          <div
-            className="modal-dialog-saas"
-            style={{
-              maxWidth: '560px',
-              background: 'var(--bg-card, #18181b)',
-              border: '1px solid var(--border-default, #27272a)',
-              borderRadius: '20px',
-              padding: '2rem',
-              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <div className="modal-backdrop" onClick={() => setIsNewComplaintModalOpen(false)}>
+          <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="drawer-header">
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#ffffff' }}>
-                  Submit IT Complaint
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>
+                  Report Campus IT Incident
                 </h3>
-                <p style={{ margin: '0.2rem 0 0', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
-                  Report a problem directly to campus technicians.
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                  Step {complaintStep} of 2 — Structured Incident Intake
                 </p>
               </div>
               <button
                 type="button"
-                style={{ background: 'none', border: 'none', color: '#71717a', cursor: 'pointer' }}
+                className="btn-saas btn-ghost"
+                style={{ padding: '0.4rem' }}
                 onClick={() => setIsNewComplaintModalOpen(false)}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateComplaint} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-              <div>
-                <label style={{ fontSize: '0.76rem', fontWeight: 700, color: '#94a3b8', display: 'block', marginBottom: '0.35rem' }}>
-                  Incident Title / Short Summary
-                </label>
-                <input
-                  type="text"
-                  className="saas-input"
-                  style={{ width: '100%', borderRadius: '10px', padding: '0.65rem 0.85rem', background: '#111111', border: '1px solid #27272a', color: '#ffffff' }}
-                  placeholder="e.g. Wi-Fi disconnected during exam in U-Block"
-                  value={compTitle}
-                  onChange={(e) => setCompTitle(e.target.value)}
-                  required
-                />
+            <form onSubmit={handleCreateComplaint} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+              <div className="drawer-body">
+                {complaintStep === 1 ? (
+                  <>
+                    <div>
+                      <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
+                        Incident Title / Short Synopsis *
+                      </label>
+                      <input
+                        type="text"
+                        className="saas-input"
+                        placeholder="e.g. Eduroam Wi-Fi disconnected during lecture in U-Block"
+                        value={compTitle}
+                        onChange={(e) => setCompTitle(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                      <div>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
+                          Category
+                        </label>
+                        <select
+                          className="saas-input"
+                          value={compCategory}
+                          onChange={(e) => setCompCategory(e.target.value as TicketCategory)}
+                        >
+                          {CATEGORIES.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
+                          Priority / Impact
+                        </label>
+                        <select
+                          className="saas-input"
+                          value={compPriority}
+                          onChange={(e) => setCompPriority(e.target.value as TicketPriority)}
+                        >
+                          <option value="Low">Low (General Inquiry)</option>
+                          <option value="Medium">Medium (Standard)</option>
+                          <option value="High">High (Impacting Class/Exam)</option>
+                          <option value="Urgent">Urgent (Campus Emergency)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
+                        Campus Location
+                      </label>
+                      <select
+                        className="saas-input"
+                        value={compLocation}
+                        onChange={(e) => setCompLocation(e.target.value)}
+                      >
+                        {LOCATIONS.map((loc) => (
+                          <option key={loc} value={loc}>{loc}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
+                        Detailed Problem Description *
+                      </label>
+                      <textarea
+                        rows={5}
+                        className="saas-input"
+                        placeholder="Describe what error occurred, error codes shown, and device specs (e.g. MacBook Pro macOS 14.2)..."
+                        value={compDescription}
+                        onChange={(e) => setCompDescription(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div className="card-saas" style={{ padding: '0.95rem', background: 'var(--bg-surface-hover)' }}>
+                      <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--primary-500)', textTransform: 'uppercase', marginBottom: '0.3rem' }}>
+                        Summary Confirmation
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                        <strong>Title:</strong> {compTitle}<br />
+                        <strong>Category:</strong> {compCategory} • <strong>Priority:</strong> {compPriority}<br />
+                        <strong>Location:</strong> {compLocation}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.76rem', fontWeight: 700, color: '#94a3b8', display: 'block', marginBottom: '0.35rem' }}>
-                    Category
-                  </label>
-                  <select
-                    className="saas-input"
-                    style={{ width: '100%', borderRadius: '10px', padding: '0.65rem 0.85rem', background: '#111111', border: '1px solid #27272a', color: '#ffffff' }}
-                    value={compCategory}
-                    onChange={(e) => setCompCategory(e.target.value as TicketCategory)}
-                  >
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.76rem', fontWeight: 700, color: '#94a3b8', display: 'block', marginBottom: '0.35rem' }}>
-                    Priority / Urgency
-                  </label>
-                  <select
-                    className="saas-input"
-                    style={{ width: '100%', borderRadius: '10px', padding: '0.65rem 0.85rem', background: '#111111', border: '1px solid #27272a', color: '#ffffff' }}
-                    value={compPriority}
-                    onChange={(e) => setCompPriority(e.target.value as TicketPriority)}
-                  >
-                    <option value="Low">Low (General Inquiry)</option>
-                    <option value="Medium">Medium (Standard)</option>
-                    <option value="High">High (Impacting Class / Exam)</option>
-                    <option value="Urgent">Urgent (Emergency)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.76rem', fontWeight: 700, color: '#94a3b8', display: 'block', marginBottom: '0.35rem' }}>
-                  Campus Location
-                </label>
-                <select
-                  className="saas-input"
-                  style={{ width: '100%', borderRadius: '10px', padding: '0.65rem 0.85rem', background: '#111111', border: '1px solid #27272a', color: '#ffffff' }}
-                  value={compLocation}
-                  onChange={(e) => setCompLocation(e.target.value)}
-                >
-                  {LOCATIONS.map((loc) => (
-                    <option key={loc} value={loc}>{loc}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.76rem', fontWeight: 700, color: '#94a3b8', display: 'block', marginBottom: '0.35rem' }}>
-                  Detailed Description
-                </label>
-                <textarea
-                  rows={4}
-                  className="saas-input"
-                  style={{ width: '100%', borderRadius: '10px', padding: '0.65rem 0.85rem', background: '#111111', border: '1px solid #27272a', color: '#ffffff' }}
-                  placeholder="Describe what error you encountered and what device you are using..."
-                  value={compDescription}
-                  onChange={(e) => setCompDescription(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
-                <button
-                  type="button"
-                  style={{ padding: '0.65rem 1.25rem', borderRadius: '10px', background: 'transparent', border: '1px solid #27272a', color: '#94a3b8', cursor: 'pointer' }}
-                  onClick={() => setIsNewComplaintModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '0.65rem 1.5rem',
-                    borderRadius: '10px',
-                    background: 'linear-gradient(135deg, #10b981, #059669)',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                  }}
-                  disabled={isSubmittingComp}
-                >
-                  {isSubmittingComp ? <RefreshCw size={14} className="spin-icon" /> : <Plus size={14} />}
-                  <span>Submit Complaint</span>
-                </button>
+              <div className="drawer-footer">
+                {complaintStep === 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn-saas btn-secondary"
+                      onClick={() => setIsNewComplaintModalOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-saas btn-primary"
+                      disabled={!compTitle.trim()}
+                      onClick={() => setComplaintStep(2)}
+                    >
+                      <span>Continue to Details</span>
+                      <ArrowRight size={15} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="btn-saas btn-secondary"
+                      onClick={() => setComplaintStep(1)}
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn-saas btn-primary"
+                      disabled={isSubmittingComp || !compDescription.trim()}
+                    >
+                      {isSubmittingComp ? <RefreshCw size={15} className="spin-icon" /> : <Check size={15} />}
+                      <span>Submit Incident</span>
+                    </button>
+                  </>
+                )}
               </div>
             </form>
           </div>

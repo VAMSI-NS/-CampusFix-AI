@@ -8,6 +8,10 @@ import {
   ShieldAlert,
   TrendingUp,
   Sparkles,
+  User,
+  Clock,
+  ArrowRight,
+  Zap,
 } from 'lucide-react';
 import { CampusUser, Ticket, TicketStatus } from '../types/chat';
 import { apiUrl } from '../api';
@@ -46,8 +50,11 @@ export default function TechnicianWorkspace({
         t.assigned_technician?.toLowerCase().includes(currentUser.username?.toLowerCase() || ''))
   );
 
-  const displayTickets = assignedTickets.length > 0 ? assignedTickets : tickets.slice(0, 6);
+  const displayTickets = assignedTickets.length > 0 ? assignedTickets : tickets.slice(0, 8);
   const selectedTicket = tickets.find((t) => t.id === selectedTicketId || t.ticket_number === selectedTicketId) || displayTickets[0];
+
+  const criticalCount = displayTickets.filter((t) => t.priority === 'Critical' || t.priority === 'Urgent').length;
+  const highCount = displayTickets.filter((t) => t.priority === 'High').length;
 
   const handleStatusChange = async (newStatus: TicketStatus) => {
     if (!selectedTicket) return;
@@ -122,27 +129,29 @@ export default function TechnicianWorkspace({
   };
 
   return (
-    <div className="animate-fade-in" style={{ padding: '1.5rem 2rem 3rem', maxWidth: '1440px', margin: '0 auto' }}>
+    <div style={{ padding: '0 0 3.5rem', maxWidth: '1440px', margin: '0 auto' }}>
       {/* SaaS Page Header */}
       <div
+        className="card-saas"
         style={{
+          padding: '1.5rem 2rem',
+          marginBottom: '1.5rem',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '1rem',
-          marginBottom: '1.5rem',
+          gap: '1.25rem',
         }}
       >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>Technician Queue & Resolver Hub</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <h1 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 800 }}>Technician Operations Workspace</h1>
             <span className="badge-saas badge-saas-primary">
               {currentUser?.specialization || 'Network Specialist'}
             </span>
           </div>
-          <p style={{ margin: '0.2rem 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-            Logged in as <strong>{currentUser?.name || 'Technician'}</strong> • {displayTickets.length} active cases assigned in your queue.
+          <p style={{ margin: '0.25rem 0 0', fontSize: '0.86rem', color: 'var(--text-secondary)' }}>
+            Logged in as <strong>{currentUser?.name || 'Technician'}</strong> • {displayTickets.length} cases assigned in your active queue.
           </p>
         </div>
 
@@ -150,89 +159,145 @@ export default function TechnicianWorkspace({
           {onNavigateToIntelligence && (
             <button
               type="button"
-              className="btn-saas btn-saas-secondary"
+              className="btn-saas btn-secondary"
               onClick={onNavigateToIntelligence}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              style={{ gap: '0.45rem' }}
             >
-              <Sparkles size={14} color="#a855f7" />
+              <Sparkles size={15} style={{ color: 'var(--ai-500)' }} />
               <span>AI Clusters & Anomalies</span>
             </button>
           )}
           <button
             type="button"
-            className="btn-saas btn-saas-secondary"
+            className="btn-saas btn-secondary"
             onClick={() => onNavigateToMap()}
           >
-            <MapPin size={14} />
-            <span>Open Campus Map</span>
+            <MapPin size={15} />
+            <span>Campus Map</span>
           </button>
           <button
             type="button"
-            className="btn-saas btn-saas-primary"
+            className="btn-saas btn-primary"
             onClick={() => onOpenTicketInResolver(selectedTicket?.ticket_number || 'INC-2026-8941')}
           >
-            <Wrench size={14} />
+            <Wrench size={15} />
             <span>Open Diagnostic Workbench</span>
           </button>
         </div>
       </div>
 
+      {/* "What needs my attention right now?" Triage Banner */}
+      <div
+        className="card-saas"
+        style={{
+          padding: '1.15rem 1.5rem',
+          marginBottom: '1.5rem',
+          background: criticalCount > 0 ? 'rgba(239, 68, 68, 0.06)' : 'var(--bg-surface-hover)',
+          borderLeft: criticalCount > 0 ? '4px solid var(--danger-500)' : '4px solid var(--primary-500)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: 'var(--radius-md)',
+              background: criticalCount > 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(79, 70, 229, 0.15)',
+              color: criticalCount > 0 ? 'var(--danger-500)' : 'var(--primary-500)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Zap size={20} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.92rem', fontWeight: 800 }}>
+              {criticalCount > 0
+                ? `Immediate Attention Required: ${criticalCount} Critical Case(s)`
+                : `Queue Stable: ${displayTickets.length} Active Incident(s)`}
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+              {criticalCount > 0
+                ? `${criticalCount} high-severity outage(s) or exam disruptions pending resolution.`
+                : `${highCount} high-priority item(s) within standard SLA targets.`}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <span className="badge-saas badge-saas-secondary">SLA Target: &lt; 2h</span>
+          {selectedTicket && (
+            <button
+              type="button"
+              className="btn-saas btn-ghost"
+              style={{ fontSize: '0.78rem', color: 'var(--primary-500)' }}
+              onClick={() => onOpenTicketInResolver(selectedTicket.ticket_number)}
+            >
+              <span>Quick Diagnose #{selectedTicket.ticket_number}</span>
+              <ArrowRight size={13} />
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* KPI Cards Strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        <div className="saas-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.76rem', fontWeight: 600 }}>
-            <span>Assigned Tickets</span>
-            <Wrench size={15} style={{ color: 'var(--primary-400)' }} />
+        <div className="kpi-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="kpi-label">Assigned Queue</span>
+            <Wrench size={16} style={{ color: 'var(--primary-400)' }} />
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', marginTop: '0.35rem' }}>
-            {displayTickets.length}
-          </div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Cases in active workflow</div>
+          <div className="kpi-value">{displayTickets.length}</div>
+          <div className="kpi-subtext">Active cases in your roster</div>
         </div>
 
-        <div className="saas-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.76rem', fontWeight: 600 }}>
-            <span>Critical / High SLA</span>
-            <AlertTriangle size={15} style={{ color: 'var(--danger)' }} />
+        <div className="kpi-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="kpi-label">Critical / High SLA</span>
+            <AlertTriangle size={16} style={{ color: 'var(--danger-500)' }} />
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--danger)', marginTop: '0.35rem' }}>
-            {displayTickets.filter((t) => t.priority === 'Critical' || t.priority === 'High').length}
+          <div className="kpi-value" style={{ color: criticalCount > 0 ? 'var(--danger-500)' : 'inherit' }}>
+            {criticalCount + highCount}
           </div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Response target &lt; 2h</div>
+          <div className="kpi-subtext">Response target &lt; 2h</div>
         </div>
 
-        <div className="saas-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.76rem', fontWeight: 600 }}>
-            <span>Today's Workload Index</span>
-            <TrendingUp size={15} style={{ color: 'var(--success)' }} />
+        <div className="kpi-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="kpi-label">Workload Index</span>
+            <TrendingUp size={16} style={{ color: 'var(--success-500)' }} />
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.35rem' }}>
+          <div className="kpi-value" style={{ color: 'var(--success-500)' }}>
             Optimal
           </div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Equilibrium balanced</div>
+          <div className="kpi-subtext">Load balanced across team</div>
         </div>
 
-        <div className="saas-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.76rem', fontWeight: 600 }}>
-            <span>Resolved This Week</span>
-            <CheckCircle2 size={15} style={{ color: 'var(--info)' }} />
+        <div className="kpi-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="kpi-label">Resolved (Week)</span>
+            <CheckCircle2 size={16} style={{ color: 'var(--info-500)' }} />
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--info)', marginTop: '0.35rem' }}>
-            14
-          </div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Avg resolution 18m</div>
+          <div className="kpi-value" style={{ color: 'var(--info-500)' }}>14</div>
+          <div className="kpi-subtext">Avg resolution 18m</div>
         </div>
       </div>
 
       {actionSuccessMsg && (
         <div
           style={{
-            padding: '0.75rem 1rem',
-            background: 'var(--success-subtle)',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
+            padding: '0.85rem 1.25rem',
+            background: 'var(--success-50)',
+            border: '1px solid var(--success-500)',
             borderRadius: 'var(--radius-md)',
-            color: '#34d399',
-            fontSize: '0.82rem',
+            color: 'var(--success-700)',
+            fontSize: '0.86rem',
             fontWeight: 600,
             marginBottom: '1.25rem',
             display: 'flex',
@@ -240,26 +305,27 @@ export default function TechnicianWorkspace({
             gap: '0.5rem',
           }}
         >
-          <CheckCircle2 size={16} />
+          <CheckCircle2 size={16} style={{ color: 'var(--success-500)' }} />
           <span>{actionSuccessMsg}</span>
         </div>
       )}
 
       {/* Split-Screen Workspace */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1.2fr) minmax(380px, 1.5fr)', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1.2fr) minmax(380px, 1.6fr)', gap: '1.5rem' }}>
         {/* Left: Assigned Tickets Table */}
-        <div className="saas-card" style={{ padding: 0 }}>
+        <div className="card-saas" style={{ padding: 0, overflow: 'hidden' }}>
           <div
             style={{
-              padding: '1rem 1.25rem',
-              borderBottom: '1px solid var(--border-subtle)',
+              padding: '1.1rem 1.25rem',
+              borderBottom: '1px solid var(--border-default)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
+              background: 'var(--bg-surface-hover)',
             }}
           >
-            <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700 }}>Assigned Queue</h3>
-            <span className="badge-saas badge-saas-neutral">{displayTickets.length} Cases</span>
+            <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800 }}>Assigned Incident Queue</h3>
+            <span className="badge-saas badge-saas-secondary">{displayTickets.length} Cases</span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -269,18 +335,20 @@ export default function TechnicianWorkspace({
                 <div
                   key={t.id}
                   style={{
-                    padding: '0.85rem 1.25rem',
+                    padding: '1rem 1.25rem',
                     borderBottom: '1px solid var(--border-subtle)',
-                    background: isSelected ? 'var(--bg-surface-raised)' : 'transparent',
+                    background: isSelected ? 'var(--bg-surface-hover)' : 'transparent',
                     cursor: 'pointer',
                     transition: 'all var(--transition-fast)',
                     borderLeft: isSelected ? '3px solid var(--primary-500)' : '3px solid transparent',
                   }}
                   onClick={() => setSelectedTicketId(t.id)}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <strong style={{ color: '#ffffff', fontSize: '0.82rem' }}>{t.ticket_number}</strong>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <strong style={{ fontSize: '0.84rem', fontFamily: 'var(--font-mono)', color: 'var(--primary-400)' }}>
+                        {t.ticket_number}
+                      </strong>
                       <span
                         className={`badge-saas ${
                           t.priority === 'Critical'
@@ -289,7 +357,7 @@ export default function TechnicianWorkspace({
                             ? 'badge-saas-warning'
                             : 'badge-saas-primary'
                         }`}
-                        style={{ fontSize: '0.62rem' }}
+                        style={{ fontSize: '0.66rem' }}
                       >
                         {t.priority}
                       </span>
@@ -300,21 +368,25 @@ export default function TechnicianWorkspace({
                           ? 'badge-saas-success'
                           : t.status === 'Escalated'
                           ? 'badge-saas-danger'
-                          : 'badge-saas-neutral'
+                          : 'badge-saas-warning'
                       }`}
-                      style={{ fontSize: '0.65rem' }}
+                      style={{ fontSize: '0.68rem' }}
                     >
                       {t.status}
                     </span>
                   </div>
 
-                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.2rem' }}>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.3rem' }}>
                     {t.title}
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                    <span>📍 {t.location}</span>
-                    <span>👤 {t.netid}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <MapPin size={12} /> {t.location}
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <User size={12} /> {t.netid}
+                    </span>
                   </div>
                 </div>
               );
@@ -324,80 +396,112 @@ export default function TechnicianWorkspace({
 
         {/* Right: Selected Ticket Operations Inspector */}
         {selectedTicket && (
-          <div className="saas-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div className="card-saas" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#ffffff' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
                     {selectedTicket.ticket_number}
                   </h3>
-                  <span className="badge-saas badge-saas-primary">{selectedTicket.category}</span>
+                  <span className="badge-saas badge-saas-secondary">{selectedTicket.category}</span>
                 </div>
-                <h4 style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                <h4 style={{ margin: 0, fontSize: '0.96rem', color: 'var(--text-primary)', fontWeight: 700 }}>
                   {selectedTicket.title}
                 </h4>
               </div>
 
               <button
                 type="button"
-                className="btn-saas btn-saas-secondary"
-                style={{ fontSize: '0.74rem', padding: '0.3rem 0.65rem' }}
+                className="btn-saas btn-secondary"
+                style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem' }}
                 onClick={() => onNavigateToMap(selectedTicket.location)}
               >
-                <MapPin size={12} />
+                <MapPin size={13} />
                 <span>Locate on Map</span>
               </button>
             </div>
 
             {/* Meta Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', background: 'var(--bg-surface-raised)', padding: '0.85rem', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', background: 'var(--bg-surface-hover)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
               <div>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Requester / Student:</span>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Requester:</span>
+                <div style={{ fontSize: '0.84rem', fontWeight: 700, marginTop: '0.1rem' }}>
                   {selectedTicket.netid} ({selectedTicket.email})
                 </div>
               </div>
               <div>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Location:</span>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ffffff' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Location:</span>
+                <div style={{ fontSize: '0.84rem', fontWeight: 700, marginTop: '0.1rem' }}>
                   {selectedTicket.location}
                 </div>
               </div>
               <div>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Current Status:</span>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--primary-400)' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Current Status:</span>
+                <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--primary-400)', marginTop: '0.1rem' }}>
                   {selectedTicket.status}
                 </div>
               </div>
               <div>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>SLA Target:</span>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--warning)' }}>
-                  ⏳ 1h 45m remaining
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>SLA Target:</span>
+                <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--warning-500)', marginTop: '0.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <Clock size={13} /> 1h 45m remaining
                 </div>
               </div>
             </div>
 
             {/* Description */}
             <div>
-              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                Problem Description
+              <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                Incident Description
               </span>
-              <p style={{ margin: '0.3rem 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              <p style={{ margin: '0.35rem 0 0', fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
                 {selectedTicket.description}
               </p>
             </div>
 
+            {/* AI Decision Assistance Panel */}
+            <div
+              className="card-saas"
+              style={{
+                padding: '1.15rem',
+                background: 'linear-gradient(135deg, rgba(79, 70, 229, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%)',
+                border: '1px solid rgba(139, 92, 246, 0.25)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <Sparkles size={15} style={{ color: 'var(--ai-500)' }} />
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--ai-500)' }}>
+                    AI Decision Assistance
+                  </span>
+                </div>
+                <span className="badge-ai-inference" style={{ fontSize: '0.65rem' }}>AI ASSISTIVE INFERENCE</span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', fontSize: '0.8rem' }}>
+                <div>
+                  <strong>Root Cause Hypothesis:</strong> Configuration mismatch or expired RADIUS token for {selectedTicket.category}.
+                </div>
+                <div>
+                  <strong>Diagnostic Confidence:</strong> <span style={{ color: 'var(--success-500)', fontWeight: 700 }}>88% High</span>
+                </div>
+                <div style={{ color: 'var(--text-secondary)' }}>
+                  <strong>Recommended Step:</strong> Verify AP gateway telemetry in {selectedTicket.location}, then update ticket status to Diagnosing.
+                </div>
+              </div>
+            </div>
+
             {/* Operational Actions */}
             <div style={{ paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'block' }}>
-                Technician Actions
+              <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.65rem', display: 'block' }}>
+                Technician Execution Controls
               </span>
 
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  className="btn-saas btn-saas-secondary"
+                  className="btn-saas btn-secondary"
                   disabled={isProcessing}
                   onClick={() => handleStatusChange('Diagnosing')}
                 >
@@ -405,7 +509,7 @@ export default function TechnicianWorkspace({
                 </button>
                 <button
                   type="button"
-                  className="btn-saas btn-saas-primary"
+                  className="btn-saas btn-primary"
                   disabled={isProcessing}
                   onClick={() => handleStatusChange('Resolved')}
                 >
@@ -414,7 +518,7 @@ export default function TechnicianWorkspace({
                 </button>
                 <button
                   type="button"
-                  className="btn-saas btn-saas-danger"
+                  className="btn-saas btn-danger"
                   disabled={isProcessing}
                   onClick={handleEscalateTier2}
                 >
@@ -423,7 +527,8 @@ export default function TechnicianWorkspace({
                 </button>
                 <button
                   type="button"
-                  className="btn-saas btn-saas-ai"
+                  className="btn-saas btn-secondary"
+                  style={{ color: 'var(--ai-500)' }}
                   onClick={() => setIsReportingToHost(!isReportingToHost)}
                 >
                   <AlertTriangle size={14} />
@@ -434,19 +539,18 @@ export default function TechnicianWorkspace({
               {/* Report to Host Drawer */}
               {isReportingToHost && (
                 <div
+                  className="card-saas"
                   style={{
                     marginTop: '1rem',
-                    background: 'var(--bg-surface-raised)',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: '1rem',
+                    padding: '1.25rem',
+                    background: 'var(--bg-surface-hover)',
                   }}
                 >
-                  <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.5rem' }}>
+                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.65rem' }}>
                     Report Blocked Issue to Host for Reassignment
                   </div>
-                  <div style={{ marginBottom: '0.6rem' }}>
-                    <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>
+                  <div style={{ marginBottom: '0.65rem' }}>
+                    <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>
                       Required Specialization:
                     </label>
                     <select
@@ -460,8 +564,8 @@ export default function TechnicianWorkspace({
                       <option value="Software & LMS Application">Software & LMS Application</option>
                     </select>
                   </div>
-                  <div style={{ marginBottom: '0.75rem' }}>
-                    <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>
+                  <div style={{ marginBottom: '0.85rem' }}>
+                    <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>
                       Blocker Reason / Diagnostic Notes:
                     </label>
                     <input
@@ -475,14 +579,14 @@ export default function TechnicianWorkspace({
                   <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                     <button
                       type="button"
-                      className="btn-saas btn-saas-ghost"
+                      className="btn-saas btn-ghost"
                       onClick={() => setIsReportingToHost(false)}
                     >
                       Cancel
                     </button>
                     <button
                       type="button"
-                      className="btn-saas btn-saas-primary"
+                      className="btn-saas btn-primary"
                       disabled={isProcessing}
                       onClick={handleReportBlockedToHost}
                     >
