@@ -3,11 +3,13 @@
 > **Enterprise University IT Incident Management & Autonomous AI Diagnostic Specialist**
 > Powered by **NVIDIA Nemotron 3 Ultra** (`nvidia/nemotron-3-ultra-550b-a55b`) & **Neon PostgreSQL**
 
-[![Live Demo](https://img.shields.io/badge/Live_Website-GitHub_Pages-22c55e?style=for-the-badge&logo=github)](https://vamsi-ns.github.io/-CampusFix-AI/)
+[![Live Website](https://img.shields.io/badge/Live_Website-GitHub_Pages-22c55e?style=for-the-badge&logo=github)](https://vamsi-ns.github.io/-CampusFix-AI/)
+[![Backend API](https://img.shields.io/badge/Backend_API-Render_Live-06b6d4?style=for-the-badge&logo=render)](https://campusfix-ai-y5o8.onrender.com)
 [![Vignan Satellite Map](https://img.shields.io/badge/Vignan_Map-Satellite_Geodata-3b82f6?style=for-the-badge&logo=googlemaps)](https://vamsi-ns.github.io/-CampusFix-AI/#/map)
-[![Repository](https://img.shields.io/badge/GitHub-Repository-8b5cf6?style=for-the-badge&logo=github)](https://github.com/VAMSI-NS/-CampusFix-AI)
+[![Deploy Status](https://img.shields.io/github/actions/workflow/status/VAMSI-NS/-CampusFix-AI/deploy.yml?branch=main&style=for-the-badge&label=Deploy%20Status)](https://github.com/VAMSI-NS/-CampusFix-AI/actions)
 
-🌐 **Live Application URL**: [https://vamsi-ns.github.io/-CampusFix-AI/](https://vamsi-ns.github.io/-CampusFix-AI/)
+🌐 **Live Application URL**: [https://vamsi-ns.github.io/-CampusFix-AI/](https://vamsi-ns.github.io/-CampusFix-AI/)  
+⚡ **Production Backend API**: [https://campusfix-ai-y5o8.onrender.com](https://campusfix-ai-y5o8.onrender.com)
 
 CampusFix IT Platform is an enterprise-grade university IT service management system. It bridges interactive, step-by-step conversational diagnosis for students with Kanban incident triage, verified high-resolution aerial satellite campus mapping, service health telemetry, curated knowledge base documentation, administrative operations, and executive SLA reporting.
 
@@ -128,10 +130,14 @@ CAMPUSFIX-AI/
 
 | Method | Endpoint | Description |
 |---|---|---|
+| `POST` | `/api/auth/student/signup` | Register new student account with PBKDF2 password hashing |
+| `POST` | `/api/auth/student/login` | Authenticate student using Roll Number + Password |
+| `POST` | `/api/auth/login` | Authenticate Staff / Technician or Host Administrator |
+| `GET` | `/api/auth/me` | Retrieve profile and permissions of authenticated user |
 | `GET` | `/api/health` | Backend and AI engine health check |
 | `POST` | `/api/chat` | AI diagnostic chat powered by NVIDIA Nemotron 3 Ultra |
 | `GET` | `/api/tickets` | List incident tickets with search and filters |
-| `POST` | `/api/tickets` | Create new IT incident ticket |
+| `POST` | `/api/tickets` | Create new IT incident ticket (bound to authenticated student) |
 | `PATCH` | `/api/tickets/{id}` | Update ticket status, priority, or notes |
 | `POST` | `/api/tickets/{id}/action` | Log diagnostic action to ticket audit trail |
 | `POST` | `/api/tickets/{id}/resolve` | Formally resolve ticket with synopsis |
@@ -168,32 +174,11 @@ npm run dev                   # Runs on http://localhost:5173
 
 ## 🌐 GitHub Pages Deployment
 
-### ⚠️ Critical: Backend URL Configuration
-
-The GitHub Pages deployment requires your backend URL to be configured. Without it, login will fail when accessing from another device.
-
-**Current Status**:
-- ✅ Frontend deployed to GitHub Pages: https://vamsi-ns.github.io/-CampusFix-AI/
-- ❌ Backend URL NOT configured (must be set)
-
-### Setup Instructions
-
-See [**GITHUB_PAGES_SETUP.md**](./GITHUB_PAGES_SETUP.md) for:
-1. How to set the `PUBLIC_HTTPS_BACKEND_URL` GitHub repository variable
-2. Why GitHub URLs appear without proper configuration
-3. CORS setup for your backend
-4. Troubleshooting deployment issues
-
-**Quick Steps**:
-1. Go to GitHub repository → **Settings** → **Secrets and variables** → **Actions**
-2. Add new **Repository variable**:
-   ```
-   Name: PUBLIC_HTTPS_BACKEND_URL
-   Value: https://your-backend-url.com
-   ```
-3. Commit and push to trigger workflow
-4. Wait for deployment to complete
-5. Test login from another device
+**Live Production Status**:
+- ✅ **Frontend Application**: [https://vamsi-ns.github.io/-CampusFix-AI/](https://vamsi-ns.github.io/-CampusFix-AI/)
+- ✅ **Production Backend API**: [https://campusfix-ai-y5o8.onrender.com](https://campusfix-ai-y5o8.onrender.com)
+- ✅ **CORS Allowed Origin**: `https://vamsi-ns.github.io`
+- ✅ **Authentication**: Real database-backed student registration and login with constant-time password hashing
 
 ---
 
