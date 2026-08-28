@@ -47,6 +47,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import CampusMap from './CampusMap';
+import AIIntelligenceView from './AIIntelligenceView';
 
 interface AdminDashboardProps {
   tickets: Ticket[];
@@ -61,6 +62,7 @@ interface AdminDashboardProps {
 
 type AdminTab =
   | 'overview'
+  | 'intelligence'
   | 'tickets'
   | 'escalations'
   | 'technicians'
@@ -752,6 +754,14 @@ export default function AdminDashboard({
           </button>
 
           <button
+            className={`admin-nav-btn ${activeTab === 'intelligence' ? 'active' : ''}`}
+            onClick={() => setActiveTab('intelligence')}
+          >
+            <Sparkles size={16} color="#a855f7" />
+            <span>AI Intelligence & Detective</span>
+          </button>
+
+          <button
             className={`admin-nav-btn ${activeTab === 'tickets' ? 'active' : ''}`}
             onClick={() => setActiveTab('tickets')}
           >
@@ -889,6 +899,22 @@ export default function AdminDashboard({
               </button>
             </div>
           </div>
+        )}
+
+        {/* =========================================================================
+            AI INTELLIGENCE & CAMPUS ANOMALY DETECTIVE TAB
+            ========================================================================= */}
+        {activeTab === 'intelligence' && (
+          <AIIntelligenceView
+            currentUser={currentUser}
+            tickets={tickets}
+            onOpenTicketInResolver={onOpenInResolver}
+            onNavigateToMap={(_loc) => {
+              setActiveTab('campus_map');
+            }}
+            onUpdateTicketStatus={onUpdateTicketStatus}
+            onRefreshTickets={fetchDashboardData}
+          />
         )}
 
         {/* =========================================================================

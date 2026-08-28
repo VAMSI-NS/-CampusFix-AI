@@ -1,8 +1,8 @@
 :root {
-  --font-heading: 'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-sans: 'Inter', -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-chat: 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
 
   /* ==========================================================================
      LIGHT THEME TOKENS — Crisp High-Contrast with Cyan Accents
@@ -249,54 +249,216 @@ textarea.saas-input {
 }
 
 /* SaaS Button System (16px Radius) */
-.btn-saas {
+.btn-saas,
+.btn-primary,
+.btn-secondary,
+.btn-outline,
+.btn-danger,
+.btn-ghost {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.65rem 1.25rem;
+  padding: 0.6rem 1.2rem;
   border-radius: var(--radius-md);
   font-size: 0.86rem;
-  font-weight: 700;
-  font-family: var(--font-heading);
+  font-weight: 600;
+  font-family: var(--font-sans);
   cursor: pointer;
   transition: all var(--transition-fast);
   border: 1px solid transparent;
+  letter-spacing: -0.01em;
+  text-decoration: none;
 }
 
-.btn-saas-primary {
+.btn-saas:disabled,
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-outline:disabled,
+.btn-danger:disabled,
+.btn-ghost:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-saas-primary,
+.btn-primary {
   background: var(--primary-500);
   color: var(--text-inverse);
-  box-shadow: 0 4px 14px -2px rgba(34, 211, 238, 0.35);
+  box-shadow: 0 4px 14px -2px rgba(8, 145, 178, 0.35);
+  border-color: var(--primary-500);
 }
 
-.btn-saas-primary:hover:not(:disabled) {
+.btn-saas-primary:hover:not(:disabled),
+.btn-primary:hover:not(:disabled) {
   background: var(--primary-600);
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px -2px rgba(34, 211, 238, 0.5);
+  box-shadow: 0 6px 20px -2px rgba(8, 145, 178, 0.5);
+  color: var(--text-inverse);
 }
 
-.btn-saas-secondary {
+.btn-saas-secondary,
+.btn-secondary {
   background: var(--bg-surface);
   color: var(--text-primary);
   border-color: var(--border-default);
 }
 
-.btn-saas-secondary:hover:not(:disabled) {
+.btn-saas-secondary:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled) {
   background: var(--bg-surface-hover);
   border-color: var(--border-focus);
   color: var(--text-primary);
 }
 
-.btn-saas-ghost {
+.btn-outline {
+  background: transparent;
+  color: var(--primary-500);
+  border-color: var(--primary-500);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: var(--primary-50);
+  color: var(--primary-600);
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px -2px rgba(239, 68, 68, 0.4);
+}
+
+.btn-saas-ghost,
+.btn-ghost {
   background: transparent;
   color: var(--text-secondary);
   border: 1px solid transparent;
 }
 
-.btn-saas-ghost:hover:not(:disabled) {
+.btn-saas-ghost:hover:not(:disabled),
+.btn-ghost:hover:not(:disabled) {
   background: var(--bg-surface-hover);
   color: var(--text-primary);
+}
+
+/* SaaS Elevated Card Containers */
+.card-saas {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.card-saas:hover {
+  border-color: var(--border-focus);
+}
+
+/* SaaS Badge System */
+.badge-saas {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-family: var(--font-sans);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.badge-saas-primary {
+  background: rgba(8, 145, 178, 0.12);
+  color: var(--primary-500);
+  border-color: rgba(8, 145, 178, 0.3);
+}
+
+[data-theme='dark'] .badge-saas-primary {
+  background: rgba(34, 211, 238, 0.15);
+  color: var(--primary-400);
+  border-color: rgba(34, 211, 238, 0.35);
+}
+
+.badge-saas-secondary {
+  background: var(--bg-surface-hover);
+  color: var(--text-secondary);
+  border-color: var(--border-subtle);
+}
+
+.badge-saas-danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.badge-saas-warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.badge-saas-success {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.badge-saas-info {
+  background: rgba(99, 102, 241, 0.12);
+  color: #818cf8;
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+/* SaaS Table System */
+.table-saas-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+.table-saas {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+  text-align: left;
+}
+
+.table-saas th {
+  padding: 0.75rem 1rem;
+  background: var(--bg-surface-hover);
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.table-saas td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.table-saas tr:last-child td {
+  border-bottom: none;
+}
+
+.table-saas tr:hover td {
+  background: var(--bg-surface-hover);
 }
 
 /* SaaS Modal Backdrop & Dialog System (24px Radius) */

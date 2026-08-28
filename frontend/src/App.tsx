@@ -33,6 +33,7 @@ import HostReports from './components/HostReports';
 import AuthModal from './components/AuthModal';
 import CampusMap from './components/CampusMap';
 import AICommandCenter from './components/AICommandCenter';
+import AIIntelligenceView from './components/AIIntelligenceView';
 import { Ticket, TicketStatus, UserRole, CampusUser } from './types/chat';
 import { getLocalTickets, saveLocalTickets } from './data/mockData';
 import { apiUrl } from './api';
@@ -60,7 +61,8 @@ type TabType =
   | 'diagnostics'
   | 'admin'
   | 'reports'
-  | 'command-center';
+  | 'command-center'
+  | 'intelligence';
 
 function getRouteFromPath(pathname: string, hash: string): { tab: TabType | '404'; role?: UserRole } {
   let cleanPathname = (pathname.split('?')[0] || '').toLowerCase().trim();
@@ -194,8 +196,20 @@ function getRouteFromPath(pathname: string, hash: string): { tab: TabType | '404
     case '/agent':
     case '/commandcenter':
       return { tab: 'command-center' };
+
+    case '/intelligence':
+    case '/clusters':
+    case '/anomalies':
+    case '/ai-intelligence':
+    case '/incident-clusters':
+    case '/campus-anomalies':
+    case '/detective':
+      return { tab: 'intelligence' };
   }
 
+  if (firstSegment === '/intelligence' || firstSegment === '/clusters' || firstSegment === '/anomalies' || firstSegment === '/detective') {
+    return { tab: 'intelligence' };
+  }
   if (firstSegment === '/command-center' || firstSegment === '/command' || firstSegment === '/ai-agent') {
     return { tab: 'command-center' };
   }
@@ -254,6 +268,8 @@ function getPathForTab(tab: TabType): string {
       return '/reports';
     case 'command-center':
       return '/command-center';
+    case 'intelligence':
+      return '/intelligence';
     default:
       return '/';
   }
@@ -799,6 +815,14 @@ export default function App() {
             </button>
 
             <button
+              className={`nav-tab-btn ${activeTab === 'intelligence' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('intelligence')}
+            >
+              <Sparkles size={15} style={{ color: '#a855f7' }} />
+              <span>AI Intelligence</span>
+            </button>
+
+            <button
               className={`nav-tab-btn ${activeTab === 'tickets' && !is404 ? 'active' : ''}`}
               onClick={() => navigateToTab('tickets')}
             >
@@ -870,6 +894,14 @@ export default function App() {
               <span className="tab-badge" style={{ background: '#f59e0b', color: '#000', fontWeight: 800 }}>
                 Host
               </span>
+            </button>
+
+            <button
+              className={`nav-tab-btn ${activeTab === 'intelligence' && !is404 ? 'active' : ''}`}
+              onClick={() => navigateToTab('intelligence')}
+            >
+              <Sparkles size={15} style={{ color: '#a855f7' }} />
+              <span>AI Intelligence</span>
             </button>
 
             <button
@@ -1418,6 +1450,20 @@ export default function App() {
                   </div>
                 </div>
               )
+            )}
+
+            {activeTab === 'intelligence' && (
+              <AIIntelligenceView
+                currentUser={currentUser}
+                tickets={tickets}
+                onOpenTicketInResolver={handleSelectTicketForResolver}
+                onNavigateToMap={(locCode) => {
+                  setMapInitialLocationId(locCode || null);
+                  navigateToTab('map');
+                }}
+                onUpdateTicketStatus={handleUpdateTicketStatus}
+                onRefreshTickets={fetchTickets}
+              />
             )}
           </>
         )}

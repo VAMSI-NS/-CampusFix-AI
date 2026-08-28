@@ -527,3 +527,101 @@ export interface AICommandCenterResponse {
   system_recommendations: string[];
   generated_at: string;
 }
+
+// --- AI Incident Clustering & Anomaly Detective Types ---
+
+export type ClusterSeverity = 'Critical' | 'High' | 'Medium' | 'Low';
+export type AnomalySeverity = 'critical' | 'warning' | 'info';
+export type AnomalyType = 'incident_spike' | 'repeated_failure' | 'unusual_location' | 'service_degradation';
+
+export interface RepresentativeIncident {
+  ticket_id: string;
+  ticket_number: string;
+  title: string;
+  category: string;
+  location: string;
+  priority: string;
+  status: string;
+  description: string;
+  created_at: string;
+}
+
+export interface IncidentClusterItem {
+  id: string;
+  title: string;
+  summary: string;
+  primary_category: string;
+  severity: ClusterSeverity;
+  incident_count: number;
+  affected_locations: string[];
+  affected_services: string[];
+  ticket_ids: string[];
+  ticket_numbers: string[];
+  representative_incident?: RepresentativeIncident | null;
+  is_single_outage_pattern: boolean;
+  duplicate_risk: boolean;
+  duplicate_ratio: number;
+  recent_trend: 'Spike' | 'Steady' | 'Decreasing' | 'Resolved';
+  recommended_action: string;
+  recommended_specialization: string;
+  first_incident_at?: string | null;
+  last_incident_at?: string | null;
+  created_at: string;
+}
+
+export interface IncidentClusteringResponse {
+  total_incidents_analyzed: number;
+  total_clusters_found: number;
+  potential_outages_detected: number;
+  duplicate_reports_identified: number;
+  clusters: IncidentClusterItem[];
+  analyzed_at: string;
+  data_confidence: 'high' | 'moderate' | 'insufficient_data';
+  notes?: string | null;
+}
+
+export interface CampusAnomalyItem {
+  id: string;
+  title: string;
+  anomaly_type: AnomalyType;
+  severity: AnomalySeverity;
+  anomaly_score: number; // 0 to 100
+  location: string;
+  affected_service: string;
+  category: string;
+  detected_pattern: string;
+  explanation: string;
+  real_evidence: string[];
+  ai_inference: string;
+  affected_ticket_ids: string[];
+  affected_ticket_numbers: string[];
+  baseline_comparison?: string | null;
+  recommended_action: string;
+  recommended_specialization: string;
+  detected_at: string;
+}
+
+export interface CampusAnomalyResponse {
+  total_anomalies_detected: number;
+  highest_severity?: AnomalySeverity | null;
+  campus_risk_score: number; // 0 to 100
+  anomalies: CampusAnomalyItem[];
+  analyzed_at: string;
+  data_confidence: 'high' | 'moderate' | 'insufficient_data';
+  notes?: string | null;
+}
+
+export interface IntelligenceOverviewResponse {
+  total_incidents: number;
+  active_incidents: number;
+  total_clusters: number;
+  total_anomalies: number;
+  campus_risk_score: number;
+  clusters: IncidentClusterItem[];
+  anomalies: CampusAnomalyItem[];
+  top_hotspots: Array<{ location: string; active_incidents: number }>;
+  top_impacted_services: Array<{ service: string; active_incidents: number }>;
+  analyzed_at: string;
+  data_confidence: 'high' | 'moderate' | 'insufficient_data';
+}
+

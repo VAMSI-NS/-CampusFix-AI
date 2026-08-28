@@ -59,8 +59,14 @@ from app.models.users import (
 )
 
 from app.models.campus_map import CampusMapDataResponse, CampusLocation
+from app.models.intelligence import (
+    IncidentClusteringResponse,
+    CampusAnomalyResponse,
+    IntelligenceOverviewResponse,
+)
 from app.services.campus_map_service import campus_map_service
 from app.services.ai_service import ai_service
+from app.services.intelligence_service import intelligence_service
 from app.services.ticket_service import ticket_service
 from app.services.status_service import status_service
 from app.services.kb_service import kb_service
@@ -448,6 +454,102 @@ def execute_ai_action(
             detail=res.message,
         )
     return res
+
+
+# --- AI Intelligence, Clustering & Anomaly Detective Endpoints ---
+
+
+@app.get(
+    "/api/intelligence/overview",
+    response_model=IntelligenceOverviewResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get aggregated AI intelligence overview with clusters, anomalies, and risk metrics",
+)
+def get_intelligence_overview(
+    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+):
+    """Returns synthesized intelligence overview, active incident clusters, campus anomalies, and hotspots."""
+    return intelligence_service.get_intelligence_overview()
+
+
+@app.get(
+    "/api/intelligence/clusters",
+    response_model=IncidentClusteringResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve AI-grouped incident clusters and duplicate report correlations",
+)
+def get_incident_clusters(
+    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+):
+    """
+    Analyzes historical and active incidents to group related reports,
+    detect duplicate student submissions, identify single larger outages,
+    and generate structured diagnostic cluster dossiers.
+    """
+    return intelligence_service.get_incident_clusters()
+
+
+@app.get(
+    "/api/intelligence/anomalies",
+    response_model=CampusAnomalyResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve AI Campus Anomaly Detective findings and evidence-based alerts",
+)
+def get_campus_anomalies(
+    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+):
+    """
+    Analyzes incident patterns over time, location, and category.
+    Detects unusual frequency spikes, recurring hardware failures, and service degradation.
+    Clearly distinguishes Real Evidence from AI Inference.
+    """
+    return intelligence_service.get_campus_anomalies()
+
+
+@app.post(
+    "/api/intelligence/clusters/{cluster_id}/batch-assign",
+    status_code=status.HTTP_200_OK,
+    summary="Batch assign all tickets in a cluster to a technician (Staff / Host Only)",
+)
+def batch_assign_cluster(
+    cluster_id: str,
+    payload: Dict[str, Any],
+    current_user: CampusUser = Depends(require_technician_or_host),
+):
+    """Batch-assigns all tickets within an incident cluster to a specified technician."""
+    technician_name = payload.get("technician_name")
+    if not technician_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="technician_name is required for batch assignment.",
+        )
+
+    clusters_resp = intelligence_service.get_incident_clusters()
+    target_cluster = next((c for c in clusters_resp.clusters if c.id == cluster_id), None)
+    if not target_cluster:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Incident cluster '{cluster_id}' not found.",
+        )
+
+    updated_tickets = []
+    for tid in target_cluster.ticket_ids:
+        ticket = ticket_service.get_ticket(tid)
+        if ticket and ticket.status not in ["Resolved", "Closed"]:
+            ticket_service.update_ticket(
+                ticket.id,
+                TicketUpdate(
+                    assigned_technician=technician_name,
+                    technician_note=f"Assigned via AI Cluster batch triage: '{target_cluster.title}' by {current_user.name}."
+                )
+            )
+            updated_tickets.append(ticket.ticket_number)
+
+    return {
+        "status": "success",
+        "message": f"Successfully batch-assigned {len(updated_tickets)} ticket(s) in cluster '{target_cluster.title}' to {technician_name}.",
+        "updated_ticket_numbers": updated_tickets,
+    }
 
 
 # --- Incident / Ticket Management Endpoints ---

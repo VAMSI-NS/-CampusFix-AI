@@ -7,6 +7,7 @@ import {
   Send,
   ShieldAlert,
   TrendingUp,
+  Sparkles,
 } from 'lucide-react';
 import { CampusUser, Ticket, TicketStatus } from '../types/chat';
 import { apiUrl } from '../api';
@@ -17,6 +18,7 @@ interface TechnicianWorkspaceProps {
   onOpenTicketInResolver: (ticketId: string) => void;
   onUpdateTicketStatus: (ticketId: string, newStatus: TicketStatus) => void;
   onNavigateToMap: (locCode?: string) => void;
+  onNavigateToIntelligence?: () => void;
   onRefreshTickets: () => void;
 }
 
@@ -26,6 +28,7 @@ export default function TechnicianWorkspace({
   onOpenTicketInResolver,
   onUpdateTicketStatus,
   onNavigateToMap,
+  onNavigateToIntelligence,
   onRefreshTickets,
 }: TechnicianWorkspaceProps) {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
@@ -133,17 +136,28 @@ export default function TechnicianWorkspace({
       >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>Your work, organized.</h1>
+            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>Technician Queue & Resolver Hub</h1>
             <span className="badge-saas badge-saas-primary">
               {currentUser?.specialization || 'Network Specialist'}
             </span>
           </div>
           <p style={{ margin: '0.2rem 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-            Logged in as <strong>{currentUser?.name || 'Technician'}</strong> • {displayTickets.length} active cases in your queue.
+            Logged in as <strong>{currentUser?.name || 'Technician'}</strong> • {displayTickets.length} active cases assigned in your queue.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.6rem' }}>
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+          {onNavigateToIntelligence && (
+            <button
+              type="button"
+              className="btn-saas btn-saas-secondary"
+              onClick={onNavigateToIntelligence}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+              <Sparkles size={14} color="#a855f7" />
+              <span>AI Clusters & Anomalies</span>
+            </button>
+          )}
           <button
             type="button"
             className="btn-saas btn-saas-secondary"
