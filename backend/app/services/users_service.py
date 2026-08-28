@@ -410,25 +410,157 @@ class UsersService:
                 return u
         return None
 
-    def authenticate_student(
+    def register_student(
         self,
         name: str,
         roll_number: str,
         password: str,
+        confirm_password: Optional[str] = None,
     ) -> Tuple[Optional[CampusUser], Optional[str]]:
-        """Authenticates student account using Name, Roll Number, and Password against stored hash."""
+        """Registers a new student account with validated fields, unique roll number, and salted password hash."""
         clean_name = (name or "").strip()
         clean_roll = (roll_number or "").strip().upper()
         clean_pwd = (password or "").strip()
 
-        if not clean_name:
-            return None, "Please enter your name."
+        if not clean_name or len(clean_name) < 2:
+            return None, "Full Name is required."
+        if not clean_roll or len(clean_roll) < 2:
+            return None, "Roll Number is required."
+        if not clean_pwd or len(clean_pwd) < 6:
+            return None, "Password must be at least 6 characters."
+        if confirm_password is not None and clean_pwd != (confirm_password or "").strip():
+            return None, "Passwords do not match."
+
+        # Check for duplicate roll number in database
+        if db.is_connected():
+            try:
+                with db.get_cursor(commit=False) as cur:
+                    cur.execute(
+                        "SELECT id FROM users WHERE LOWER(COALESCE(roll_number, '')) = %s OR LOWER(username) = %s OR LOWER(netid) = %s;",
+                        (clean_roll.lower(), clean_roll.lower(), clean_roll.lower()),
+                    )
+                    if cur.fetchone():
+                        return None, f"Roll Number '{clean_roll}' is already registered. Please sign in."
+            except Exception as e:
+                logger.error(f"Error checking duplicate student in DB: {e}")
+
+        # Check for duplicate roll number in memory
+        for u in self._users_db.values():
+            if (
+                (u.roll_number and u.roll_number.upper() == clean_roll)
+                or u.username.upper() == clean_roll
+                or u.netid.upper() == clean_roll
+            ):
+                return None, f"Roll Number '{clean_roll}' is already registered. Please sign in."
+
+        # Generate student ID and credentials
+        now_iso = datetime.now(timezone.utc).isoformat()
+        initials = "".join([part[0].upper() for part in clean_name.split() if part])[:2] or "ST"
+        p_hash, p_salt = auth_service.hash_password(clean_pwd)
+        new_id = f"user-student-{random.randint(10000, 99999)}"
+
+        new_student = UserInDB(
+            id=new_id,
+            technician_id=None,
+            name=clean_name,
+            username=clean_roll.lower(),
+            email=f"{clean_roll.lower()}@university.edu",
+            netid=clean_roll.lower(),
+            roll_number=clean_roll,
+            role="student",
+            specialization=None,
+            department="Undergraduate Studies",
+            status="active",
+            is_active=True,
+            phone=None,
+            active_assignments_count=0,
+            avatar_initials=initials,
+            skills=["Student"],
+            created_at=now_iso,
+            password_hash=p_hash,
+            password_salt=p_salt,
+        )
+
+        self._users_db[new_id] = new_student
+
+        # Persist to database if connected
+        if db.is_connected():
+            try:
+                with db.get_cursor(commit=True) as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO users (
+                            id, technician_id, name, username, email, netid, role,
+                            specialization, department, status, is_active, phone,
+                            active_assignments_count, avatar_initials, skills,
+                            password_hash, password_salt, roll_number, created_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        );
+                        """,
+                        (
+                            new_student.id,
+                            new_student.technician_id,
+                            new_student.name,
+                            new_student.username,
+                            new_student.email,
+                            new_student.netid,
+                            new_student.role,
+                            new_student.specialization,
+                            new_student.department,
+                            new_student.status,
+                            new_student.is_active,
+                            new_student.phone,
+                            new_student.active_assignments_count,
+                            new_student.avatar_initials,
+                            json.dumps(new_student.skills),
+                            new_student.password_hash,
+                            new_student.password_salt,
+                            new_student.roll_number,
+                            new_student.created_at,
+                        ),
+                    )
+            except Exception as e:
+                logger.error(f"Error persisting new student to DB: {e}")
+
+        return self._to_campus_user(new_student), None
+
+    def authenticate_student(
+        self,
+        roll_number: str,
+        password: str,
+        name: Optional[str] = None,
+    ) -> Tuple[Optional[CampusUser], Optional[str]]:
+        """Authenticates student account using Roll Number and Password against stored hash."""
+        clean_roll = (roll_number or "").strip().upper()
+        clean_pwd = (password or "").strip()
+
         if not clean_roll:
             return None, "Please enter your roll number."
         if not clean_pwd:
             return None, "Please enter your password."
 
-        # Search existing student by roll number or username.
+        # Query database first if connected
+        if db.is_connected():
+            try:
+                with db.get_cursor(commit=False) as cur:
+                    cur.execute(
+                        """
+                        SELECT * FROM users
+                        WHERE (LOWER(COALESCE(roll_number, '')) = %s OR LOWER(username) = %s OR LOWER(netid) = %s)
+                          AND role = 'student'
+                        LIMIT 1;
+                        """,
+                        (clean_roll.lower(), clean_roll.lower(), clean_roll.lower()),
+                    )
+                    row = cur.fetchone()
+                    if row:
+                        db_user = self._row_to_user_in_db(row)
+                        self._users_db[db_user.id] = db_user
+            except Exception as e:
+                logger.error(f"Error querying student from DB: {e}")
+
+        # Search existing student in memory
         user_in_db = None
         for u in self._users_db.values():
             if u.role == "student" and (
@@ -440,23 +572,25 @@ class UsersService:
                 break
 
         if not user_in_db:
-            return None, "Invalid credentials."
+            return None, "Invalid roll number or password."
 
         if not user_in_db.is_active:
             return None, "This account is inactive. Please contact the Host / Administrator."
 
-        stored_name = (user_in_db.name or "").strip().lower()
-        if clean_name.lower() != stored_name:
-            return None, "Invalid credentials."
+        # Optional name check if provided (for legacy test compatibility)
+        if name and name.strip():
+            stored_name = (user_in_db.name or "").strip().lower()
+            if name.strip().lower() != stored_name:
+                return None, "Invalid roll number or password."
 
-        # SECURITY FIX: Enforce password hash requirement - no password initialization fallback
+        # Enforce password hash requirement
         if not user_in_db.password_hash or not user_in_db.password_salt:
-            logger.warning(f"Student account '{clean_roll}' lacks password hash. Account must be provisioned by administrator.")
-            return None, "Account requires administrator provisioning. Please contact the Help Desk."
+            logger.warning(f"Student account '{clean_roll}' lacks password hash.")
+            return None, "Invalid roll number or password."
 
         # Verify password against stored hash
         if not auth_service.verify_password(clean_pwd, user_in_db.password_hash, user_in_db.password_salt):
-            return None, "Invalid credentials."
+            return None, "Invalid roll number or password."
 
         user_in_db.roll_number = clean_roll
         return self._to_campus_user(user_in_db), None

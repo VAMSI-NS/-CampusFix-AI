@@ -14,6 +14,8 @@ import {
   ShieldCheck,
   GraduationCap,
   Wrench,
+  UserPlus,
+  LogIn,
 } from 'lucide-react';
 import { CampusUser, LoginResponse, UserRole } from '../types/chat';
 import { apiUrl } from '../api';
@@ -33,11 +35,21 @@ export default function AuthModal({
 }: AuthModalProps) {
   const [selectedRole, setSelectedRole] = useState<UserRole>(initialRole);
 
-  // Student Form State
-  const [studentName, setStudentName] = useState('');
+  // Student Form Mode: 'signin' | 'signup'
+  const [studentMode, setStudentMode] = useState<'signin' | 'signup'>('signin');
+
+  // Student Sign In State
   const [studentRoll, setStudentRoll] = useState('');
   const [studentPassword, setStudentPassword] = useState('');
   const [showStudentPassword, setShowStudentPassword] = useState(false);
+
+  // Student Sign Up State
+  const [signupName, setSignupName] = useState('');
+  const [signupRoll, setSignupRoll] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
 
   // Staff & Host Form State
   const [username, setUsername] = useState('');
@@ -47,13 +59,19 @@ export default function AuthModal({
   // Status & Error State
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleRoleTabChange = (role: UserRole) => {
     setSelectedRole(role);
     setErrorMsg(null);
-    setStudentName('');
+    setSuccessMsg(null);
+    setStudentMode('signin');
     setStudentRoll('');
     setStudentPassword('');
+    setSignupName('');
+    setSignupRoll('');
+    setSignupPassword('');
+    setSignupConfirmPassword('');
     setUsername('');
     setPassword('');
   };
@@ -84,13 +102,9 @@ export default function AuthModal({
     };
   }, [isOpen, onClose]);
 
-  // --- 1. STUDENT LOGIN HANDLER ---
-  const handleStudentSubmit = async (e: React.FormEvent) => {
+  // --- 1. STUDENT SIGN IN HANDLER ---
+  const handleStudentSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!studentName.trim()) {
-      setErrorMsg('Please enter your name.');
-      return;
-    }
     if (!studentRoll.trim()) {
       setErrorMsg('Please enter your roll number.');
       return;
@@ -108,7 +122,6 @@ export default function AuthModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: studentName.trim(),
           roll_number: studentRoll.trim().toUpperCase(),
           password: studentPassword.trim(),
         }),
@@ -129,11 +142,91 @@ export default function AuthModal({
         return;
       } else {
         const errJson = await res.json().catch(() => ({}));
-        setErrorMsg(errJson.detail || 'Invalid credentials.');
+        setErrorMsg(errJson.detail || 'Invalid roll number or password.');
         return;
       }
     } catch {
-      // If backend server is unreachable
+      setErrorMsg('Unable to connect to authentication server.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // --- 2. STUDENT SIGN UP HANDLER ---
+  const handleStudentSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = signupName.trim();
+    const cleanRoll = signupRoll.trim().toUpperCase();
+    const cleanPwd = signupPassword.trim();
+    const cleanConfirm = signupConfirmPassword.trim();
+
+    if (!cleanName) {
+      setErrorMsg('Please enter your full name.');
+      return;
+    }
+    if (cleanName.length < 2) {
+      setErrorMsg('Full Name must be at least 2 characters.');
+      return;
+    }
+    if (!cleanRoll) {
+      setErrorMsg('Please enter your roll number.');
+      return;
+    }
+    if (cleanRoll.length < 2) {
+      setErrorMsg('Roll Number must be at least 2 characters.');
+      return;
+    }
+    if (!cleanPwd) {
+      setErrorMsg('Please create a password.');
+      return;
+    }
+    if (cleanPwd.length < 6) {
+      setErrorMsg('Password must be at least 6 characters.');
+      return;
+    }
+    if (cleanPwd !== cleanConfirm) {
+      setErrorMsg('Passwords do not match.');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch(apiUrl('/auth/student/signup'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: cleanName,
+          roll_number: cleanRoll,
+          password: cleanPwd,
+          confirm_password: cleanConfirm,
+        }),
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data: LoginResponse = await res.json();
+        if (!data?.user) {
+          setErrorMsg('Registration failed. Please try again.');
+          return;
+        }
+        setSuccessMsg(`Account created successfully for ${cleanName} (${cleanRoll})! Please sign in with your password.`);
+        setStudentRoll(cleanRoll);
+        setStudentPassword('');
+        setSignupName('');
+        setSignupRoll('');
+        setSignupPassword('');
+        setSignupConfirmPassword('');
+        setStudentMode('signin');
+        setErrorMsg(null);
+        return;
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        setErrorMsg(errJson.detail || 'Registration failed. Please check your data.');
+        return;
+      }
+    } catch {
       setErrorMsg('Unable to connect to authentication server.');
     } finally {
       setIsLoading(false);
@@ -438,131 +531,407 @@ export default function AuthModal({
               </div>
             )}
 
+            {/* Success Message */}
+            {successMsg && (
+              <div
+                style={{
+                  padding: '0.75rem 0.9rem',
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  borderRadius: '10px',
+                  color: '#34d399',
+                  fontSize: '0.78rem',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                <CheckCircle2 size={16} style={{ flexShrink: 0, color: '#10b981' }} />
+                <span>{successMsg}</span>
+              </div>
+            )}
+
             {/* =========================================================================
-                A) STUDENT LOGIN FORM: NAME + ROLL NUMBER + PASSWORD
+                A) STUDENT ACCESS: SIGN IN & SIGN UP
                 ========================================================================= */}
             {selectedRole === 'student' && (
-              <form onSubmit={handleStudentSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary, #A1A1AA)', display: 'block', marginBottom: '0.35rem' }}>
-                    Full Name
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <User size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #71717A)' }} />
-                    <input
-                      type="text"
-                      className="saas-input"
-                      style={{
-                        paddingLeft: '2.5rem',
-                        background: 'var(--bg-surface, #111111)',
-                        border: '1px solid var(--border-default, #27272A)',
-                        color: 'var(--text-primary, #F8FAFC)',
-                        borderRadius: '12px',
-                        width: '100%',
-                      }}
-                      placeholder="Enter your full name"
-                      value={studentName}
-                      onChange={(e) => setStudentName(e.target.value)}
-                      required
-                      autoFocus
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary, #A1A1AA)', display: 'block', marginBottom: '0.35rem' }}>
-                    Roll Number
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <Hash size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #71717A)' }} />
-                    <input
-                      type="text"
-                      className="saas-input"
-                      style={{
-                        paddingLeft: '2.5rem',
-                        background: 'var(--bg-surface, #111111)',
-                        border: '1px solid var(--border-default, #27272A)',
-                        color: 'var(--text-primary, #F8FAFC)',
-                        borderRadius: '12px',
-                        textTransform: 'uppercase',
-                        width: '100%',
-                      }}
-                      placeholder="Enter roll number (e.g. 211FA04001)"
-                      value={studentRoll}
-                      onChange={(e) => setStudentRoll(e.target.value.toUpperCase())}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary, #A1A1AA)', display: 'block', marginBottom: '0.35rem' }}>
-                    Password
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <Lock size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #71717A)' }} />
-                    <input
-                      type={showStudentPassword ? 'text' : 'password'}
-                      className="saas-input"
-                      style={{
-                        paddingLeft: '2.5rem',
-                        paddingRight: '2.5rem',
-                        background: 'var(--bg-surface, #111111)',
-                        border: '1px solid var(--border-default, #27272A)',
-                        color: 'var(--text-primary, #F8FAFC)',
-                        borderRadius: '12px',
-                        width: '100%',
-                      }}
-                      placeholder="Enter password"
-                      value={studentPassword}
-                      onChange={(e) => setStudentPassword(e.target.value)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--text-muted, #71717A)', cursor: 'pointer' }}
-                      onClick={() => setShowStudentPassword(!showStudentPassword)}
-                    >
-                      {showStudentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
+              <div>
+                {/* Student Mode Switcher: Sign In vs Sign Up */}
+                <div
                   style={{
-                    width: '100%',
-                    padding: '0.85rem',
-                    marginTop: '0.4rem',
-                    borderRadius: '12px',
-                    background: 'linear-gradient(135deg, #10b981, #059669)',
-                    color: '#ffffff',
-                    fontWeight: 800,
-                    fontSize: '0.9rem',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-                    transition: 'all 0.2s ease',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '0.35rem',
+                    background: 'var(--bg-surface, #111111)',
+                    border: '1px solid var(--border-default, #27272A)',
+                    padding: '0.25rem',
+                    borderRadius: '10px',
+                    marginBottom: '1.1rem',
                   }}
-                  disabled={isLoading}
                 >
-                  {isLoading ? (
-                    <>
-                      <RefreshCw size={16} className="spin-icon" />
-                      <span>Signing In...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Sign In as Student</span>
-                      <ArrowRight size={16} />
-                    </>
-                  )}
-                </button>
-              </form>
+                  <button
+                    type="button"
+                    style={{
+                      padding: '0.45rem',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      borderRadius: '7px',
+                      cursor: 'pointer',
+                      background: studentMode === 'signin' ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
+                      color: studentMode === 'signin' ? '#34d399' : 'var(--text-secondary, #94a3b8)',
+                      border: studentMode === 'signin' ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid transparent',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.35rem',
+                    }}
+                    onClick={() => {
+                      setStudentMode('signin');
+                      setErrorMsg(null);
+                    }}
+                  >
+                    <LogIn size={14} />
+                    <span>Sign In</span>
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      padding: '0.45rem',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      borderRadius: '7px',
+                      cursor: 'pointer',
+                      background: studentMode === 'signup' ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
+                      color: studentMode === 'signup' ? '#34d399' : 'var(--text-secondary, #94a3b8)',
+                      border: studentMode === 'signup' ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid transparent',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.35rem',
+                    }}
+                    onClick={() => {
+                      setStudentMode('signup');
+                      setErrorMsg(null);
+                    }}
+                  >
+                    <UserPlus size={14} />
+                    <span>Sign Up</span>
+                  </button>
+                </div>
+
+                {/* 1. STUDENT SIGN IN FORM */}
+                {studentMode === 'signin' && (
+                  <form onSubmit={handleStudentSignIn} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary, #A1A1AA)', display: 'block', marginBottom: '0.35rem' }}>
+                        Roll Number
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <Hash size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #71717A)' }} />
+                        <input
+                          type="text"
+                          className="saas-input"
+                          style={{
+                            paddingLeft: '2.5rem',
+                            background: 'var(--bg-surface, #111111)',
+                            border: '1px solid var(--border-default, #27272A)',
+                            color: 'var(--text-primary, #F8FAFC)',
+                            borderRadius: '12px',
+                            textTransform: 'uppercase',
+                            width: '100%',
+                          }}
+                          placeholder="Enter roll number (e.g. 211FA04001)"
+                          value={studentRoll}
+                          onChange={(e) => setStudentRoll(e.target.value.toUpperCase())}
+                          required
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary, #A1A1AA)', display: 'block', marginBottom: '0.35rem' }}>
+                        Password
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <Lock size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #71717A)' }} />
+                        <input
+                          type={showStudentPassword ? 'text' : 'password'}
+                          className="saas-input"
+                          style={{
+                            paddingLeft: '2.5rem',
+                            paddingRight: '2.5rem',
+                            background: 'var(--bg-surface, #111111)',
+                            border: '1px solid var(--border-default, #27272A)',
+                            color: 'var(--text-primary, #F8FAFC)',
+                            borderRadius: '12px',
+                            width: '100%',
+                          }}
+                          placeholder="Enter password"
+                          value={studentPassword}
+                          onChange={(e) => setStudentPassword(e.target.value)}
+                          required
+                        />
+                        <button
+                          type="button"
+                          style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--text-muted, #71717A)', cursor: 'pointer' }}
+                          onClick={() => setShowStudentPassword(!showStudentPassword)}
+                        >
+                          {showStudentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      style={{
+                        width: '100%',
+                        padding: '0.85rem',
+                        marginTop: '0.4rem',
+                        borderRadius: '12px',
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        color: '#ffffff',
+                        fontWeight: 800,
+                        fontSize: '0.9rem',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                        transition: 'all 0.2s ease',
+                      }}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <>
+                          <RefreshCw size={16} className="spin-icon" />
+                          <span>Signing In...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Sign In as Student</span>
+                          <ArrowRight size={16} />
+                        </>
+                      )}
+                    </button>
+
+                    <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #94a3b8)' }}>
+                        New to CampusFix?{' '}
+                        <button
+                          type="button"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#34d399',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            padding: 0,
+                            fontSize: '0.8rem',
+                            textDecoration: 'underline',
+                          }}
+                          onClick={() => {
+                            setStudentMode('signup');
+                            setErrorMsg(null);
+                          }}
+                        >
+                          Create an account (Sign Up)
+                        </button>
+                      </span>
+                    </div>
+                  </form>
+                )}
+
+                {/* 2. STUDENT SIGN UP FORM */}
+                {studentMode === 'signup' && (
+                  <form onSubmit={handleStudentSignUp} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary, #A1A1AA)', display: 'block', marginBottom: '0.3rem' }}>
+                        Full Name <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <User size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #71717A)' }} />
+                        <input
+                          type="text"
+                          className="saas-input"
+                          style={{
+                            paddingLeft: '2.5rem',
+                            background: 'var(--bg-surface, #111111)',
+                            border: '1px solid var(--border-default, #27272A)',
+                            color: 'var(--text-primary, #F8FAFC)',
+                            borderRadius: '12px',
+                            width: '100%',
+                          }}
+                          placeholder="Enter your full name"
+                          value={signupName}
+                          onChange={(e) => setSignupName(e.target.value)}
+                          required
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary, #A1A1AA)', display: 'block', marginBottom: '0.3rem' }}>
+                        Roll Number <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <Hash size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #71717A)' }} />
+                        <input
+                          type="text"
+                          className="saas-input"
+                          style={{
+                            paddingLeft: '2.5rem',
+                            background: 'var(--bg-surface, #111111)',
+                            border: '1px solid var(--border-default, #27272A)',
+                            color: 'var(--text-primary, #F8FAFC)',
+                            borderRadius: '12px',
+                            textTransform: 'uppercase',
+                            width: '100%',
+                          }}
+                          placeholder="Enter roll number (e.g. 211FA04001)"
+                          value={signupRoll}
+                          onChange={(e) => setSignupRoll(e.target.value.toUpperCase())}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary, #A1A1AA)', display: 'block', marginBottom: '0.3rem' }}>
+                        Password <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <Lock size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #71717A)' }} />
+                        <input
+                          type={showSignupPassword ? 'text' : 'password'}
+                          className="saas-input"
+                          style={{
+                            paddingLeft: '2.5rem',
+                            paddingRight: '2.5rem',
+                            background: 'var(--bg-surface, #111111)',
+                            border: '1px solid var(--border-default, #27272A)',
+                            color: 'var(--text-primary, #F8FAFC)',
+                            borderRadius: '12px',
+                            width: '100%',
+                          }}
+                          placeholder="Create password (min 6 characters)"
+                          value={signupPassword}
+                          onChange={(e) => setSignupPassword(e.target.value)}
+                          required
+                          minLength={6}
+                        />
+                        <button
+                          type="button"
+                          style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--text-muted, #71717A)', cursor: 'pointer' }}
+                          onClick={() => setShowSignupPassword(!showSignupPassword)}
+                        >
+                          {showSignupPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary, #A1A1AA)', display: 'block', marginBottom: '0.3rem' }}>
+                        Confirm Password <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <Lock size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #71717A)' }} />
+                        <input
+                          type={showSignupConfirmPassword ? 'text' : 'password'}
+                          className="saas-input"
+                          style={{
+                            paddingLeft: '2.5rem',
+                            paddingRight: '2.5rem',
+                            background: 'var(--bg-surface, #111111)',
+                            border: '1px solid var(--border-default, #27272A)',
+                            color: 'var(--text-primary, #F8FAFC)',
+                            borderRadius: '12px',
+                            width: '100%',
+                          }}
+                          placeholder="Confirm password"
+                          value={signupConfirmPassword}
+                          onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                          required
+                          minLength={6}
+                        />
+                        <button
+                          type="button"
+                          style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--text-muted, #71717A)', cursor: 'pointer' }}
+                          onClick={() => setShowSignupConfirmPassword(!showSignupConfirmPassword)}
+                        >
+                          {showSignupConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      style={{
+                        width: '100%',
+                        padding: '0.85rem',
+                        marginTop: '0.3rem',
+                        borderRadius: '12px',
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        color: '#ffffff',
+                        fontWeight: 800,
+                        fontSize: '0.9rem',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                        transition: 'all 0.2s ease',
+                      }}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <>
+                          <RefreshCw size={16} className="spin-icon" />
+                          <span>Creating Account...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Create Student Account</span>
+                          <ArrowRight size={16} />
+                        </>
+                      )}
+                    </button>
+
+                    <div style={{ textAlign: 'center', marginTop: '0.4rem' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #94a3b8)' }}>
+                        Already have an account?{' '}
+                        <button
+                          type="button"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#34d399',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            padding: 0,
+                            fontSize: '0.8rem',
+                            textDecoration: 'underline',
+                          }}
+                          onClick={() => {
+                            setStudentMode('signin');
+                            setErrorMsg(null);
+                          }}
+                        >
+                          Sign In
+                        </button>
+                      </span>
+                    </div>
+                  </form>
+                )}
+              </div>
             )}
 
             {/* =========================================================================

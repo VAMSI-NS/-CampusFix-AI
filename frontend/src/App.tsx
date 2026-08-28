@@ -264,11 +264,19 @@ export default function App() {
   const [is404, setIs404] = useState(false);
 
   // Authentication State
-  const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('campusfix_token'));
+  const [authToken, setAuthToken] = useState<string | null>(() => {
+    const token = localStorage.getItem('campusfix_token');
+    const user = localStorage.getItem('campusfix_user');
+    return token && user ? token : null;
+  });
   const [currentUser, setCurrentUser] = useState<CampusUser | null>(() => {
     try {
+      const token = localStorage.getItem('campusfix_token');
       const stored = localStorage.getItem('campusfix_user');
-      return stored ? JSON.parse(stored) : null;
+      if (token && stored) {
+        return JSON.parse(stored);
+      }
+      return null;
     } catch {
       return null;
     }
@@ -276,8 +284,9 @@ export default function App() {
 
   const [userRole, setUserRole] = useState<UserRole>(() => {
     try {
+      const token = localStorage.getItem('campusfix_token');
       const stored = localStorage.getItem('campusfix_user');
-      if (stored) {
+      if (token && stored) {
         const u = JSON.parse(stored);
         return u.role || 'student';
       }

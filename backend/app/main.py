@@ -48,6 +48,7 @@ from app.models.users import (
     CampusUser,
     LoginRequest,
     StudentLoginRequest,
+    StudentSignupRequest,
     LoginResponse,
     UserUpdateRequest,
     TechnicianCreateRequest,
@@ -214,29 +215,68 @@ def login(login_data: LoginRequest):
     )
 
 
-# --- Student Direct Authentication Endpoint ---
+# --- Student Authentication Endpoints (Sign In & Sign Up) ---
+
+
+@app.post(
+    "/api/auth/student/signup",
+    response_model=LoginResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a new student account",
+)
+@app.post(
+    "/api/auth/student/register",
+    response_model=LoginResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a new student account (alias)",
+)
+def student_signup(payload: StudentSignupRequest):
+    """
+    Creates a new student account with Full Name, Roll Number, and Password.
+    Validates uniqueness of Roll Number, securely hashes the password, and stores in the database.
+    """
+    user, err = users_service.register_student(
+        name=payload.name,
+        roll_number=payload.roll_number,
+        password=payload.password,
+        confirm_password=payload.confirm_password,
+    )
+    if err or not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=err or "Student registration failed.",
+        )
+
+    token = auth_service.create_access_token(user=user)
+    return LoginResponse(
+        authenticated=True,
+        token=token,
+        token_type="Bearer",
+        user=user,
+        expires_in=604800,
+    )
 
 
 @app.post(
     "/api/auth/student/login",
     response_model=LoginResponse,
     status_code=status.HTTP_200_OK,
-    summary="Authenticate student using Name, Roll Number, and Password",
+    summary="Authenticate student using Roll Number and Password",
 )
 def student_login(payload: StudentLoginRequest):
     """
-    Authenticates student account directly with Name, Roll Number, and Password.
+    Authenticates student account directly with Roll Number and Password.
     Returns secure signed JWT Bearer token and sanitized student profile.
     """
     user, err = users_service.authenticate_student(
-        name=payload.name,
         roll_number=payload.roll_number,
         password=payload.password,
+        name=payload.name,
     )
     if err or not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=err or "Invalid credentials.",
+            detail=err or "Invalid roll number or password.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -442,8 +482,14 @@ def get_tickets(
     status_code=status.HTTP_201_CREATED,
     summary="Create a new campus IT incident ticket",
 )
-def create_ticket(ticket_data: TicketCreate):
+def create_ticket(
+    ticket_data: TicketCreate,
+    current_user: Optional[CampusUser] = Depends(get_current_user_optional),
+):
     """Registers a new IT incident with auto-generated INC ID and initializes diagnostic state."""
+    if current_user:
+        ticket_data.netid = current_user.netid or current_user.username
+        ticket_data.email = current_user.email
     return ticket_service.create_ticket(ticket_data)
 
 

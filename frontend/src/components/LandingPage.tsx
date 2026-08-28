@@ -249,15 +249,15 @@ export default function LandingPage({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
                   <CheckCircle2 size={14} style={{ color: '#10b981', flexShrink: 0 }} />
-                  <span>Name + Roll Number + Password sign-in</span>
+                  <span>Student Sign In & Self-Service Sign Up</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
                   <CheckCircle2 size={14} style={{ color: '#10b981', flexShrink: 0 }} />
-                  <span>Interactive AI diagnostic workbench</span>
+                  <span>Roll Number + Password authentication</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)' }}>
                   <CheckCircle2 size={14} style={{ color: '#10b981', flexShrink: 0 }} />
-                  <span>Live ticket status & Tech Bar dispatch</span>
+                  <span>Interactive AI diagnostics & complaint tracking</span>
                 </div>
               </div>
             </div>
@@ -281,7 +281,7 @@ export default function LandingPage({
               }}
             >
               <LogIn size={16} />
-              <span>Student Sign In / Login</span>
+              <span>Student Access (Sign In / Sign Up)</span>
             </button>
           </div>
 

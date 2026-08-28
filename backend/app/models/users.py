@@ -91,9 +91,16 @@ class LoginRequest(BaseModel):
 
 
 class StudentLoginRequest(BaseModel):
+    roll_number: str
+    password: str
+    name: Optional[str] = None
+
+
+class StudentSignupRequest(BaseModel):
     name: str
     roll_number: str
     password: str
+    confirm_password: Optional[str] = None
 
 
 class LoginResponse(BaseModel):

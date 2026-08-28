@@ -105,38 +105,6 @@ export const INITIAL_MOCK_USERS: CampusUser[] = [
   },
 ];
 
-export const DEFAULT_USER_PASSWORDS: Record<string, string> = {
-  vamsi: 'vamsi@123',
-  admin: 'vamsi@123',
-  anand: 'anand@123',
-  student: 'student@123',
-  '211fa04001': 'student@123',
-  '211fa04002': 'student@123',
-};
-
-export function getLocalUserPasswords(): Record<string, string> {
-  try {
-    const raw = localStorage.getItem('campusfix_user_passwords_v1');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return { ...DEFAULT_USER_PASSWORDS, ...parsed };
-    }
-  } catch (e) {
-    console.error('Error reading user passwords from localStorage:', e);
-  }
-  return { ...DEFAULT_USER_PASSWORDS };
-}
-
-export function saveLocalUserPassword(username: string, password: string): void {
-  try {
-    const current = getLocalUserPasswords();
-    current[username.trim().toLowerCase()] = password.trim();
-    localStorage.setItem('campusfix_user_passwords_v1', JSON.stringify(current));
-  } catch (e) {
-    console.error('Error saving user password to localStorage:', e);
-  }
-}
-
 export function generateClientTicketAnalysis(
   ticket: Ticket,
   allTickets: Ticket[] = []
@@ -737,10 +705,6 @@ export function createClientMockTechnician(data: {
     skills: data.skills || [`${data.specialization} Operations`, 'Campus IT Support'],
     created_at: new Date().toISOString(),
   };
-
-  if (data.password) {
-    saveLocalUserPassword(newTech.username || data.username, data.password);
-  }
 
   const updated = [...currentList, newTech];
   saveLocalTechnicians(updated);
