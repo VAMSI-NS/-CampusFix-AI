@@ -284,7 +284,18 @@ export default function CampusMap({
     markersGroupRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
 
+    // Trigger immediate resize calculation so tiles load without blank canvas
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 150);
+
+    const handleResize = () => {
+      map.invalidateSize();
+    };
+    window.addEventListener('resize', handleResize);
+
     return () => {
+      window.removeEventListener('resize', handleResize);
       map.remove();
       mapInstanceRef.current = null;
       tileLayerRef.current = null;
@@ -388,6 +399,15 @@ export default function CampusMap({
       markersGroup.addLayer(marker);
     });
   }, [filteredLocations, selectedLocation, mapLayer]);
+
+  // Invalidate map dimensions when fullscreen toggles
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      setTimeout(() => {
+        mapInstanceRef.current?.invalidateSize();
+      }, 100);
+    }
+  }, [isFullscreen]);
 
   // Center on campus
   const handleRecenter = () => {
