@@ -101,8 +101,9 @@ def on_startup():
         kb_service.sync_to_db()
 
 
-# Configure CORS origins (allowing frontend dev server)
+# Configure CORS origins (allowing frontend production and dev servers)
 origins = [
+    "https://campusfix-ai-frontend.onrender.com",
     "https://vamsi-ns.github.io",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -110,17 +111,22 @@ origins = [
     "http://127.0.0.1:3000",
 ]
 
-# Allow custom CORS origins from env
-custom_origins = os.getenv("CORS_ORIGINS")
-if custom_origins:
-    origins.extend([origin.strip() for origin in custom_origins.split(",") if origin.strip()])
+# Allow custom CORS origins and frontend URLs from environment variables
+for env_var in ["CORS_ORIGINS", "FRONTEND_URL"]:
+    val = os.getenv(env_var)
+    if val:
+        for entry in val.split(","):
+            clean_origin = entry.strip().rstrip("/")
+            if clean_origin and clean_origin not in origins:
+                origins.append(clean_origin)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))

@@ -21,6 +21,6 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: CORS_ORIGINS
-        value: https://vamsi-ns.github.io
+        value: https://campusfix-ai-frontend.onrender.com,https://vamsi-ns.github.io
       - key: OPENROUTER_API_KEY
         sync: false
